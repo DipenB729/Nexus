@@ -1,0 +1,11 @@
+    <div style="text-align:center; padding: 2rem;">
+      <h1>✅ My Todo List</h1>
+      <p *ngIf="!todos"><em>Loading...</em></p>
+      <ul style="list-style: none; padding: 0;">
+        <li *ngFor="let item of todos" style="background: #f4f4f4; margin: 5px; padding: 10px;">
+          <strong>{{ item.task }}</strong>
+          <span *ngIf="item.isCompleted" style="color: green;"> (Done)</span>
+          <span *ngIf="!item.isCompleted" style="color: red;"> (Pendinig)</span>
+        </li>
+      </ul>
+    </div>
