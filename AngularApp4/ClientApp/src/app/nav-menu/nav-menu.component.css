@@ -1,18 +1,56 @@
-a.navbar-brand {
-  white-space: normal;
-  text-align: center;
-  word-break: break-all;
+.sidebar {
+  width: 250px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background: #3f51b5; /* Material primary color */
+  color: white;
+  transition: width 0.3s ease;
+  overflow-x: hidden;
+  z-index: 1000;
 }
 
-html {
-  font-size: 14px;
-}
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
+  .sidebar.collapsed {
+    width: 70px;
   }
+
+.sidebar-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.box-shadow {
-  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+.nav-list {
+  list-style: none;
+  padding: 10px 0;
+  margin: 0;
+}
+
+  .nav-list li a {
+    display: flex;
+    align-items: center;
+    padding: 15px 23px;
+    color: white;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+    .nav-list li a:hover, .active {
+      background: rgba(255,255,255,0.1);
+    }
+
+  .nav-list mat-icon {
+    margin-right: 20px;
+  }
+
+/* Add margin to app.component.css for content area */
+.content-area {
+  transition: margin-left 0.3s ease;
+  width: 100%;
+  min-height: 100vh;
+  background: #f5f5f5;
 }

@@ -1,44 +1,29 @@
-<header>
-  <nav
-    class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3"
-  >
-    <div class="container">
-      <a class="navbar-brand" [routerLink]="['/']">AngularApp4</a>
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-toggle="collapse"
-        data-target=".navbar-collapse"
-        aria-label="Toggle navigation"
-        [attr.aria-expanded]="isExpanded"
-        (click)="toggle()"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div
-        class="navbar-collapse collapse d-sm-inline-flex justify-content-end"
-        [ngClass]="{ show: isExpanded }"
-      >
-        <ul class="navbar-nav flex-grow">
-          <li
-            class="nav-item"
-            [routerLinkActive]="['link-active']"
-            [routerLinkActiveOptions]="{ exact: true }"
-          >
-            <a class="nav-link text-dark" [routerLink]="['/']">Home</a>
-          </li>
-          <li class="nav-item" [routerLinkActive]="['link-active']">
-            <a class="nav-link text-dark" [routerLink]="['/counter']"
-              >Counter</a
-            >
-          </li>
-          <li class="nav-item" [routerLinkActive]="['link-active']">
-            <a class="nav-link text-dark" [routerLink]="['/fetch-data']"
-              >Fetch data</a
-            >
-          </li>
-        </ul>
-      </div>
-    </div>
-  </nav>
-</header>
+<div class="sidebar shadow" [ngClass]="{ 'collapsed': !isExpanded }">
+  <div class="sidebar-header">
+    <span class="brand" *ngIf="isExpanded">BookingApp</span>
+    <button mat-icon-button (click)="toggle()">
+      <mat-icon>menu</mat-icon>
+    </button>
+  </div>
+
+  <ul class="nav-list">
+    <li>
+      <a [routerLink]="['/']" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+        <mat-icon>home</mat-icon>
+        <span *ngIf="isExpanded">Home</span>
+      </a>
+    </li>
+    <li>
+      <a [routerLink]="['/services']" routerLinkActive="active">
+        <mat-icon>settings</mat-icon>
+        <span *ngIf="isExpanded">Services</span>
+      </a>
+    </li>
+    <li>
+      <a [routerLink]="['/my-appointments']" routerLinkActive="active">
+        <mat-icon>calendar_today</mat-icon>
+        <span *ngIf="isExpanded">My Bookings</span>
+      </a>
+    </li>
+  </ul>
+</div>

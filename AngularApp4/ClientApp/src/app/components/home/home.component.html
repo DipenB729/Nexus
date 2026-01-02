@@ -1,0 +1,98 @@
+<div class="admin-dashboard">
+  <!-- Admin Hero Section -->
+  <section class="admin-hero">
+    <div class="hero-content">
+      <div class="status-pill">
+        <span class="pulse-icon"></span> System Status: Online
+      </div>
+      <h1>Welcome back, <span class="highlight">Admin</span></h1>
+      <p>Manage your appointment ecosystem, monitor service performance, and handle user bookings from a single control center.</p>
+
+      <div class="quick-stats-grid">
+        <div class="q-stat">
+          <mat-icon>event_note</mat-icon>
+          <div>
+            <strong>128</strong>
+            <span>Today's Bookings</span>
+          </div>
+        </div>
+        <div class="q-stat">
+          <mat-icon>people_outline</mat-icon>
+          <div>
+            <strong>1.2k</strong>
+            <span>Active Users</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="admin-shape">
+        <mat-icon class="dashboard-icon">dashboard_customize</mat-icon>
+      </div>
+    </div>
+  </section>
+
+  <!-- Management Shortcuts -->
+  <section class="shortcuts-section">
+    <h2 class="section-title">System Management</h2>
+    <div class="shortcuts-grid">
+      <!-- Shortcut 1 -->
+      <div class="shortcut-card" routerLink="/services">
+        <div class="card-icon blue"><mat-icon>settings_suggest</mat-icon></div>
+        <h3>Service Catalog</h3>
+        <p>Update service prices, duration, and availability windows.</p>
+        <span class="action-link">Configure <mat-icon>chevron_right</mat-icon></span>
+      </div>
+
+      <!-- Shortcut 2 -->
+      <div class="shortcut-card" routerLink="/my-appointments">
+        <div class="card-icon pink"><mat-icon>history_edu</mat-icon></div>
+        <h3>Booking Logs</h3>
+        <p>Review and manage all client appointments and status history.</p>
+        <span class="action-link">View Logs <mat-icon>chevron_right</mat-icon></span>
+      </div>
+
+      <!-- Shortcut 3 -->
+      <div class="shortcut-card" routerLink="/settings">
+        <div class="card-icon orange"><mat-icon>mail_outline</mat-icon></div>
+        <h3>Email & SMTP</h3>
+        <p>Configure organizational SMTP and email notification templates.</p>
+        <span class="action-link">Setup <mat-icon>chevron_right</mat-icon></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- System Health & Analytics -->
+  <section class="analytics-preview">
+    <div class="analytics-grid">
+      <div class="performance-card">
+        <div class="card-header">
+          <mat-icon>analytics</mat-icon>
+          <h3>Operational Health</h3>
+        </div>
+        <ul class="health-list">
+          <li>
+            <span>Database Connectivity</span>
+            <span class="status-ok">Stable</span>
+          </li>
+          <li>
+            <span>Email Delivery Rate</span>
+            <span class="status-ok">98.2%</span>
+          </li>
+          <li>
+            <span>Server Response Time</span>
+            <span class="status-warning">240ms</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="admin-cta-text">
+        <span class="tag">Maintenance</span>
+        <h2>System Configuration</h2>
+        <p>Ensure your organization settings are up to date. This includes time zones, currency settings, and employee permissions.</p>
+        <button mat-flat-button color="primary">Open System Settings</button>
+      </div>
+    </div>
+  </section>
+</div>

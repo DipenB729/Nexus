@@ -1,19 +1,44 @@
- <!-- NAVIGATION BAR -->
-<nav style="background: #333; padding: 15px; text-align: center;">
+<div class="d-flex">
+  <!-- Sidebar -->
+  <app-navbar [isExpanded]="isSidebarExpanded"
+              (toggleEvent)="toggleSidebar()">
+  </app-navbar>
 
-  <!-- Button 1: Home -->
-  <a routerLink="" style="color: white; margin-right: 20px; text-decoration: none; font-weight: bold;">
-    🏠 Home
-  </a>
+  <!-- Content Area -->
+  <main class="content-area" [ngStyle]="{ 'margin-left': isSidebarExpanded ? '260px' : '70px' }">
 
-  <!-- Button 2: Todo -->
-  <a routerLink="/todo" style="color: white; text-decoration: none; font-weight: bold;">
-    ✅ Todo List
-  </a>
+    <!-- STICKY TOP NAVBAR -->
+    <header class="top-navbar">
+      <div class="nav-left">
+        <h2 class="page-title">Dashboard Overview</h2>
+      </div>
 
-</nav>
+      <div class="nav-right">
+        <!-- Notification Icon -->
+        <button mat-icon-button class="nav-icon-btn">
+          <mat-icon matBadge="3" matBadgeColor="warn">notifications</mat-icon>
+        </button>
 
-<!-- CONTENT AREA (Pages load here) -->
-<div class="container">
-  <router-outlet></router-outlet>
+        <!-- Vertical Divider -->
+        <div class="divider"></div>
+
+        <!-- Profile Section -->
+        <div class="profile-section">
+          <div class="user-details text-end d-none d-md-block">
+            <span class="user-name">System Admin</span>
+            <span class="user-status">Online</span>
+          </div>
+          <div class="avatar-box">
+            <img src="assets/admin-avatar.png" alt="Admin" onerror="this.src='https://ui-avatars.com/api/?name=Admin&background=38bdf8&color=fff'">
+          </div>
+          <mat-icon class="dropdown-arrow">expand_more</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-padding">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
 </div>

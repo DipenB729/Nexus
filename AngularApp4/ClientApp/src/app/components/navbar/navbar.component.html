@@ -1,0 +1,72 @@
+<div class="admin-sidebar" [ngClass]="{ 'collapsed': !isExpanded }">
+
+  <!-- Brand / Logo Section -->
+  <div class="sidebar-header">
+    <div class="logo-box">
+      <mat-icon class="logo-icon">admin_panel_settings</mat-icon>
+      <span class="brand-text" *ngIf="isExpanded">ADMIN PANEL</span>
+    </div>
+    <button mat-icon-button (click)="toggle()" class="toggle-btn">
+      <mat-icon>{{ isExpanded ? 'chevron_left' : 'menu' }}</mat-icon>
+    </button>
+  </div>
+
+  <!-- User Profile Snippet (Optional) -->
+  <div class="user-profile" *ngIf="isExpanded">
+    <div class="avatar">AD</div>
+    <div class="user-info">
+      <span class="user-name">System Admin</span>
+      <span class="user-role">Super User</span>
+    </div>
+  </div>
+
+  <!-- Navigation Links -->
+  <nav class="sidebar-nav">
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a [routerLink]="['/']" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
+          <mat-icon>dashboard</mat-icon>
+          <span *ngIf="isExpanded">Dashboard</span>
+        </a>
+      </li>
+
+      <li class="nav-label" *ngIf="isExpanded">MANAGEMENT</li>
+
+      <li class="nav-item">
+        <a [routerLink]="['/services']" routerLinkActive="active-link">
+          <mat-icon>settings_suggest</mat-icon>
+          <span *ngIf="isExpanded">Services</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a [routerLink]="['/my-appointments']" routerLinkActive="active-link">
+          <mat-icon>format_list_bulleted</mat-icon>
+          <span *ngIf="isExpanded">Bookings</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a [routerLink]="['/users']" routerLinkActive="active-link">
+          <mat-icon>people</mat-icon>
+          <span *ngIf="isExpanded">Users</span>
+        </a>
+      </li>
+
+      <li class="nav-label" *ngIf="isExpanded">SYSTEM</li>
+
+      <li class="nav-item">
+        <a [routerLink]="['/settings']" routerLinkActive="active-link">
+          <mat-icon>alternate_email</mat-icon>
+          <span *ngIf="isExpanded">SMTP Config</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Bottom Action -->
+  <div class="sidebar-footer">
+    <a href="#" class="logout-link">
+      <mat-icon>logout</mat-icon>
+      <span *ngIf="isExpanded">Logout</span>
+    </a>
+  </div>
+</div>

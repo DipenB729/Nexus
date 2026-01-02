@@ -1,0 +1,96 @@
+/* Container for the main content */
+.content-area {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 100vh;
+  background: #f8fafc; /* Very light slate bg */
+}
+
+/* THE STICKY TOP BAR */
+.top-navbar {
+  position: sticky;
+  top: 0;
+  height: 64px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 25px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  z-index: 999; /* Below sidebar, above content */
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Notification Badge Styling */
+.nav-icon-btn {
+  color: #64748b;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background: #e2e8f0;
+  margin: 0 10px;
+}
+
+/* Profile Section Layout */
+.profile-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+  .profile-section:hover {
+    background: #f1f5f9;
+  }
+
+.avatar-box img {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid #38bdf8;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.user-status {
+  font-size: 0.75rem;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.dropdown-arrow {
+  color: #94a3b8;
+  font-size: 20px;
+}
+
+.page-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* Padding for the router outlet content so it doesn't touch the edges */
+.page-padding {
+  padding: 25px;
+}
