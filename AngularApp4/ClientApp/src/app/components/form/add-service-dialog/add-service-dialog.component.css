@@ -1,0 +1,91 @@
+.side-drawer-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.drawer-header {
+  padding: 20px;
+  background: #f0fdf4; /* Light green tint like your screenshot */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+  .drawer-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #166534;
+    font-weight: 600;
+  }
+
+.drawer-content {
+  flex: 1;
+  padding: 24px !important;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+  .form-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+  }
+
+.required {
+  color: #ef4444;
+}
+
+input, textarea, mat-select {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.upload-box {
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  color: #64748b;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+  .upload-box mat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: #22c55e;
+  }
+
+  .upload-box span {
+    color: #22c55e;
+    font-weight: 600;
+  }
+
+.drawer-footer {
+  padding: 20px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.submit-btn {
+  background-color: #22c55e !important; /* Green primary button */
+  color: white !important;
+  padding: 0 30px;
+}

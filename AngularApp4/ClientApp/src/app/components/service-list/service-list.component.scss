@@ -1,4 +1,325 @@
-.service-list {
+// service-list.component.scss
+.service-page-container {
+  width: 100%;
+  padding: 32px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+
+  .header-section {
+    margin-bottom: 40px;
+
+    .badge {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #6366f1;
+      font-weight: 700;
+      background: rgba(99, 102, 241, 0.1);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      color: #64748b;
+      font-size: 1.1rem;
+    }
+
+    .filter-bar {
+      margin-top: 24px;
+
+      .search-field {
+        width: 100%;
+        max-width: 500px;
+
+        ::ng-deep .mat-mdc-text-field-wrapper {
+          background: white !important;
+          border-radius: 12px !important;
+        }
+      }
+    }
+  }
+
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 32px;
+  }
+
+  .premium-card {
+    background: white;
+    border-radius: 24px;
+    padding: 28px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+
+    &:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      border-color: #e2e8f0;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+
+      .icon-wrapper {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        mat-icon {
+          font-size: 28px;
+          width: 28px;
+          height: 28px;
+        }
+      }
+
+      .category-pill {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid;
+        text-transform: uppercase;
+      }
+    }
+
+    .card-middle {
+      h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 12px;
+      }
+
+      .desc {
+        font-size: 0.95rem;
+        color: #64748b;
+        line-height: 1.6;
+        margin-bottom: 24px;
+      }
+    }
+
+    .card-bottom {
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+
+        .duration {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #94a3b8;
+          font-weight: 500;
+          font-size: 0.9rem;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+        }
+
+        .price {
+          font-size: 1.75rem;
+          font-weight: 800;
+          color: #0f172a;
+
+          .currency {
+            font-size: 1rem;
+            color: #94a3b8;
+            margin-right: 2px;
+          }
+        }
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+
+        .btn-details {
+          border-radius: 12px;
+          color: #64748b;
+          font-weight: 600;
+        }
+
+        .btn-book {
+          background: #0f172a;
+          color: white;
+          border-radius: 12px;
+          font-weight: 600;
+          padding: 8px;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+          &:hover {
+            background: #1e293b;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Full Responsiveness
+@media (max-width: 640px) {
+  .service-page-container {
+    padding: 16px;
+
+    .services-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+.header-top {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.add-btn {
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-weight: 600;
+  height: 45px;
+}
+.service-page-container {
+  padding: 24px;
+  background-color: #f8fafc;
+
+  .header-section {
+    margin-bottom: 24px;
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+
+      .search-field {
+        flex: 1;
+        max-width: 400px;
+        background: white;
+        border-radius: 8px;
+      }
+
+      .filter-btn {
+        height: 48px;
+        border-radius: 8px;
+        color: #64748b;
+      }
+    }
+  }
+
+  .table-container {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+  }
+
+  .custom-table {
+    width: 100%;
+
+    th.mat-mdc-header-cell {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      padding: 16px;
+    }
+
+    td.mat-mdc-cell {
+      padding: 16px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .table-row:hover {
+      background-color: #f8fafc;
+    }
+
+    .service-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .icon-box {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+
+      .text-box {
+        display: flex;
+        flex-direction: column;
+
+        .main-name {
+          font-weight: 600;
+          color: #1e293b;
+        }
+
+        .sub-desc {
+          font-size: 0.75rem;
+          color: #94a3b8;
+        }
+      }
+    }
+
+    .status-pill {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .price-cell {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .tiny-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      vertical-align: middle;
+      color: #94a3b8;
+    }
+  }
 }

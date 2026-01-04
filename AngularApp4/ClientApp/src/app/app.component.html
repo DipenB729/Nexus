@@ -1,43 +1,64 @@
-<div class="d-flex">
-  <!-- Sidebar -->
+<div class="dashboard-wrapper">
+  <!-- Sidebar (app-navbar acting as Sidebar) -->
   <app-navbar [isExpanded]="isSidebarExpanded"
-              (toggleEvent)="toggleSidebar()">
+              (toggleEvent)="toggleSidebar()"
+              class="sidebar-nav"
+              [class.collapsed]="!isSidebarExpanded">
   </app-navbar>
 
   <!-- Content Area -->
-  <main class="content-area" [ngStyle]="{ 'margin-left': isSidebarExpanded ? '260px' : '70px' }">
+  <main class="main-content">
 
     <!-- STICKY TOP NAVBAR -->
     <header class="top-navbar">
-      <div class="nav-left">
+      <div class="header-left">
+        <button mat-icon-button (click)="toggleSidebar()" class="menu-toggle">
+          <mat-icon>{{ isSidebarExpanded ? 'menu_open' : 'menu' }}</mat-icon>
+        </button>
         <h2 class="page-title">Dashboard Overview</h2>
       </div>
 
-      <div class="nav-right">
+      <div class="header-right">
         <!-- Notification Icon -->
         <button mat-icon-button class="nav-icon-btn">
           <mat-icon matBadge="3" matBadgeColor="warn">notifications</mat-icon>
         </button>
 
-        <!-- Vertical Divider -->
-        <div class="divider"></div>
+        <div class="vertical-divider"></div>
 
         <!-- Profile Section -->
-        <div class="profile-section">
-          <div class="user-details text-end d-none d-md-block">
+        <div class="profile-section" [matMenuTriggerFor]="profileMenu">
+          <div class="user-info d-none d-md-flex">
             <span class="user-name">System Admin</span>
             <span class="user-status">Online</span>
           </div>
-          <div class="avatar-box">
-            <img src="assets/admin-avatar.png" alt="Admin" onerror="this.src='https://ui-avatars.com/api/?name=Admin&background=38bdf8&color=fff'">
+          <div class="avatar-wrapper">
+            <img src="https://ui-avatars.com/api/?name=Admin&background=38bdf8&color=fff" alt="Admin">
           </div>
-          <mat-icon class="dropdown-arrow">expand_more</mat-icon>
+          <mat-icon class="expand-icon">expand_more</mat-icon>
         </div>
+
+        <!-- Dropdown Menu -->
+        <mat-menu #profileMenu="matMenu">
+          <button mat-menu-item>
+            <mat-icon>person</mat-icon>
+            <span>My Profile</span>
+          </button>
+          <button mat-menu-item>
+            <mat-icon>settings</mat-icon>
+            <span>Settings</span>
+          </button>
+          <mat-divider></mat-divider>
+          <button mat-menu-item color="warn">
+            <mat-icon>logout</mat-icon>
+            <span>Logout</span>
+          </button>
+        </mat-menu>
       </div>
     </header>
 
-    <!-- Page Content -->
-    <div class="page-padding">
+    <!-- Page Content Area -->
+    <div class="page-body">
       <router-outlet></router-outlet>
     </div>
   </main>

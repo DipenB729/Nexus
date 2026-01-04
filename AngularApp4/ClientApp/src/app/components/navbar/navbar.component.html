@@ -1,4 +1,4 @@
-<div class="admin-sidebar" [ngClass]="{ 'collapsed': !isExpanded }">
+<div class="admin-sidebar" [class.collapsed]="!isExpanded">
 
   <!-- Brand / Logo Section -->
   <div class="sidebar-header">
@@ -6,12 +6,12 @@
       <mat-icon class="logo-icon">admin_panel_settings</mat-icon>
       <span class="brand-text" *ngIf="isExpanded">ADMIN PANEL</span>
     </div>
-    <button mat-icon-button (click)="toggle()" class="toggle-btn">
+    <!--<button mat-icon-button (click)="toggle()" class="toggle-btn">
       <mat-icon>{{ isExpanded ? 'chevron_left' : 'menu' }}</mat-icon>
-    </button>
+    </button>-->
   </div>
 
-  <!-- User Profile Snippet (Optional) -->
+  <!-- User Profile -->
   <div class="user-profile" *ngIf="isExpanded">
     <div class="avatar">AD</div>
     <div class="user-info">
@@ -26,7 +26,7 @@
       <li class="nav-item">
         <a [routerLink]="['/']" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
           <mat-icon>dashboard</mat-icon>
-          <span *ngIf="isExpanded">Dashboard</span>
+          <span class="link-text" *ngIf="isExpanded">Dashboard</span>
         </a>
       </li>
 
@@ -35,19 +35,19 @@
       <li class="nav-item">
         <a [routerLink]="['/services']" routerLinkActive="active-link">
           <mat-icon>settings_suggest</mat-icon>
-          <span *ngIf="isExpanded">Services</span>
+          <span class="link-text" *ngIf="isExpanded">Services</span>
         </a>
       </li>
       <li class="nav-item">
         <a [routerLink]="['/my-appointments']" routerLinkActive="active-link">
           <mat-icon>format_list_bulleted</mat-icon>
-          <span *ngIf="isExpanded">Bookings</span>
+          <span class="link-text" *ngIf="isExpanded">Bookings</span>
         </a>
       </li>
       <li class="nav-item">
         <a [routerLink]="['/users']" routerLinkActive="active-link">
           <mat-icon>people</mat-icon>
-          <span *ngIf="isExpanded">Users</span>
+          <span class="link-text" *ngIf="isExpanded">Users</span>
         </a>
       </li>
 
@@ -56,7 +56,7 @@
       <li class="nav-item">
         <a [routerLink]="['/settings']" routerLinkActive="active-link">
           <mat-icon>alternate_email</mat-icon>
-          <span *ngIf="isExpanded">SMTP Config</span>
+          <span class="link-text" *ngIf="isExpanded">SMTP Config</span>
         </a>
       </li>
     </ul>
@@ -64,9 +64,9 @@
 
   <!-- Bottom Action -->
   <div class="sidebar-footer">
-    <a href="#" class="logout-link">
+    <a href="javascript:void(0)" class="logout-link">
       <mat-icon>logout</mat-icon>
-      <span *ngIf="isExpanded">Logout</span>
+      <span class="link-text" *ngIf="isExpanded">Logout</span>
     </a>
   </div>
 </div>

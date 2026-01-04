@@ -1,10 +1,7 @@
 .admin-sidebar {
   width: 260px;
   height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  background: #1e293b; /* Deep Slate Blue */
+  background: #1e293b;
   color: #cbd5e1;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -12,6 +9,8 @@
   z-index: 1000;
   overflow: hidden;
   box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  /* flex-shrink: 0 is important so the main content doesn't squeeze the sidebar */
+  flex-shrink: 0;
 }
 
 .admin-sidebar.collapsed {
@@ -20,12 +19,13 @@
 
 /* Header & Toggle */
 .sidebar-header {
-  height: 64px;
+  height: 70px; /* Matches the top-navbar height */
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 15px;
-  background: #0f172a; /* Darker header */
+  padding: 0 20px;
+  background: #0f172a;
+  flex-shrink: 0;
 }
 
 .admin-sidebar.collapsed .sidebar-header {
@@ -36,7 +36,7 @@
 .logo-box {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .logo-icon {
@@ -48,6 +48,7 @@
   font-size: 0.9rem;
   letter-spacing: 1px;
   color: white;
+  white-space: nowrap; /* Prevents text from wrapping during transition */
 }
 
 .toggle-btn {
@@ -62,11 +63,14 @@
   gap: 12px;
   background: rgba(255,255,255,0.03);
   margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  white-space: nowrap;
 }
 
 .avatar {
   width: 35px;
   height: 35px;
+  min-width: 35px;
   background: #38bdf8;
   border-radius: 8px;
   display: flex;
@@ -96,6 +100,7 @@
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-list {
@@ -110,23 +115,25 @@
   font-weight: 700;
   color: #475569;
   letter-spacing: 1.5px;
+  white-space: nowrap;
 }
 
 .nav-item a {
   display: flex;
   align-items: center;
-  height: 48px;
+  height: 50px;
   padding: 0 23px;
   color: #94a3b8;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
 .nav-item a mat-icon {
   margin-right: 18px;
 }
 
-/* Collapsed Icon Centering */
+/* Icon Centering when Collapsed */
 .admin-sidebar.collapsed .nav-item a {
   justify-content: center;
   padding: 0;
@@ -143,26 +150,25 @@
 }
 
 .active-link {
-  background: #38bdf8 !important; /* Bright Blue */
-  color: white !important;
-}
-
-.active-link mat-icon {
-  color: white;
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+  border-left: 3px solid #38bdf8;
 }
 
 /* Footer / Logout */
 .sidebar-footer {
   border-top: 1px solid rgba(255,255,255,0.05);
-  padding: 10px 0;
+  padding: 5px 0;
+  flex-shrink: 0;
 }
 
 .logout-link {
   display: flex;
   align-items: center;
   padding: 15px 23px;
-  color: #ef4444; /* Alert Red */
+  color: #fb7185;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .logout-link mat-icon {
@@ -178,7 +184,7 @@
   margin-right: 0;
 }
 
-/* Hide scrollbar */
+/* Hide scrollbar for Chrome/Safari */
 .sidebar-nav::-webkit-scrollbar {
   width: 0px;
 }

@@ -3,7 +3,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-import { CommonModule } from '@angular/common'; // Required for ngStyle/ngClass
+import { CommonModule } from '@angular/common';
 
 // Material Imports
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -15,14 +15,26 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatBadgeModule } from '@angular/material/badge'; // Import this
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatTableModule } from '@angular/material/table';
+import { MatSortModule } from '@angular/material/sort';
 
+// Add to @NgModule imports:
+// MatTableModule, MatSortModule,
+// NEW MATERIAL IMPORTS FOR DIALOG & FORM
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatSelectModule } from '@angular/material/select';
+
+// Component Imports
 import { AppComponent } from './app.component';
 import { BookingComponent } from './components/booking/booking.component';
 import { NavbarComponent } from './components/navbar/navbar.component';
 import { HomeComponent } from './components/home/home.component';
 import { ServiceListComponent } from './components/service-list/service-list.component';
 import { MyBookingsComponent } from './components/my-bookings/my-bookings.component';
+import { AddServiceDialogComponent } from './components/form/add-service-dialog/add-service-dialog.component';
 
 @NgModule({
   declarations: [
@@ -31,21 +43,23 @@ import { MyBookingsComponent } from './components/my-bookings/my-bookings.compon
     NavbarComponent,
     HomeComponent,
     ServiceListComponent,
-    MyBookingsComponent
+    MyBookingsComponent,
+    AddServiceDialogComponent
   ],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,
-    CommonModule, // Ensure this is here
+    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     RouterModule.forRoot([
       { path: '', component: HomeComponent },
       { path: 'services', component: ServiceListComponent },
+      { path: 'book', component: BookingComponent }, // Added back
       { path: 'my-appointments', component: MyBookingsComponent },
       { path: '**', redirectTo: '' }
     ]),
-    // Material Modules MUST be in imports, NOT declarations
+    // Material Modules
     MatToolbarModule,
     MatIconModule,
     MatStepperModule,
@@ -55,7 +69,12 @@ import { MyBookingsComponent } from './components/my-bookings/my-bookings.compon
     MatNativeDateModule,
     MatInputModule,
     MatFormFieldModule,
-    MatBadgeModule
+    MatBadgeModule,
+    MatMenuModule,
+    MatDividerModule,
+    MatDialogModule, // Added this
+    MatSelectModule,
+    MatTableModule,// Added this
   ],
   providers: [],
   bootstrap: [AppComponent]

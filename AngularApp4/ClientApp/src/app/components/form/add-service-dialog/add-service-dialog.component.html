@@ -1,0 +1,60 @@
+<div class="side-drawer-container">
+  <div class="drawer-header">
+    <h2>Add New Service</h2>
+    <button mat-icon-button (click)="onCancel()"><mat-icon>close</mat-icon></button>
+  </div>
+
+  <mat-dialog-content class="drawer-content">
+    <form [formGroup]="serviceForm">
+
+      <!-- Basic Info -->
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Service Name <span class="required">*</span></label>
+          <input type="text" formControlName="name" placeholder="Enter service name">
+        </div>
+
+        <div class="form-field">
+          <label>Category <span class="required">*</span></label>
+          <mat-select formControlName="category" placeholder="Select a category">
+            <mat-option value="Health">Health</mat-option>
+            <mat-option value="Therapy">Therapy</mat-option>
+          </mat-select>
+        </div>
+
+        <div class="form-field">
+          <label>Duration <span class="required">*</span></label>
+          <input type="text" formControlName="duration" placeholder="e.g. 45 mins">
+        </div>
+
+        <div class="form-field">
+          <label>Price <span class="required">*</span></label>
+          <input type="number" formControlName="price" placeholder="Enter amount">
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="form-field full-width">
+        <label>Description</label>
+        <textarea formControlName="description" rows="3" placeholder="Briefly describe the service"></textarea>
+      </div>
+
+      <!-- Upload Placeholder (Matching your screenshot) -->
+      <div class="upload-section">
+        <label>Upload Service Cover</label>
+        <div class="upload-box">
+          <mat-icon>cloud_upload</mat-icon>
+          <p><span>Click</span> or drag and drop image</p>
+          <small>SVG, PNG, JPG (max: 2MB)</small>
+        </div>
+      </div>
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="drawer-footer">
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-raised-button color="primary" class="submit-btn" [disabled]="!serviceForm.valid" (click)="onSave()">
+      Add Service
+    </button>
+  </mat-dialog-actions>
+</div>

@@ -1,1 +1,22 @@
 @import "@angular/material/prebuilt-themes/indigo-pink.css";
+/* Add this to your global styles.css */
+.side-panel-dialog .mat-mdc-dialog-container .mdc-dialog__surface {
+  border-radius: 0 !important; /* Remove rounded corners */
+  height: 100vh !important; /* Full screen height */
+  position: fixed !important;
+  right: 0 !important;
+  top: 0 !important;
+  margin: 0 !important;
+  box-shadow: -5px 0 25px rgba(0,0,0,0.1) !important;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
