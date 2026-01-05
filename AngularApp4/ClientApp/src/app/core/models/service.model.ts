@@ -2,7 +2,7 @@ export interface Service {
   id: number;
   name: string;
   category: string;
-  durationMinutes: number; // Changed from 'duration' to match .NET
+  durationMinutes: number;  
   price: number;
   icon: string;
   color: string;

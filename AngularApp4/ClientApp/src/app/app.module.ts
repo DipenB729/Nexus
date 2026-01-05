@@ -4,7 +4,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
-
+import { HttpClientModule } from '@angular/common/http';
 // Material Imports
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
@@ -74,7 +74,8 @@ import { AddServiceDialogComponent } from './components/form/add-service-dialog/
     MatDividerModule,
     MatDialogModule, // Added this
     MatSelectModule,
-    MatTableModule,// Added this
+    MatTableModule,
+    HttpClientModule,// Added this
   ],
   providers: [],
   bootstrap: [AppComponent]

@@ -31,6 +31,8 @@
 
   <ItemGroup>
     <Folder Include="ClientApp\src\app\core\models\" />
+    <Folder Include="ClientApp\src\app\core\services\" />
+    <Folder Include="Service\" />
   </ItemGroup>
 
     <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">

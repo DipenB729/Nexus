@@ -1,15 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { MatTableDataSource } from '@angular/material/table';
 
-interface Appointment {
-  id: string;
-  customerName: string;
-  serviceName: string;
-  appointmentDate: Date;
-  time: string;
-  status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';
-  price: number;
-}
+// 1. Ensure the path to your service is correct
+import { AppointmentService } from '../../core/services/appointment.service';
+
+// 2. IMPORT the Appointment interface from your separate model file
+import { Appointment } from '../../core/models/appointment.model';
 
 @Component({
   selector: 'app-my-bookings',
@@ -17,25 +13,53 @@ interface Appointment {
   styleUrls: ['./my-bookings.component.scss']
 })
 export class MyBookingsComponent implements OnInit {
+  // Columns matching the 'matColumnDef' names in your HTML
   displayedColumns: string[] = ['id', 'customer', 'service', 'date', 'status', 'actions'];
 
-  dataSource = new MatTableDataSource<Appointment>([
-    { id: 'BK-9921', customerName: 'John Doe', serviceName: 'Initial Consultation', appointmentDate: new Date('2026-01-10'), time: '09:00 AM', status: 'Confirmed', price: 75 },
-    { id: 'BK-9925', customerName: 'Sarah Smith', serviceName: 'Deep Tissue Massage', appointmentDate: new Date('2026-01-12'), time: '02:30 PM', status: 'Pending', price: 120 },
-    { id: 'BK-9930', customerName: 'Mike Ross', serviceName: 'Wellness Coaching', appointmentDate: new Date('2026-01-15'), time: '11:00 AM', status: 'Cancelled', price: 90 },
-    { id: 'BK-9935', customerName: 'Rachel Zane', serviceName: 'Express Checkup', appointmentDate: new Date('2025-12-28'), time: '04:00 PM', status: 'Completed', price: 30 }
-  ]);
+  // Now 'Appointment' is recognized because of the import above
+  dataSource = new MatTableDataSource<Appointment>([]);
 
-  constructor() { }
+  // Map the .NET Enum values (int) to readable string labels
+  statusLabels: { [key: number]: string } = {
+    0: 'Pending',
+    1: 'Confirmed',
+    2: 'Cancelled',
+    3: 'Completed',
+    4: 'NoShow'
+  };
 
-  ngOnInit(): void { }
+  constructor(private appointmentService: AppointmentService) { }
 
+  ngOnInit(): void {
+    this.loadAppointments();
+  }
+
+  loadAppointments() {
+    this.appointmentService.getAppointments().subscribe({
+      next: (data) => {
+        console.log('Appointments received from .NET:', data);
+        this.dataSource.data = data;
+      },
+      error: (err) => {
+        console.error('Error fetching appointments:', err);
+      }
+    });
+  }
+
+  // Helper to filter the table data via the search input
   applyFilter(event: Event) {
     const filterValue = (event.target as HTMLInputElement).value;
     this.dataSource.filter = filterValue.trim().toLowerCase();
   }
 
-  getStatusClass(status: string): string {
-    return `status-badge ${status.toLowerCase()}`;
+  // Helper to get the text for the status badge
+  getStatusText(status: number): string {
+    return this.statusLabels[status] || 'Unknown';
+  }
+
+  // Helper to assign CSS classes based on status
+  getStatusClass(status: number): string {
+    const text = (this.statusLabels[status] || 'pending').toLowerCase();
+    return `status-badge ${text}`;
   }
 }
