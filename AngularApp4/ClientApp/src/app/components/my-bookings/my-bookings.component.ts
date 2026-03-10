@@ -35,4 +35,14 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   getStatusClass(status: string): string {
     return `status-badge ${status.toLowerCase()}`;
   }
+
+  getStatusText(status: string): string {
+    const normalized = status.toLowerCase();
+    if (normalized === 'confirmed') return 'Confirmed';
+    if (normalized === 'pending') return 'Pending Approval';
+    if (normalized === 'cancelled') return 'Cancelled';
+    if (normalized === 'completed') return 'Completed';
+    return status;
+  }
 }
+
