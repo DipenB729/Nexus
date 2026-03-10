@@ -1,0 +1,87 @@
+<section class="users-page">
+  <div class="page-header">
+    <div>
+      <h1>User Dashboard</h1>
+      <p>Manage administrators, managers, and staff access from one place.</p>
+    </div>
+  </div>
+
+  <div class="quick-add">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput [(ngModel)]="draftName" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput [(ngModel)]="draftEmail" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Role</mat-label>
+      <mat-select [(ngModel)]="draftRole">
+        <mat-option *ngFor="let role of roleOptions" [value]="role">{{ role }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="addUser()">
+      <mat-icon>person_add</mat-icon>
+      Add User
+    </button>
+  </div>
+
+  <div class="overview-cards">
+    <article class="card">
+      <h3>Total Users</h3>
+      <strong>{{ users.length }}</strong>
+    </article>
+    <article class="card">
+      <h3>Active</h3>
+      <strong>{{ activeCount }}</strong>
+    </article>
+    <article class="card">
+      <h3>Pending Invites</h3>
+      <strong>{{ invitedCount }}</strong>
+    </article>
+  </div>
+
+  <div class="table-wrapper">
+    <mat-form-field appearance="outline" class="search-box">
+      <mat-label>Search users</mat-label>
+      <input matInput [(ngModel)]="search" placeholder="Name, role, status..." />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Last Login</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of filteredUsers">
+          <td>
+            <div class="user-cell">
+              <span class="avatar">{{ user.name.charAt(0) }}</span>
+              <div>
+                <strong>{{ user.name }}</strong>
+                <small>{{ user.email }}</small>
+              </div>
+            </div>
+          </td>
+          <td>{{ user.role }}</td>
+          <td><span class="status" [ngClass]="statusClass(user.status)">{{ user.status }}</span></td>
+          <td>{{ user.lastLogin }}</td>
+          <td>
+            <button mat-icon-button><mat-icon>edit</mat-icon></button>
+            <button mat-icon-button><mat-icon>vpn_key</mat-icon></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

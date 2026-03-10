@@ -1,0 +1,7 @@
+.settings-page h1 { margin: 0; }
+.subtitle { margin: .25rem 0 1rem; color: #64748b; }
+.settings-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(280px, 1fr)); }
+.card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1rem; display: flex; flex-direction: column; gap: .7rem; }
+mat-form-field { width: 100%; }
+.toggle { display: flex; align-items: center; gap: .6rem; color: #334155; }
+.save-ok { color: #15803d; font-weight: 600; margin: 0; }

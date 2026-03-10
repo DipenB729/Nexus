@@ -12,15 +12,15 @@
         <div class="q-stat">
           <mat-icon>event_note</mat-icon>
           <div>
-            <strong>128</strong>
+            <strong>{{ bookings.length }}</strong>
             <span>Today's Bookings</span>
           </div>
         </div>
         <div class="q-stat">
           <mat-icon>people_outline</mat-icon>
           <div>
-            <strong>1.2k</strong>
-            <span>Active Users</span>
+            <strong>{{ users.length }}</strong>
+            <span>Registered Users</span>
           </div>
         </div>
       </div>
@@ -54,11 +54,52 @@
       </div>
 
       <!-- Shortcut 3 -->
+      <div class="shortcut-card" routerLink="/users">
+        <div class="card-icon orange"><mat-icon>group</mat-icon></div>
+        <h3>User Dashboard</h3>
+        <p>Manage admin users, roles, invites, and account status.</p>
+        <span class="action-link">Manage Users <mat-icon>chevron_right</mat-icon></span>
+      </div>
+
+      <!-- Shortcut 4 -->
       <div class="shortcut-card" routerLink="/settings">
         <div class="card-icon orange"><mat-icon>mail_outline</mat-icon></div>
         <h3>Email & SMTP</h3>
         <p>Configure organizational SMTP and email notification templates.</p>
         <span class="action-link">Setup <mat-icon>chevron_right</mat-icon></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard Insights -->
+  <section class="insights-section">
+    <h2 class="section-title">Dashboard Insights</h2>
+    <div class="insights-grid">
+      <div class="metrics-panel">
+        <article class="metric-card" *ngFor="let m of metrics">
+          <div class="metric-head">
+            <mat-icon>{{ m.icon }}</mat-icon>
+            <span>{{ m.label }}</span>
+          </div>
+          <strong>{{ m.value }}</strong>
+          <small [class.positive]="m.positive" [class.negative]="!m.positive">{{ m.trend }}</small>
+        </article>
+      </div>
+
+      <div class="activity-panel">
+        <div class="activity-header">
+          <h3>Recent Admin Activity</h3>
+          <button mat-stroked-button routerLink="/my-appointments">View Logs</button>
+        </div>
+        <ul>
+          <li *ngFor="let item of recentActivities">
+            <span [class]="badgeClass(item.type)">{{ item.type }}</span>
+            <div>
+              <strong>{{ item.actor }}</strong> {{ item.action }}
+              <small>{{ item.when }}</small>
+            </div>
+          </li>
+        </ul>
       </div>
     </div>
   </section>
@@ -91,7 +132,7 @@
         <span class="tag">Maintenance</span>
         <h2>System Configuration</h2>
         <p>Ensure your organization settings are up to date. This includes time zones, currency settings, and employee permissions.</p>
-        <button mat-flat-button color="primary">Open System Settings</button>
+        <button mat-flat-button color="primary" routerLink="/settings">Open System Settings</button>
       </div>
     </div>
   </section>
