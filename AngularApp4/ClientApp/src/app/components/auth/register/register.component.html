@@ -1,0 +1,25 @@
+<section class="auth-page">
+  <div class="auth-card">
+    <h1>{{ role }} Registration</h1>
+    <mat-form-field appearance="outline">
+      <mat-label>Full name</mat-label>
+      <input matInput [(ngModel)]="fullName" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput [(ngModel)]="email" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input matInput type="password" [(ngModel)]="password" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="submit()">Create {{ role }} Account</button>
+    <p class="message">{{ message }}</p>
+    <p>
+      Register as
+      <a routerLink="/register/customer">Customer</a> |
+      <a routerLink="/register/admin">Admin</a>
+    </p>
+    <p>Already registered? <a routerLink="/login">Sign in</a></p>
+  </div>
+</section>

@@ -317,3 +317,107 @@
     text-align: center;
   }
 }
+
+  // Insights
+  .insights-section {
+    background: #ffffff;
+
+    .section-title {
+      font-weight: 800;
+      margin-bottom: 24px;
+    }
+
+    .insights-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 24px;
+    }
+
+    .metrics-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 14px;
+    }
+
+    .metric-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 16px;
+      background: #fff;
+
+      .metric-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #64748b;
+        margin-bottom: 10px;
+
+        mat-icon {
+          color: var(--admin-primary);
+        }
+      }
+
+      strong {
+        display: block;
+        font-size: 1.5rem;
+        color: var(--admin-slate);
+      }
+
+      small {
+        font-weight: 700;
+      }
+
+      .positive { color: #16a34a; }
+      .negative { color: #dc2626; }
+    }
+
+    .activity-panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #fff;
+      padding: 18px;
+
+      .activity-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      h3 {
+        margin: 0;
+        color: var(--admin-slate);
+      }
+
+      ul {
+        list-style: none;
+        margin: 14px 0 0;
+        padding: 0;
+      }
+
+      li {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 12px 0;
+
+        small {
+          display: block;
+          color: #94a3b8;
+          margin-top: 4px;
+        }
+      }
+
+      .badge {
+        text-transform: uppercase;
+        font-size: .7rem;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 999px;
+      }
+
+      .badge.booking { background: #dbeafe; color: #1d4ed8; }
+      .badge.user { background: #ecfccb; color: #3f6212; }
+      .badge.system { background: #f3e8ff; color: #6b21a8; }
+    }
+  }

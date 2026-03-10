@@ -1,0 +1,16 @@
+<section class="auth-page">
+  <div class="auth-card">
+    <h1>Login</h1>
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput [(ngModel)]="email" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input matInput type="password" [(ngModel)]="password" />
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="submit()">Sign In</button>
+    <p class="error" *ngIf="error">{{ error }}</p>
+    <p>New here? <a routerLink="/register/customer">Customer Register</a> or <a routerLink="/register/admin">Admin Register</a></p>
+  </div>
+</section>

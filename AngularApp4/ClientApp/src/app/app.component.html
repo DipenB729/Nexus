@@ -1,65 +1,53 @@
-<div class="dashboard-wrapper">
-  <!-- Sidebar (app-navbar acting as Sidebar) -->
-  <app-navbar [isExpanded]="isSidebarExpanded"
-              (toggleEvent)="toggleSidebar()"
-              class="sidebar-nav"
-              [class.collapsed]="!isSidebarExpanded">
-  </app-navbar>
+<ng-container *ngIf="!isAuthRoute; else authLayout">
+  <div class="dashboard-wrapper">
+    <app-navbar [isExpanded]="isSidebarExpanded"
+                (toggleEvent)="toggleSidebar()"
+                class="sidebar-nav"
+                [class.collapsed]="!isSidebarExpanded">
+    </app-navbar>
 
-  <!-- Content Area -->
-  <main class="main-content">
-
-    <!-- STICKY TOP NAVBAR -->
-    <header class="top-navbar">
-      <div class="header-left">
-        <button mat-icon-button (click)="toggleSidebar()" class="menu-toggle">
-          <mat-icon>{{ isSidebarExpanded ? 'menu_open' : 'menu' }}</mat-icon>
-        </button>
-        <h2 class="page-title">Dashboard Overview</h2>
-      </div>
-
-      <div class="header-right">
-        <!-- Notification Icon -->
-        <button mat-icon-button class="nav-icon-btn">
-          <mat-icon matBadge="3" matBadgeColor="warn">notifications</mat-icon>
-        </button>
-
-        <div class="vertical-divider"></div>
-
-        <!-- Profile Section -->
-        <div class="profile-section" [matMenuTriggerFor]="profileMenu">
-          <div class="user-info d-none d-md-flex">
-            <span class="user-name">System Admin</span>
-            <span class="user-status">Online</span>
-          </div>
-          <div class="avatar-wrapper">
-            <img src="https://ui-avatars.com/api/?name=Admin&background=38bdf8&color=fff" alt="Admin">
-          </div>
-          <mat-icon class="expand-icon">expand_more</mat-icon>
+    <main class="main-content">
+      <header class="top-navbar">
+        <div class="header-left">
+          <button mat-icon-button (click)="toggleSidebar()" class="menu-toggle">
+            <mat-icon>{{ isSidebarExpanded ? 'menu_open' : 'menu' }}</mat-icon>
+          </button>
+          <h2 class="page-title">Dashboard Overview</h2>
         </div>
 
-        <!-- Dropdown Menu -->
-        <mat-menu #profileMenu="matMenu">
-          <button mat-menu-item>
-            <mat-icon>person</mat-icon>
-            <span>My Profile</span>
+        <div class="header-right">
+          <button mat-icon-button class="nav-icon-btn">
+            <mat-icon matBadge="3" matBadgeColor="warn">notifications</mat-icon>
           </button>
-          <button mat-menu-item>
-            <mat-icon>settings</mat-icon>
-            <span>Settings</span>
-          </button>
-          <mat-divider></mat-divider>
-          <button mat-menu-item color="warn">
-            <mat-icon>logout</mat-icon>
-            <span>Logout</span>
-          </button>
-        </mat-menu>
-      </div>
-    </header>
+          <div class="vertical-divider"></div>
 
-    <!-- Page Content Area -->
-    <div class="page-body">
-      <router-outlet></router-outlet>
-    </div>
-  </main>
-</div>
+          <div class="profile-section" [matMenuTriggerFor]="profileMenu">
+            <div class="user-info d-none d-md-flex">
+              <span class="user-name">System User</span>
+              <span class="user-status">Online</span>
+            </div>
+            <div class="avatar-wrapper">
+              <img src="https://ui-avatars.com/api/?name=User&background=38bdf8&color=fff" alt="User">
+            </div>
+            <mat-icon class="expand-icon">expand_more</mat-icon>
+          </div>
+
+          <mat-menu #profileMenu="matMenu">
+            <button mat-menu-item><mat-icon>person</mat-icon><span>My Profile</span></button>
+            <button mat-menu-item><mat-icon>settings</mat-icon><span>Settings</span></button>
+            <mat-divider></mat-divider>
+            <button mat-menu-item color="warn"><mat-icon>logout</mat-icon><span>Logout</span></button>
+          </mat-menu>
+        </div>
+      </header>
+
+      <div class="page-body">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+  </div>
+</ng-container>
+
+<ng-template #authLayout>
+  <router-outlet></router-outlet>
+</ng-template>

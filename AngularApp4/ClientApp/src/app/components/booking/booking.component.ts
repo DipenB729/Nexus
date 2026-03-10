@@ -1,40 +1,51 @@
 import { Component, OnInit } from '@angular/core';
-import { Service, TimeSlot } from '../../core/models/booking.model';
+import { BookingRecord, Doctor, ServiceItem } from '../../core/models/api.model';
+import { ApiService } from '../../core/services/api.service';
 
 @Component({
   selector: 'app-booking',
   templateUrl: './booking.component.html',
   styleUrls: ['./booking.component.scss']
 })
-export class BookingComponent implements OnInit {  
+export class BookingComponent implements OnInit {
+  services: ServiceItem[] = [];
+  doctors: Doctor[] = [];
+  customerName = '';
+  doctorName = '';
+  serviceName = '';
+  appointmentDate = '';
+  time = '09:00 AM';
+  message = '';
 
- 
-  services: Service[] = [
-    { id: 1, name: 'Standard Consultation', duration: 30, price: 50, description: 'Basic checkup' }
-  ];
-  selectedService: Service | null = null;
-  selectedDate: Date | null = new Date();
-  selectedTime: string | null = null;
-  availableSlots: TimeSlot[] = [
-    { time: '09:00 AM', available: true }
-  ];
+  constructor(private api: ApiService) {}
 
-  constructor() { }
-
- 
   ngOnInit(): void {
-    console.log('Booking component initialized');
-  }
- 
-  selectService(service: Service) {
-    this.selectedService = service;
+    this.api.getServices().subscribe(data => {
+      this.services = data;
+      if (data.length && !this.serviceName) this.serviceName = data[0].name;
+    });
+
+    this.api.getDoctors().subscribe(data => {
+      this.doctors = data;
+      if (data.length && !this.doctorName) this.doctorName = data[0].fullName;
+    });
   }
 
-  selectTime(slot: string) {
-    this.selectedTime = slot;
-  }
+  confirmBooking(): void {
+    const service = this.services.find(s => s.name === this.serviceName);
+    const payload: BookingRecord = {
+      customerName: this.customerName,
+      doctorName: this.doctorName,
+      serviceName: this.serviceName,
+      appointmentDate: this.appointmentDate || new Date().toISOString(),
+      time: this.time,
+      status: 'Pending',
+      price: service?.price ?? 0
+    };
 
-  confirmBooking() {
-    console.log('Confirmed');
+    this.api.createBooking(payload).subscribe(() => {
+      this.message = 'Appointment booked successfully.';
+      this.customerName = '';
+    });
   }
 }

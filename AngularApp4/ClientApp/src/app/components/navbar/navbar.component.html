@@ -1,70 +1,47 @@
 <div class="admin-sidebar" [class.collapsed]="!isExpanded">
-
-  <!-- Brand / Logo Section -->
   <div class="sidebar-header">
     <div class="logo-box">
       <mat-icon class="logo-icon">admin_panel_settings</mat-icon>
-      <span class="brand-text" *ngIf="isExpanded">ADMIN PANEL</span>
+      <span class="brand-text" *ngIf="isExpanded">{{ role === 'Admin' ? 'ADMIN PANEL' : 'PATIENT PORTAL' }}</span>
     </div>
-    <!--<button mat-icon-button (click)="toggle()" class="toggle-btn">
-      <mat-icon>{{ isExpanded ? 'chevron_left' : 'menu' }}</mat-icon>
-    </button>-->
   </div>
 
-  <!-- User Profile -->
   <div class="user-profile" *ngIf="isExpanded">
     <div class="avatar">AD</div>
     <div class="user-info">
-      <span class="user-name">System Admin</span>
-      <span class="user-role">Super User</span>
+      <span class="user-name">{{ role }}</span>
+      <span class="user-role">Signed In</span>
     </div>
   </div>
 
-  <!-- Navigation Links -->
   <nav class="sidebar-nav">
     <ul class="nav-list">
       <li class="nav-item">
-        <a [routerLink]="['/']" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
+        <a [routerLink]="[role === 'Admin' ? '/' : '/customer']" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
           <mat-icon>dashboard</mat-icon>
           <span class="link-text" *ngIf="isExpanded">Dashboard</span>
         </a>
       </li>
 
-      <li class="nav-label" *ngIf="isExpanded">MANAGEMENT</li>
+      <ng-container *ngIf="role === 'Admin'; else customerNav">
+        <li class="nav-label" *ngIf="isExpanded">MANAGEMENT</li>
+        <li class="nav-item"><a [routerLink]="['/services']" routerLinkActive="active-link"><mat-icon>settings_suggest</mat-icon><span class="link-text" *ngIf="isExpanded">Services</span></a></li>
+        <li class="nav-item"><a [routerLink]="['/my-appointments']" routerLinkActive="active-link"><mat-icon>format_list_bulleted</mat-icon><span class="link-text" *ngIf="isExpanded">Bookings</span></a></li>
+        <li class="nav-item"><a [routerLink]="['/users']" routerLinkActive="active-link"><mat-icon>people</mat-icon><span class="link-text" *ngIf="isExpanded">Users</span></a></li>
+        <li class="nav-item"><a [routerLink]="['/settings']" routerLinkActive="active-link"><mat-icon>alternate_email</mat-icon><span class="link-text" *ngIf="isExpanded">SMTP Config</span></a></li>
+      </ng-container>
 
-      <li class="nav-item">
-        <a [routerLink]="['/services']" routerLinkActive="active-link">
-          <mat-icon>settings_suggest</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">Services</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a [routerLink]="['/my-appointments']" routerLinkActive="active-link">
-          <mat-icon>format_list_bulleted</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">Bookings</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a [routerLink]="['/users']" routerLinkActive="active-link">
-          <mat-icon>people</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">Users</span>
-        </a>
-      </li>
-
-      <li class="nav-label" *ngIf="isExpanded">SYSTEM</li>
-
-      <li class="nav-item">
-        <a [routerLink]="['/settings']" routerLinkActive="active-link">
-          <mat-icon>alternate_email</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">SMTP Config</span>
-        </a>
-      </li>
+      <ng-template #customerNav>
+        <li class="nav-label" *ngIf="isExpanded">PATIENT</li>
+        <li class="nav-item"><a [routerLink]="['/doctors']" routerLinkActive="active-link"><mat-icon>medical_services</mat-icon><span class="link-text" *ngIf="isExpanded">Doctors</span></a></li>
+        <li class="nav-item"><a [routerLink]="['/book-appointment']" routerLinkActive="active-link"><mat-icon>event_available</mat-icon><span class="link-text" *ngIf="isExpanded">Book Appointment</span></a></li>
+        <li class="nav-item"><a [routerLink]="['/my-bookings']" routerLinkActive="active-link"><mat-icon>history</mat-icon><span class="link-text" *ngIf="isExpanded">My Appointments</span></a></li>
+      </ng-template>
     </ul>
   </nav>
 
-  <!-- Bottom Action -->
   <div class="sidebar-footer">
-    <a href="javascript:void(0)" class="logout-link">
+    <a [routerLink]="['/login']" class="logout-link">
       <mat-icon>logout</mat-icon>
       <span class="link-text" *ngIf="isExpanded">Logout</span>
     </a>

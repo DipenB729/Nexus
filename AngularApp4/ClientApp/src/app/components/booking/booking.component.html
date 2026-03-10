@@ -1,3 +1,37 @@
-<h2 style="color: red; padding: 20px; border: 5px solid red;">
-  IF YOU SEE THIS, THE BOOKING COMPONENT IS LOADING!
-</h2>
+<section class="booking-page">
+  <div class="booking-card">
+    <h1>Book Doctor Appointment</h1>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Patient Name</mat-label>
+      <input matInput [(ngModel)]="customerName" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Doctor</mat-label>
+      <mat-select [(ngModel)]="doctorName">
+        <mat-option *ngFor="let d of doctors" [value]="d.fullName">{{ d.fullName }} - {{ d.specialty }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Service</mat-label>
+      <mat-select [(ngModel)]="serviceName">
+        <mat-option *ngFor="let s of services" [value]="s.name">{{ s.name }} - ${{ s.price }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Appointment Date</mat-label>
+      <input matInput type="date" [(ngModel)]="appointmentDate" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Time</mat-label>
+      <input matInput [(ngModel)]="time" />
+    </mat-form-field>
+
+    <button mat-raised-button color="primary" (click)="confirmBooking()">Confirm Appointment</button>
+    <p class="ok">{{ message }}</p>
+  </div>
+</section>

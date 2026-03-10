@@ -1,0 +1,10 @@
+<section class="doctors-page">
+  <h1>Doctors</h1>
+  <div class="doctor-grid">
+    <article class="doctor-card" *ngFor="let d of doctors">
+      <h3>{{ d.fullName }}</h3>
+      <p>{{ d.specialty }}</p>
+      <small>{{ d.experience }} • {{ d.availableFrom }} - {{ d.availableTo }}</small>
+    </article>
+  </div>
+</section>

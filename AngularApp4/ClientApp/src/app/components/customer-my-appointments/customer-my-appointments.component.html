@@ -1,0 +1,8 @@
+<section class="my-bookings-page">
+  <h1>My Appointments</h1>
+  <div class="booking-card" *ngFor="let b of bookings">
+    <strong>{{ b.bookingCode }}</strong>
+    <div>{{ b.doctorName }} • {{ b.serviceName }}</div>
+    <small>{{ b.appointmentDate | date:'mediumDate' }} {{ b.time }} • {{ b.status }}</small>
+  </div>
+</section>
