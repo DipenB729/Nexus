@@ -1,0 +1,107 @@
+name: CI-CD
+
+on:
+  pull_request:
+    branches: ["*"]
+  push:
+    branches: ["main", "master", "work"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-publish:
+    name: Build, Test & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 6 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: AngularApp4/ClientApp/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: AngularApp4/ClientApp
+        run: npm ci
+
+      - name: Build frontend (production)
+        working-directory: AngularApp4/ClientApp
+        run: npm run build
+
+      - name: Restore backend dependencies
+        run: dotnet restore AngularApp4/AngularApp4.csproj
+
+      - name: Build backend
+        run: dotnet build AngularApp4/AngularApp4.csproj --configuration Release --no-restore
+
+      - name: Run backend tests (if present)
+        run: |
+          if find AngularApp4 -name "*.Tests.csproj" | grep -q "."; then
+            dotnet test AngularApp4/AngularApp4.sln --configuration Release --no-build
+          else
+            echo "No .NET test projects found; skipping dotnet test."
+          fi
+
+      - name: Publish app artifact
+        run: dotnet publish AngularApp4/AngularApp4.csproj --configuration Release --output ./publish
+
+      - name: Upload publish artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-publish
+          path: publish/
+
+  deploy:
+    name: Deploy
+    if: github.event_name == 'workflow_dispatch'
+    needs: build-test-publish
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.deploy_meta.outputs.app_url }}
+
+    steps:
+      - name: Download publish artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-publish
+          path: publish
+
+      - name: Set deployment metadata
+        id: deploy_meta
+        run: |
+          echo "app_url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Azure Web App
+        if: ${{ secrets.AZURE_WEBAPP_NAME != '' && secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: publish
+
+      - name: Deployment target not configured
+        if: ${{ secrets.AZURE_WEBAPP_NAME == '' || secrets.AZURE_WEBAPP_PUBLISH_PROFILE == '' }}
+        run: |
+          echo "No deployment target secrets configured."
+          echo "Create repository secrets AZURE_WEBAPP_NAME and AZURE_WEBAPP_PUBLISH_PROFILE to enable Azure deployment."

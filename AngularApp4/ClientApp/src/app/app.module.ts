@@ -35,6 +35,8 @@ import { HomeComponent } from './components/home/home.component';
 import { ServiceListComponent } from './components/service-list/service-list.component';
 import { MyBookingsComponent } from './components/my-bookings/my-bookings.component';
 import { AddServiceDialogComponent } from './components/form/add-service-dialog/add-service-dialog.component';
+import { UsersDashboardComponent } from './components/users-dashboard/users-dashboard.component';
+import { AdminSettingsComponent } from './components/admin-settings/admin-settings.component';
 
 @NgModule({
   declarations: [
@@ -44,7 +46,9 @@ import { AddServiceDialogComponent } from './components/form/add-service-dialog/
     HomeComponent,
     ServiceListComponent,
     MyBookingsComponent,
-    AddServiceDialogComponent
+    AddServiceDialogComponent,
+    UsersDashboardComponent,
+    AdminSettingsComponent
   ],
   imports: [
     BrowserModule,
@@ -57,6 +61,8 @@ import { AddServiceDialogComponent } from './components/form/add-service-dialog/
       { path: 'services', component: ServiceListComponent },
       { path: 'book', component: BookingComponent }, // Added back
       { path: 'my-appointments', component: MyBookingsComponent },
+      { path: 'users', component: UsersDashboardComponent },
+      { path: 'settings', component: AdminSettingsComponent },
       { path: '**', redirectTo: '' }
     ]),
     // Material Modules
