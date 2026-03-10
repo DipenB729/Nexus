@@ -1,0 +1,56 @@
+<section class="settings-page">
+  <h1>Admin Settings</h1>
+  <p class="subtitle">Configure SMTP and notification behavior for the admin panel.</p>
+
+  <div class="settings-grid">
+    <div class="card">
+      <h3>SMTP Configuration</h3>
+
+      <mat-form-field appearance="outline">
+        <mat-label>SMTP Host</mat-label>
+        <input matInput [(ngModel)]="form.smtpHost" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>SMTP Port</mat-label>
+        <input matInput type="number" [(ngModel)]="form.smtpPort" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Sender Email</mat-label>
+        <input matInput [(ngModel)]="form.senderEmail" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Sender Name</mat-label>
+        <input matInput [(ngModel)]="form.senderName" />
+      </mat-form-field>
+
+      <label class="toggle">
+        <input type="checkbox" [(ngModel)]="form.enableTls" />
+        <span>Enable TLS/STARTTLS</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <h3>Notification Rules</h3>
+
+      <label class="toggle">
+        <input type="checkbox" [(ngModel)]="form.bookingNotifications" />
+        <span>Send booking confirmation emails</span>
+      </label>
+
+      <label class="toggle">
+        <input type="checkbox" [(ngModel)]="form.reminderNotifications" />
+        <span>Send appointment reminder emails</span>
+      </label>
+
+      <button mat-raised-button color="primary" (click)="saveSettings()">
+        <mat-icon>save</mat-icon>
+        Save Settings
+      </button>
+
+      <p class="save-ok" *ngIf="saveMessage">{{ saveMessage }}</p>
+    </div>
+  </div>
+</section>

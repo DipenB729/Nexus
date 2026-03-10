@@ -1,36 +1,33 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatTableDataSource } from '@angular/material/table';
-
-interface Appointment {
-  id: string;
-  customerName: string;
-  serviceName: string;
-  appointmentDate: Date;
-  time: string;
-  status: 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';
-  price: number;
-}
+import { Subscription } from 'rxjs';
+import { Appointment } from '../../core/models/admin.model';
+import { AdminStateService } from '../../core/services/admin-state.service';
 
 @Component({
   selector: 'app-my-bookings',
   templateUrl: './my-bookings.component.html',
   styleUrls: ['./my-bookings.component.scss']
 })
-export class MyBookingsComponent implements OnInit {
+export class MyBookingsComponent implements OnInit, OnDestroy {
   displayedColumns: string[] = ['id', 'customer', 'service', 'date', 'status', 'actions'];
+  dataSource = new MatTableDataSource<Appointment>([]);
 
-  dataSource = new MatTableDataSource<Appointment>([
-    { id: 'BK-9921', customerName: 'John Doe', serviceName: 'Initial Consultation', appointmentDate: new Date('2026-01-10'), time: '09:00 AM', status: 'Confirmed', price: 75 },
-    { id: 'BK-9925', customerName: 'Sarah Smith', serviceName: 'Deep Tissue Massage', appointmentDate: new Date('2026-01-12'), time: '02:30 PM', status: 'Pending', price: 120 },
-    { id: 'BK-9930', customerName: 'Mike Ross', serviceName: 'Wellness Coaching', appointmentDate: new Date('2026-01-15'), time: '11:00 AM', status: 'Cancelled', price: 90 },
-    { id: 'BK-9935', customerName: 'Rachel Zane', serviceName: 'Express Checkup', appointmentDate: new Date('2025-12-28'), time: '04:00 PM', status: 'Completed', price: 30 }
-  ]);
+  private sub?: Subscription;
 
-  constructor() { }
+  constructor(private state: AdminStateService) {}
 
-  ngOnInit(): void { }
+  ngOnInit(): void {
+    this.sub = this.state.bookings$.subscribe(data => {
+      this.dataSource.data = data;
+    });
+  }
 
-  applyFilter(event: Event) {
+  ngOnDestroy(): void {
+    this.sub?.unsubscribe();
+  }
+
+  applyFilter(event: Event): void {
     const filterValue = (event.target as HTMLInputElement).value;
     this.dataSource.filter = filterValue.trim().toLowerCase();
   }
@@ -38,4 +35,14 @@ export class MyBookingsComponent implements OnInit {
   getStatusClass(status: string): string {
     return `status-badge ${status.toLowerCase()}`;
   }
+
+  getStatusText(status: string): string {
+    const normalized = status.toLowerCase();
+    if (normalized === 'confirmed') return 'Confirmed';
+    if (normalized === 'pending') return 'Pending Approval';
+    if (normalized === 'cancelled') return 'Cancelled';
+    if (normalized === 'completed') return 'Completed';
+    return status;
+  }
 }
+
