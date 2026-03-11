@@ -53,6 +53,14 @@
 
       <li class="nav-label" *ngIf="isExpanded">SYSTEM</li>
 
+
+      <li class="nav-item">
+        <a [routerLink]="['/user']" routerLinkActive="active-link">
+          <mat-icon>account_circle</mat-icon>
+          <span class="link-text" *ngIf="isExpanded">User Page</span>
+        </a>
+      </li>
+
       <li class="nav-item">
         <a [routerLink]="['/settings']" routerLinkActive="active-link">
           <mat-icon>alternate_email</mat-icon>

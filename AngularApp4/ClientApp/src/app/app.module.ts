@@ -37,6 +37,7 @@ import { MyBookingsComponent } from './components/my-bookings/my-bookings.compon
 import { AddServiceDialogComponent } from './components/form/add-service-dialog/add-service-dialog.component';
 import { UsersDashboardComponent } from './components/users-dashboard/users-dashboard.component';
 import { AdminSettingsComponent } from './components/admin-settings/admin-settings.component';
+import { UserPageComponent } from './components/user-page/user-page.component';
 
 @NgModule({
   declarations: [
@@ -48,7 +49,8 @@ import { AdminSettingsComponent } from './components/admin-settings/admin-settin
     MyBookingsComponent,
     AddServiceDialogComponent,
     UsersDashboardComponent,
-    AdminSettingsComponent
+    AdminSettingsComponent,
+    UserPageComponent
   ],
   imports: [
     BrowserModule,
@@ -62,6 +64,7 @@ import { AdminSettingsComponent } from './components/admin-settings/admin-settin
       { path: 'book', component: BookingComponent }, // Added back
       { path: 'my-appointments', component: MyBookingsComponent },
       { path: 'users', component: UsersDashboardComponent },
+      { path: 'user', component: UserPageComponent },
       { path: 'settings', component: AdminSettingsComponent },
       { path: '**', redirectTo: '' }
     ]),

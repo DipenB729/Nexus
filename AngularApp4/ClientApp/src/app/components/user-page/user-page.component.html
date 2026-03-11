@@ -1,0 +1,88 @@
+<section class="user-dashboard" *ngIf="user as profile">
+  <header class="hero">
+    <div class="hero-left">
+      <span class="avatar">{{ profile.name.charAt(0) }}</span>
+      <div>
+        <p class="eyebrow">Welcome back</p>
+        <h1>{{ profile.name }}</h1>
+        <p class="meta">{{ profile.email }} · {{ profile.role }} Account</p>
+      </div>
+    </div>
+
+    <div class="hero-actions">
+      <button mat-stroked-button color="primary">
+        <mat-icon>event</mat-icon>
+        Book Appointment
+      </button>
+      <button mat-raised-button color="primary">
+        <mat-icon>edit</mat-icon>
+        Edit Profile
+      </button>
+    </div>
+  </header>
+
+  <div class="stats-grid">
+    <article class="stat-card highlight">
+      <p>Loyalty Tier</p>
+      <strong>{{ loyaltyTier }}</strong>
+      <small>Based on completed bookings</small>
+    </article>
+    <article class="stat-card">
+      <p>Upcoming Appointments</p>
+      <strong>{{ upcomingAppointments.length }}</strong>
+      <small>Scheduled in your calendar</small>
+    </article>
+    <article class="stat-card">
+      <p>Total Spent</p>
+      <strong>{{ totalSpent | currency: 'USD' }}</strong>
+      <small>Completed sessions only</small>
+    </article>
+    <article class="stat-card">
+      <p>Account Status</p>
+      <strong>{{ profile.status }}</strong>
+      <small>Last login: {{ profile.lastLogin }}</small>
+    </article>
+  </div>
+
+  <div class="content-grid">
+    <article class="panel upcoming-panel">
+      <h2>Upcoming Schedule</h2>
+      <div class="upcoming-list" *ngIf="upcomingAppointments.length; else noUpcoming">
+        <div class="upcoming-item" *ngFor="let appointment of upcomingAppointments">
+          <div>
+            <h3>{{ appointment.serviceName }}</h3>
+            <p>{{ appointment.appointmentDate | date: 'EEEE, MMM d' }} at {{ appointment.time }}</p>
+          </div>
+          <span class="status" [class]="appointment.status.toLowerCase()">{{ appointment.status }}</span>
+        </div>
+      </div>
+      <ng-template #noUpcoming>
+        <p class="empty">No upcoming appointments right now.</p>
+      </ng-template>
+    </article>
+
+    <article class="panel history-panel">
+      <h2>Recent Activity</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let appointment of recentAppointments">
+              <td>{{ appointment.serviceName }}</td>
+              <td>{{ appointment.appointmentDate | date: 'mediumDate' }}</td>
+              <td><span class="status" [class]="appointment.status.toLowerCase()">{{ appointment.status }}</span></td>
+              <td>{{ appointment.price | currency: 'USD' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </div>
+</section>
