@@ -1,0 +1,24 @@
+<section class="auth-page">
+  <div class="auth-card">
+    <h1>Sign In</h1>
+    <p>Login as admin or user.</p>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput [(ngModel)]="email" type="email" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input matInput [(ngModel)]="password" type="password" />
+    </mat-form-field>
+
+    <p class="error" *ngIf="error">{{ error }}</p>
+
+    <button mat-raised-button color="primary" (click)="submit()" [disabled]="loading">
+      {{ loading ? 'Signing in...' : 'Sign In' }}
+    </button>
+
+    <a routerLink="/register">Create account</a>
+  </div>
+</section>

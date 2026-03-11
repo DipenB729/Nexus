@@ -7,6 +7,12 @@
   background-color: #f4f7f9;
 }
 
+.user-dashboard-shell {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+}
+
 /* --- 2. SIDEBAR (Managed by app-navbar component) --- */
 .sidebar-nav {
   width: 260px;
@@ -18,9 +24,9 @@
   z-index: 100;
 }
 
-  .sidebar-nav.collapsed {
-    width: 70px;
-  }
+.sidebar-nav.collapsed {
+  width: 70px;
+}
 
 /* --- 3. MAIN CONTENT AREA --- */
 .main-content {
@@ -32,7 +38,7 @@
   transition: all 0.3s ease;
 }
 
-/* --- 4. TOP NAVBAR (Corrected for Profile alignment) --- */
+/* --- 4. TOP NAVBAR --- */
 .top-navbar {
   height: 70px;
   background: white;
@@ -52,12 +58,12 @@
   gap: 15px;
 }
 
-  .header-left .page-title {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
+.header-left .page-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+}
 
 .header-right {
   display: flex;
@@ -71,7 +77,6 @@
   background: #e2e8f0;
 }
 
-/* --- 5. PROFILE SECTION (FIXED) --- */
 .profile-section {
   display: flex;
   align-items: center;
@@ -83,9 +88,9 @@
   transition: background 0.2s;
 }
 
-  .profile-section:hover {
-    background: #f8fafc;
-  }
+.profile-section:hover {
+  background: #f8fafc;
+}
 
 .user-info {
   display: flex;
@@ -121,11 +126,11 @@
   flex-shrink: 0;
 }
 
-  .avatar-wrapper img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+.avatar-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .expand-icon {
   color: #64748b;
@@ -134,7 +139,6 @@
   height: 20px;
 }
 
-/* --- 6. PAGE BODY --- */
 .page-body {
   flex: 1;
   overflow-y: auto;
@@ -142,7 +146,6 @@
   box-sizing: border-box;
 }
 
-/* --- 7. RESPONSIVENESS --- */
 @media (max-width: 768px) {
   .sidebar-nav {
     position: absolute;
@@ -150,11 +153,15 @@
     z-index: 1000;
   }
 
-    .sidebar-nav.collapsed {
-      left: -70px;
-    }
+  .sidebar-nav.collapsed {
+    left: -70px;
+  }
 
   .header-left .page-title {
     font-size: 1rem;
   }
+}
+
+.auth-shell {
+  background: #f1f5f9;
 }

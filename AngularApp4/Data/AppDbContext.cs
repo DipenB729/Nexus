@@ -11,6 +11,16 @@ namespace AngularApp4.Data
 
             // This line tells EF Core to create an 'Employees' table based on your Employee model
             public DbSet<Employee> Employees { get; set; }
+            public DbSet<AuthUser> AuthUsers { get; set; }
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                base.OnModelCreating(modelBuilder);
+
+                modelBuilder.Entity<AuthUser>()
+                    .HasIndex(u => u.Email)
+                    .IsUnique();
+            }
         }
  
 }
