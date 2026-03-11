@@ -1,0 +1,37 @@
+<section class="auth-page">
+  <div class="auth-card">
+    <h1>Create Account</h1>
+    <p>Register a new admin or user account.</p>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Full name</mat-label>
+      <input matInput [(ngModel)]="fullName" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput [(ngModel)]="email" type="email" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input matInput [(ngModel)]="password" type="password" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Role</mat-label>
+      <mat-select [(ngModel)]="role">
+        <mat-option value="User">User</mat-option>
+        <mat-option value="Admin">Admin</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <p class="error" *ngIf="error">{{ error }}</p>
+
+    <button mat-raised-button color="primary" (click)="submit()" [disabled]="loading">
+      {{ loading ? 'Creating...' : 'Register' }}
+    </button>
+
+    <a routerLink="/login">Already have an account? Login</a>
+  </div>
+</section>

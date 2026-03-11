@@ -4,6 +4,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http';
 
 // Material Imports
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -37,6 +38,9 @@ import { MyBookingsComponent } from './components/my-bookings/my-bookings.compon
 import { AddServiceDialogComponent } from './components/form/add-service-dialog/add-service-dialog.component';
 import { UsersDashboardComponent } from './components/users-dashboard/users-dashboard.component';
 import { AdminSettingsComponent } from './components/admin-settings/admin-settings.component';
+import { UserPageComponent } from './components/user-page/user-page.component';
+import { LoginComponent } from './components/auth/login/login.component';
+import { RegisterComponent } from './components/auth/register/register.component';
 
 @NgModule({
   declarations: [
@@ -48,20 +52,27 @@ import { AdminSettingsComponent } from './components/admin-settings/admin-settin
     MyBookingsComponent,
     AddServiceDialogComponent,
     UsersDashboardComponent,
-    AdminSettingsComponent
+    AdminSettingsComponent,
+    UserPageComponent,
+    LoginComponent,
+    RegisterComponent
   ],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,
     CommonModule,
+    HttpClientModule,
     FormsModule,
     ReactiveFormsModule,
     RouterModule.forRoot([
+      { path: 'login', component: LoginComponent },
+      { path: 'register', component: RegisterComponent },
       { path: '', component: HomeComponent },
       { path: 'services', component: ServiceListComponent },
       { path: 'book', component: BookingComponent }, // Added back
       { path: 'my-appointments', component: MyBookingsComponent },
       { path: 'users', component: UsersDashboardComponent },
+      { path: 'user', component: UserPageComponent },
       { path: 'settings', component: AdminSettingsComponent },
       { path: '**', redirectTo: '' }
     ]),

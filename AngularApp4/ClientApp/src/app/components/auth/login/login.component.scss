@@ -1,0 +1,7 @@
+.auth-page { min-height: 100vh; display: grid; place-items: center; background: #f1f5f9; }
+.auth-card { width: min(420px, 92vw); background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 1.25rem; display: flex; flex-direction: column; gap: .75rem; }
+mat-form-field { width: 100%; }
+h1 { margin: 0; }
+p { margin: 0; color: #64748b; }
+a { color: #2563eb; text-decoration: none; }
+.error { color: #b91c1c; }
