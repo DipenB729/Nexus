@@ -1,4 +1,3 @@
-using AngularApp4.Model;
 using System.ComponentModel.DataAnnotations;
 
 namespace AngularApp4.Contracts.Auth
@@ -15,6 +14,7 @@ namespace AngularApp4.Contracts.Auth
         public string Password { get; set; } = string.Empty;
 
         [Required]
-        public AccountRole Role { get; set; } = AccountRole.User;
+        [RegularExpression("^(Admin|User)$", ErrorMessage = "Role must be Admin or User")]
+        public string Role { get; set; } = "User";
     }
 }

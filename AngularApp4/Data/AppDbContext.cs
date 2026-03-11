@@ -1,26 +1,13 @@
 ﻿using AngularApp4.Model;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 
 namespace AngularApp4.Data
 {
-    
-        public class AppDbContext : DbContext
-        {
-            public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    public class AppDbContext : IdentityDbContext<ApplicationUser>
+    {
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-            // This line tells EF Core to create an 'Employees' table based on your Employee model
-            public DbSet<Employee> Employees { get; set; }
-            public DbSet<AuthUser> AuthUsers { get; set; }
-
-            protected override void OnModelCreating(ModelBuilder modelBuilder)
-            {
-                base.OnModelCreating(modelBuilder);
-
-                modelBuilder.Entity<AuthUser>()
-                    .HasIndex(u => u.Email)
-                    .IsUnique();
-            }
-        }
- 
+        public DbSet<Employee> Employees { get; set; }
+    }
 }

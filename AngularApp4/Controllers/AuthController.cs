@@ -1,9 +1,7 @@
 using AngularApp4.Contracts.Auth;
-using AngularApp4.Data;
 using AngularApp4.Model;
-using AngularApp4.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AngularApp4.Controllers
 {
@@ -11,57 +9,75 @@ namespace AngularApp4.Controllers
     [Route("api/auth")]
     public class AuthController : ControllerBase
     {
-        private readonly AppDbContext _db;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public AuthController(AppDbContext db)
+        public AuthController(UserManager<ApplicationUser> userManager)
         {
-            _db = db;
+            _userManager = userManager;
         }
 
         [HttpPost("register")]
         public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request)
         {
             var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-            var exists = await _db.AuthUsers.AnyAsync(u => u.Email == normalizedEmail);
-            if (exists)
+            var existingUser = await _userManager.FindByEmailAsync(normalizedEmail);
+            if (existingUser is not null)
             {
                 return Conflict("Email is already registered.");
             }
 
-            var user = new AuthUser
+            var user = new ApplicationUser
             {
-                FullName = request.FullName.Trim(),
+                UserName = normalizedEmail,
                 Email = normalizedEmail,
-                PasswordHash = PasswordHasher.Hash(request.Password),
-                Role = request.Role,
-                CreatedAtUtc = DateTime.UtcNow
+                FullName = request.FullName.Trim(),
+                EmailConfirmed = true
             };
 
-            _db.AuthUsers.Add(user);
-            await _db.SaveChangesAsync();
+            var createResult = await _userManager.CreateAsync(user, request.Password);
+            if (!createResult.Succeeded)
+            {
+                return BadRequest(createResult.Errors.Select(e => e.Description));
+            }
 
-            return Ok(ToAuthResponse(user));
+            var role = request.Role.Trim();
+            var roleResult = await _userManager.AddToRoleAsync(user, role);
+            if (!roleResult.Succeeded)
+            {
+                return BadRequest(roleResult.Errors.Select(e => e.Description));
+            }
+
+            return Ok(ToAuthResponse(user, role));
         }
 
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
         {
             var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-            var user = await _db.AuthUsers.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
-            if (user is null || !PasswordHasher.Verify(request.Password, user.PasswordHash))
+            var user = await _userManager.FindByEmailAsync(normalizedEmail);
+            if (user is null)
             {
                 return Unauthorized("Invalid credentials.");
             }
 
-            return Ok(ToAuthResponse(user));
+            var isValid = await _userManager.CheckPasswordAsync(user, request.Password);
+            if (!isValid)
+            {
+                return Unauthorized("Invalid credentials.");
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? "User";
+
+            return Ok(ToAuthResponse(user, role));
         }
 
-        private static AuthResponse ToAuthResponse(AuthUser user) => new()
+        private static AuthResponse ToAuthResponse(ApplicationUser user, string role) => new()
         {
             Id = user.Id,
             FullName = user.FullName,
-            Email = user.Email,
-            Role = user.Role
+            Email = user.Email ?? string.Empty,
+            Role = role
         };
     }
 }
