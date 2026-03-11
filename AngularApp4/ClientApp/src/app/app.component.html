@@ -1,65 +1,73 @@
-<div class="dashboard-wrapper">
-  <!-- Sidebar (app-navbar acting as Sidebar) -->
-  <app-navbar [isExpanded]="isSidebarExpanded"
-              (toggleEvent)="toggleSidebar()"
-              class="sidebar-nav"
-              [class.collapsed]="!isSidebarExpanded">
-  </app-navbar>
+<ng-container *ngIf="!isUserDashboardRoute; else userDashboardLayout">
+  <div class="dashboard-wrapper">
+    <!-- Sidebar (app-navbar acting as Sidebar) -->
+    <app-navbar [isExpanded]="isSidebarExpanded"
+                (toggleEvent)="toggleSidebar()"
+                class="sidebar-nav"
+                [class.collapsed]="!isSidebarExpanded">
+    </app-navbar>
 
-  <!-- Content Area -->
-  <main class="main-content">
+    <!-- Content Area -->
+    <main class="main-content">
 
-    <!-- STICKY TOP NAVBAR -->
-    <header class="top-navbar">
-      <div class="header-left">
-        <button mat-icon-button (click)="toggleSidebar()" class="menu-toggle">
-          <mat-icon>{{ isSidebarExpanded ? 'menu_open' : 'menu' }}</mat-icon>
-        </button>
-        <h2 class="page-title">Dashboard Overview</h2>
-      </div>
-
-      <div class="header-right">
-        <!-- Notification Icon -->
-        <button mat-icon-button class="nav-icon-btn">
-          <mat-icon matBadge="3" matBadgeColor="warn">notifications</mat-icon>
-        </button>
-
-        <div class="vertical-divider"></div>
-
-        <!-- Profile Section -->
-        <div class="profile-section" [matMenuTriggerFor]="profileMenu">
-          <div class="user-info d-none d-md-flex">
-            <span class="user-name">System Admin</span>
-            <span class="user-status">Online</span>
-          </div>
-          <div class="avatar-wrapper">
-            <img src="https://ui-avatars.com/api/?name=Admin&background=38bdf8&color=fff" alt="Admin">
-          </div>
-          <mat-icon class="expand-icon">expand_more</mat-icon>
+      <!-- STICKY TOP NAVBAR -->
+      <header class="top-navbar">
+        <div class="header-left">
+          <button mat-icon-button (click)="toggleSidebar()" class="menu-toggle">
+            <mat-icon>{{ isSidebarExpanded ? 'menu_open' : 'menu' }}</mat-icon>
+          </button>
+          <h2 class="page-title">Dashboard Overview</h2>
         </div>
 
-        <!-- Dropdown Menu -->
-        <mat-menu #profileMenu="matMenu">
-          <button mat-menu-item>
-            <mat-icon>person</mat-icon>
-            <span>My Profile</span>
+        <div class="header-right">
+          <!-- Notification Icon -->
+          <button mat-icon-button class="nav-icon-btn">
+            <mat-icon matBadge="3" matBadgeColor="warn">notifications</mat-icon>
           </button>
-          <button mat-menu-item>
-            <mat-icon>settings</mat-icon>
-            <span>Settings</span>
-          </button>
-          <mat-divider></mat-divider>
-          <button mat-menu-item color="warn">
-            <mat-icon>logout</mat-icon>
-            <span>Logout</span>
-          </button>
-        </mat-menu>
-      </div>
-    </header>
 
-    <!-- Page Content Area -->
-    <div class="page-body">
-      <router-outlet></router-outlet>
-    </div>
+          <div class="vertical-divider"></div>
+
+          <!-- Profile Section -->
+          <div class="profile-section" [matMenuTriggerFor]="profileMenu">
+            <div class="user-info d-none d-md-flex">
+              <span class="user-name">System Admin</span>
+              <span class="user-status">Online</span>
+            </div>
+            <div class="avatar-wrapper">
+              <img src="https://ui-avatars.com/api/?name=Admin&background=38bdf8&color=fff" alt="Admin">
+            </div>
+            <mat-icon class="expand-icon">expand_more</mat-icon>
+          </div>
+
+          <!-- Dropdown Menu -->
+          <mat-menu #profileMenu="matMenu">
+            <button mat-menu-item [routerLink]="['/user']">
+              <mat-icon>person</mat-icon>
+              <span>My Profile</span>
+            </button>
+            <button mat-menu-item>
+              <mat-icon>settings</mat-icon>
+              <span>Settings</span>
+            </button>
+            <mat-divider></mat-divider>
+            <button mat-menu-item color="warn">
+              <mat-icon>logout</mat-icon>
+              <span>Logout</span>
+            </button>
+          </mat-menu>
+        </div>
+      </header>
+
+      <!-- Page Content Area -->
+      <div class="page-body">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+  </div>
+</ng-container>
+
+<ng-template #userDashboardLayout>
+  <main class="user-dashboard-shell">
+    <router-outlet></router-outlet>
   </main>
-</div>
+</ng-template>
