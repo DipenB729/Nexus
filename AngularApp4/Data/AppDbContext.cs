@@ -1,16 +1,57 @@
-﻿using AngularApp4.Model;
+using AngularApp4.Model;
+using AngularApp4.Model.Hms;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 
-namespace AngularApp4.Data
+namespace AngularApp4.Data;
+
+public class AppDbContext : DbContext
 {
-    
-        public class AppDbContext : DbContext
-        {
-            public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    {
+    }
 
-            // This line tells EF Core to create an 'Employees' table based on your Employee model
-            public DbSet<Employee> Employees { get; set; }
-        }
- 
+    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Patient> Patients => Set<Patient>();
+    public DbSet<Doctor> Doctors => Set<Doctor>();
+    public DbSet<DoctorSchedule> DoctorSchedules => Set<DoctorSchedule>();
+    public DbSet<Staff> Staff => Set<Staff>();
+    public DbSet<HospitalService> HospitalServices => Set<HospitalService>();
+    public DbSet<Appointment> Appointments => Set<Appointment>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<Role>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<User>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<Doctor>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<Staff>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<HospitalService>().HasIndex(x => x.ServiceName).IsUnique();
+
+        modelBuilder.Entity<User>()
+            .HasOne(x => x.Role)
+            .WithMany()
+            .HasForeignKey(x => x.RoleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DoctorSchedule>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Patient>().HasIndex(x => x.UserId).IsUnique();
+
+        modelBuilder.Entity<Appointment>()
+            .Property(x => x.Status)
+            .HasConversion<string>();
+
+        var seedCreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        modelBuilder.Entity<Role>().HasData(
+            new Role { RoleId = 1, Name = "Admin", IsActive = true, CreatedAt = seedCreatedAt },
+            new Role { RoleId = 2, Name = "User", IsActive = true, CreatedAt = seedCreatedAt }
+        );
+    }
 }
