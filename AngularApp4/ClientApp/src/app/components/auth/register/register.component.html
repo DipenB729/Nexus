@@ -1,0 +1,31 @@
+<div class="auth-card">
+  <h2>Register</h2>
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Full name</mat-label>
+      <input matInput formControlName="fullName" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput formControlName="email" type="email" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Password</mat-label>
+      <input matInput formControlName="password" type="password" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Role</mat-label>
+      <mat-select formControlName="role">
+        <mat-option value="User">User</mat-option>
+        <mat-option value="Admin">Admin</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <button mat-raised-button color="primary" type="submit">Create account</button>
+  </form>
+</div>
