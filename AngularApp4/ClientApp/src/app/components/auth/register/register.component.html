@@ -1,31 +1,47 @@
-<div class="auth-card">
-  <h2>Register</h2>
-  <form [formGroup]="form" (ngSubmit)="submit()">
-    <mat-form-field appearance="outline">
-      <mat-label>Full name</mat-label>
-      <input matInput formControlName="fullName" />
-    </mat-form-field>
+<section class="auth-page">
+  <div class="auth-card">
+    <p class="eyebrow">Get started</p>
+    <h2>Create your account</h2>
+    <p class="subtitle">Register to manage services and appointments in the Nexus portal.</p>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Email</mat-label>
-      <input matInput formControlName="email" type="email" />
-    </mat-form-field>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <mat-form-field appearance="outline">
+        <mat-label>Full name</mat-label>
+        <input matInput formControlName="fullName" autocomplete="name" />
+        <mat-error *ngIf="form.controls.fullName.hasError('required')">Full name is required.</mat-error>
+        <mat-error *ngIf="form.controls.fullName.hasError('minlength')">Full name must be at least 2 characters.</mat-error>
+      </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Password</mat-label>
-      <input matInput formControlName="password" type="password" />
-    </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Email</mat-label>
+        <input matInput formControlName="email" type="email" autocomplete="email" />
+        <mat-error *ngIf="form.controls.email.hasError('required')">Email is required.</mat-error>
+        <mat-error *ngIf="form.controls.email.hasError('email')">Enter a valid email address.</mat-error>
+      </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Role</mat-label>
-      <mat-select formControlName="role">
-        <mat-option value="User">User</mat-option>
-        <mat-option value="Admin">Admin</mat-option>
-      </mat-select>
-    </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input matInput formControlName="password" type="password" autocomplete="new-password" />
+        <mat-error *ngIf="form.controls.password.hasError('required')">Password is required.</mat-error>
+        <mat-error *ngIf="form.controls.password.hasError('minlength')">Password must be at least 8 characters.</mat-error>
+        <mat-error *ngIf="form.controls.password.hasError('pattern')">Use at least one letter and one number.</mat-error>
+      </mat-form-field>
 
-    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+      <mat-form-field appearance="outline">
+        <mat-label>Confirm password</mat-label>
+        <input matInput formControlName="confirmPassword" type="password" autocomplete="new-password" />
+        <mat-error *ngIf="form.controls.confirmPassword.hasError('required')">Please confirm your password.</mat-error>
+      </mat-form-field>
 
-    <button mat-raised-button color="primary" type="submit">Create account</button>
-  </form>
-</div>
+      <p class="error" *ngIf="form.hasError('passwordMismatch') && form.touched">Passwords do not match.</p>
+      <p class="role-note">New registrations are created as <strong>User</strong> accounts.</p>
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <button mat-raised-button color="primary" type="submit" [disabled]="isSubmitting">
+        {{ isSubmitting ? 'Creating account...' : 'Create account' }}
+      </button>
+
+      <p class="switch-link">Already have an account? <a routerLink="/auth/login">Sign in</a></p>
+    </form>
+  </div>
+</section>

@@ -1,19 +1,31 @@
-<div class="auth-card">
-  <h2>Login</h2>
-  <form [formGroup]="form" (ngSubmit)="submit()">
-    <mat-form-field appearance="outline">
-      <mat-label>Email</mat-label>
-      <input matInput formControlName="email" type="email" />
-    </mat-form-field>
+<section class="auth-page">
+  <div class="auth-card">
+    <p class="eyebrow">Welcome back</p>
+    <h2>Sign in to your account</h2>
+    <p class="subtitle">Access bookings, services, and your dashboard securely.</p>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Password</mat-label>
-      <input matInput formControlName="password" type="password" />
-    </mat-form-field>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <mat-form-field appearance="outline">
+        <mat-label>Email</mat-label>
+        <input matInput formControlName="email" type="email" autocomplete="email" />
+        <mat-error *ngIf="form.controls.email.hasError('required')">Email is required.</mat-error>
+        <mat-error *ngIf="form.controls.email.hasError('email')">Enter a valid email address.</mat-error>
+      </mat-form-field>
 
-    <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input matInput formControlName="password" type="password" autocomplete="current-password" />
+        <mat-error *ngIf="form.controls.password.hasError('required')">Password is required.</mat-error>
+        <mat-error *ngIf="form.controls.password.hasError('minlength')">Password must be at least 6 characters.</mat-error>
+      </mat-form-field>
 
-    <button mat-raised-button color="primary" type="submit">Sign in</button>
-    <a routerLink="/auth/register">Create account</a>
-  </form>
-</div>
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <button mat-raised-button color="primary" type="submit" [disabled]="isSubmitting">
+        {{ isSubmitting ? 'Signing in...' : 'Sign in' }}
+      </button>
+
+      <p class="switch-link">Don't have an account? <a routerLink="/auth/register">Create account</a></p>
+    </form>
+  </div>
+</section>
