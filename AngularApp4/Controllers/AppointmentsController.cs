@@ -24,7 +24,11 @@ public class AppointmentsController : ControllerBase
     [Authorize(Policy = "UserOnly")]
     public async Task<ActionResult<ApiResponse<Appointment>>> Create(AppointmentCreateDto dto)
     {
-        var userId = GetUserId();
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<Appointment>.Fail("User identity is invalid"));
+        }
+
         var patient = await _db.Patients.FirstOrDefaultAsync(x => x.UserId == userId);
         if (patient is null) return BadRequest(ApiResponse<Appointment>.Fail("Patient profile not found"));
 
@@ -63,7 +67,11 @@ public class AppointmentsController : ControllerBase
     [Authorize(Policy = "UserOnly")]
     public async Task<ActionResult<ApiResponse<IEnumerable<Appointment>>>> My([FromQuery] AppointmentStatus? status = null)
     {
-        var userId = GetUserId();
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized(ApiResponse<IEnumerable<Appointment>>.Fail("User identity is invalid"));
+        }
+
         var patient = await _db.Patients.FirstOrDefaultAsync(x => x.UserId == userId);
         if (patient is null) return Ok(ApiResponse<IEnumerable<Appointment>>.Ok(Array.Empty<Appointment>()));
 
@@ -76,14 +84,23 @@ public class AppointmentsController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = "AdminOnly")]
-    public async Task<ActionResult<ApiResponse<PagedResult<Appointment>>>> All([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] AppointmentStatus? status = null)
+    public async Task<ActionResult<ApiResponse<PagedResult<Appointment>>>> All(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] AppointmentStatus? status = null)
     {
         var query = _db.Appointments.AsQueryable();
         if (status.HasValue) query = query.Where(x => x.Status == status.Value);
 
         var total = await query.CountAsync();
         var items = await query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return Ok(ApiResponse<PagedResult<Appointment>>.Ok(new PagedResult<Appointment> { Items = items, Page = page, PageSize = pageSize, TotalCount = total }));
+        return Ok(ApiResponse<PagedResult<Appointment>>.Ok(new PagedResult<Appointment>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = total
+        }));
     }
 
     [HttpPut("{appointmentId:long}/status")]
@@ -101,5 +118,9 @@ public class AppointmentsController : ControllerBase
         return Ok(ApiResponse<Appointment>.Ok(item, "Appointment status updated"));
     }
 
-    private long GetUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!);
+    private bool TryGetUserId(out long userId)
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return long.TryParse(userIdClaim, out userId);
+    }
 }

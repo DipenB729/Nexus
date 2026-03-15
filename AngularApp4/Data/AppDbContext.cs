@@ -6,6 +6,8 @@ namespace AngularApp4.Data;
 
 public class AppDbContext : DbContext
 {
+    private static readonly DateTime SeedCreatedAtUtc = new(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -49,8 +51,8 @@ public class AppDbContext : DbContext
             .HasConversion<string>();
 
         modelBuilder.Entity<Role>().HasData(
-            new Role { RoleId = 1, Name = "Admin", IsActive = true, CreatedAt = DateTime.UtcNow },
-            new Role { RoleId = 2, Name = "User", IsActive = true, CreatedAt = DateTime.UtcNow }
+            new Role { RoleId = 1, Name = "Admin", IsActive = true, CreatedAt = SeedCreatedAtUtc },
+            new Role { RoleId = 2, Name = "User", IsActive = true, CreatedAt = SeedCreatedAtUtc }
         );
     }
 }
