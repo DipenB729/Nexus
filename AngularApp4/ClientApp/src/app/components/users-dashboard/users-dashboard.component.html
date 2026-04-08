@@ -1,87 +1,135 @@
-<section class="users-page">
+<section class="roles-page" *ngIf="!isLoading; else loadingState">
   <div class="page-header">
     <div>
-      <h1>User Dashboard</h1>
-      <p>Manage administrators, managers, and staff access from one place.</p>
+      <span class="eyebrow">Security control</span>
+      <h1>Role and permission management</h1>
+      <p>Create roles, assign module access, and control view/add/edit/delete permissions from one workspace.</p>
     </div>
   </div>
 
-  <div class="quick-add">
-    <mat-form-field appearance="outline">
-      <mat-label>Name</mat-label>
-      <input matInput [(ngModel)]="draftName" />
-    </mat-form-field>
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success-box" *ngIf="statusMessage">{{ statusMessage }}</p>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Email</mat-label>
-      <input matInput [(ngModel)]="draftEmail" />
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Role</mat-label>
-      <mat-select [(ngModel)]="draftRole">
-        <mat-option *ngFor="let role of roleOptions" [value]="role">{{ role }}</mat-option>
-      </mat-select>
-    </mat-form-field>
-
-    <button mat-raised-button color="primary" (click)="addUser()">
-      <mat-icon>person_add</mat-icon>
-      Add User
-    </button>
-  </div>
-
-  <div class="overview-cards">
-    <article class="card">
-      <h3>Total Users</h3>
-      <strong>{{ users.length }}</strong>
+  <div class="summary-grid">
+    <article class="summary-card">
+      <span>Total roles</span>
+      <strong>{{ roles.length }}</strong>
     </article>
-    <article class="card">
-      <h3>Active</h3>
-      <strong>{{ activeCount }}</strong>
+    <article class="summary-card">
+      <span>Active roles</span>
+      <strong>{{ activeRoles }}</strong>
     </article>
-    <article class="card">
-      <h3>Pending Invites</h3>
-      <strong>{{ invitedCount }}</strong>
+    <article class="summary-card">
+      <span>System roles</span>
+      <strong>{{ systemRoles }}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Custom roles</span>
+      <strong>{{ customRoles }}</strong>
     </article>
   </div>
 
-  <div class="table-wrapper">
-    <mat-form-field appearance="outline" class="search-box">
-      <mat-label>Search users</mat-label>
-      <input matInput [(ngModel)]="search" placeholder="Name, role, status..." />
-      <mat-icon matSuffix>search</mat-icon>
-    </mat-form-field>
+  <div class="layout-grid">
+    <aside class="sidebar-panel">
+      <div class="create-card">
+        <h2>Create role</h2>
 
-    <table>
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th>Last Login</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of filteredUsers">
-          <td>
-            <div class="user-cell">
-              <span class="avatar">{{ user.name.charAt(0) }}</span>
-              <div>
-                <strong>{{ user.name }}</strong>
-                <small>{{ user.email }}</small>
-              </div>
-            </div>
-          </td>
-          <td>{{ user.role }}</td>
-          <td><span class="status" [ngClass]="statusClass(user.status)">{{ user.status }}</span></td>
-          <td>{{ user.lastLogin }}</td>
-          <td>
-            <button mat-icon-button><mat-icon>edit</mat-icon></button>
-            <button mat-icon-button><mat-icon>vpn_key</mat-icon></button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+        <mat-form-field appearance="outline">
+          <mat-label>Role name</mat-label>
+          <input matInput [(ngModel)]="draftRoleName" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Description</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="draftRoleDescription"></textarea>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" (click)="createRole()" [disabled]="isSaving">
+          <mat-icon>add</mat-icon>
+          Create Role
+        </button>
+      </div>
+
+      <div class="roles-list">
+        <button
+          type="button"
+          class="role-card"
+          *ngFor="let role of roles"
+          [class.active]="editingRole?.roleId === role.roleId"
+          (click)="selectRole(role.roleId)">
+          <div>
+            <strong>{{ role.name }}</strong>
+            <small>{{ role.description || 'No description' }}</small>
+          </div>
+          <span class="role-pill" [class.system]="role.isSystemRole">{{ role.isSystemRole ? 'System' : 'Custom' }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <section class="editor-panel" *ngIf="editingRole as role">
+      <div class="editor-head">
+        <div>
+          <span class="eyebrow">Access profile</span>
+          <h2>{{ role.name }}</h2>
+        </div>
+
+        <label class="toggle-row">
+          <input type="checkbox" [(ngModel)]="role.isActive" />
+          <span>Role active</span>
+        </label>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Role name</mat-label>
+          <input matInput [(ngModel)]="role.name" [disabled]="role.isSystemRole && (role.name === 'Admin' || role.name === 'User')" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Description</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="role.description"></textarea>
+        </mat-form-field>
+      </div>
+
+      <div class="permission-table">
+        <div class="permission-row header">
+          <span>Module</span>
+          <span>View</span>
+          <span>Add</span>
+          <span>Edit</span>
+          <span>Delete</span>
+          <span>Summary</span>
+        </div>
+
+        <div class="permission-row" *ngFor="let permission of role.permissions; let i = index">
+          <div class="module-name">
+            <strong>{{ permission.moduleName }}</strong>
+            <small>{{ permission.moduleKey }}</small>
+          </div>
+          <label><input type="checkbox" [(ngModel)]="permission.canView" [name]="'view' + i" /></label>
+          <label><input type="checkbox" [(ngModel)]="permission.canAdd" [name]="'add' + i" /></label>
+          <label><input type="checkbox" [(ngModel)]="permission.canEdit" [name]="'edit' + i" /></label>
+          <label><input type="checkbox" [(ngModel)]="permission.canDelete" [name]="'delete' + i" /></label>
+          <span class="summary-text">{{ permissionLabel(permission) }}</span>
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <span class="system-note" *ngIf="role.isSystemRole">System roles can be edited for access, but protected names stay fixed.</span>
+        <button mat-raised-button color="primary" (click)="saveRole()" [disabled]="isSaving">
+          <mat-icon>save</mat-icon>
+          Save Permissions
+        </button>
+      </div>
+    </section>
   </div>
 </section>
+
+<ng-template #loadingState>
+  <section class="roles-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading role permissions...</span>
+    </div>
+  </section>
+</ng-template>

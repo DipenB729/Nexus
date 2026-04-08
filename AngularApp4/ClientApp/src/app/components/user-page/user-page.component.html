@@ -1,22 +1,22 @@
-<section class="user-dashboard" *ngIf="user as profile">
+<section class="user-dashboard">
   <header class="hero">
     <div class="hero-left">
-      <span class="avatar">{{ profile.name.charAt(0) }}</span>
+      <span class="avatar">{{ displayName.charAt(0) }}</span>
       <div>
         <p class="eyebrow">Welcome back</p>
-        <h1>{{ profile.name }}</h1>
-        <p class="meta">{{ profile.email }} · {{ profile.role }} Account</p>
+        <h1>{{ displayName }}</h1>
+        <p class="meta">{{ email }} · {{ role }} Account</p>
       </div>
     </div>
 
     <div class="hero-actions">
-      <button mat-stroked-button color="primary">
-        <mat-icon>event</mat-icon>
-        Book Appointment
+      <button mat-stroked-button color="primary" routerLink="/user/services">
+        <mat-icon>medical_services</mat-icon>
+        Explore Services
       </button>
-      <button mat-raised-button color="primary">
-        <mat-icon>edit</mat-icon>
-        Edit Profile
+      <button mat-raised-button color="primary" routerLink="/user/appointments">
+        <mat-icon>event</mat-icon>
+        View Appointments
       </button>
     </div>
   </header>
@@ -38,9 +38,9 @@
       <small>Completed sessions only</small>
     </article>
     <article class="stat-card">
-      <p>Account Status</p>
-      <strong>{{ profile.status }}</strong>
-      <small>Last login: {{ profile.lastLogin }}</small>
+      <p>Current Role</p>
+      <strong>{{ role }}</strong>
+      <small>{{ email }}</small>
     </article>
   </div>
 

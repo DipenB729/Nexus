@@ -1,8 +1,18 @@
 <section class="auth-page">
   <div class="auth-card">
-    <p class="eyebrow">Welcome back</p>
-    <h2>Sign in to your account</h2>
-    <p class="subtitle">Access bookings, services, and your dashboard securely.</p>
+    <div class="intro">
+      <p class="eyebrow">Nexus Portal</p>
+      <h2>Sign in to your dashboard</h2>
+      <p class="subtitle">Use your email as the username. Demo credentials are pre-seeded below for both roles.</p>
+    </div>
+
+    <div class="demo-grid">
+      <button type="button" class="demo-card" *ngFor="let account of demoAccounts" (click)="fillDemo(account)">
+        <span class="demo-role">{{ account.label }}</span>
+        <strong>{{ account.email }}</strong>
+        <small>{{ account.password }}</small>
+      </button>
+    </div>
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <mat-form-field appearance="outline">

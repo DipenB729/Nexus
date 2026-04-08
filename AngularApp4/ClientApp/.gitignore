@@ -5,6 +5,7 @@
 /dist-server
 /tmp
 /out-tsc
+/.angular
 
 # dependencies
 /node_modules
@@ -33,6 +34,7 @@
 npm-debug.log
 yarn-error.log
 testem.log
+*.err
 /typings
 
 # System Files

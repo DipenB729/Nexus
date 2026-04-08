@@ -1,8 +1,18 @@
 <section class="auth-page">
   <div class="auth-card">
-    <p class="eyebrow">Get started</p>
-    <h2>Create your account</h2>
-    <p class="subtitle">Register to manage services and appointments in the Nexus portal.</p>
+    <div class="intro">
+      <p class="eyebrow">Create account</p>
+      <h2>Register as a user</h2>
+      <p class="subtitle">Every self-service registration is created as a standard user account. Admin access cannot be selected here.</p>
+    </div>
+
+    <div class="user-role-note">
+      <mat-icon>verified_user</mat-icon>
+      <div>
+        <strong>Role assignment</strong>
+        <span>Your account will be created with the <b>User</b> role automatically.</span>
+      </div>
+    </div>
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <mat-form-field appearance="outline">
@@ -32,15 +42,6 @@
       </mat-form-field>
 
       <p class="error" *ngIf="form.hasError('passwordMismatch') && form.touched">Passwords do not match.</p>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Role</mat-label>
-        <mat-select formControlName="role">
-          <mat-option value="User">User</mat-option>
-          <mat-option value="Admin">Admin</mat-option>
-        </mat-select>
-      </mat-form-field>
-
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
       <button mat-raised-button color="primary" type="submit" [disabled]="isSubmitting">

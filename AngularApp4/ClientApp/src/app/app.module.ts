@@ -2,9 +2,9 @@ import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 
 // Material Imports
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -22,9 +22,6 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatTableModule } from '@angular/material/table';
 import { MatSortModule } from '@angular/material/sort';
 
-// Add to @NgModule imports:
-// MatTableModule, MatSortModule,
-// NEW MATERIAL IMPORTS FOR DIALOG & FORM
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
 
@@ -38,6 +35,7 @@ import { MyBookingsComponent } from './components/my-bookings/my-bookings.compon
 import { AddServiceDialogComponent } from './components/form/add-service-dialog/add-service-dialog.component';
 import { UsersDashboardComponent } from './components/users-dashboard/users-dashboard.component';
 import { AdminSettingsComponent } from './components/admin-settings/admin-settings.component';
+import { MasterSetupComponent } from './components/master-setup/master-setup.component';
 import { UserPageComponent } from './components/user-page/user-page.component';
 import { LoginComponent } from './components/auth/login/login.component';
 import { RegisterComponent } from './components/auth/register/register.component';
@@ -56,6 +54,7 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     AddServiceDialogComponent,
     UsersDashboardComponent,
     AdminSettingsComponent,
+    MasterSetupComponent,
     UserPageComponent,
     LoginComponent,
     RegisterComponent
@@ -68,16 +67,32 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     FormsModule,
     ReactiveFormsModule,
     RouterModule.forRoot([
-      { path: '', component: HomeComponent },
+      { path: '', pathMatch: 'full', redirectTo: 'auth/login' },
       { path: 'auth/login', component: LoginComponent },
       { path: 'auth/register', component: RegisterComponent },
-      { path: 'services', component: ServiceListComponent },
-      { path: 'book', component: BookingComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
-      { path: 'my-appointments', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
-      { path: 'users', component: UsersDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
-      { path: 'user', component: UserPageComponent, canActivate: [AuthGuard] },
-      { path: 'settings', component: AdminSettingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
-      { path: '**', redirectTo: '' }
+      { path: 'admin', pathMatch: 'full', redirectTo: 'admin/dashboard' },
+      { path: 'admin/dashboard', component: HomeComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/services', component: ServiceListComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/bookings', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/roles', component: UsersDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/users', pathMatch: 'full', redirectTo: 'admin/roles' },
+      { path: 'admin/masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
+      { path: 'admin/masters/:section/create', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/masters/:section/:id/edit', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/masters/:section/:id', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/masters/:section', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/settings', component: AdminSettingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'user', pathMatch: 'full', redirectTo: 'user/dashboard' },
+      { path: 'user/dashboard', component: UserPageComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'user/services', component: ServiceListComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'user/appointments', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'services', pathMatch: 'full', redirectTo: 'admin/services' },
+      { path: 'settings', pathMatch: 'full', redirectTo: 'admin/settings' },
+      { path: 'masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
+      { path: 'users', pathMatch: 'full', redirectTo: 'admin/roles' },
+      { path: 'my-appointments', pathMatch: 'full', redirectTo: 'user/appointments' },
+      { path: 'book', pathMatch: 'full', redirectTo: 'user/services' },
+      { path: '**', redirectTo: 'auth/login' }
     ]),
     // Material Modules
     MatToolbarModule,
@@ -92,9 +107,10 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     MatBadgeModule,
     MatMenuModule,
     MatDividerModule,
-    MatDialogModule, // Added this
+    MatDialogModule,
     MatSelectModule,
-    MatTableModule,// Added this
+    MatTableModule,
+    MatSortModule
   ],
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }

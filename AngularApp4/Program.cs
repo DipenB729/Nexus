@@ -9,12 +9,25 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<DatabaseInitializer>();
 
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AngularClient", policy =>
+        policy.WithOrigins("https://localhost:44432", "http://localhost:4200")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
@@ -43,14 +56,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("UserOnly", p => p.RequireRole("User"));
 });
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AngularClient", policy =>
-        policy.WithOrigins("https://localhost:44432", "http://localhost:4200")
-            .AllowAnyHeader()
-            .AllowAnyMethod());
-});
-
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Hospital API", Version = "v1" });
@@ -70,6 +75,12 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+    await initializer.InitializeAsync();
+}
 
 if (!app.Environment.IsDevelopment())
 {

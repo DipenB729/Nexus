@@ -1,0 +1,561 @@
+<section class="masters-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-header">
+    <div>
+      <h1>{{ currentSection.label }}</h1>
+      <p>{{ currentSection.description }}</p>
+    </div>
+
+    <div class="header-actions">
+      <button mat-stroked-button type="button" *ngIf="!isIndexView" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to list
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isIndexView" (click)="goToCreate()">
+        <mat-icon>add</mat-icon>
+        Create {{ currentRecordLabel }}
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        *ngIf="isDetailsView && selectedRecordId"
+        (click)="goToEdit(selectedRecordId)">
+        <mat-icon>edit</mat-icon>
+        Edit {{ currentRecordLabel }}
+      </button>
+    </div>
+  </div>
+
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success-box" *ngIf="successMessage">{{ successMessage }}</p>
+
+  <ng-container *ngIf="isIndexView">
+    <div class="table-actions">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search {{ currentSection.label.toLowerCase() }}</mat-label>
+        <input matInput [(ngModel)]="searchTerm" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <div class="status-filter">
+        <button type="button" [class.active]="statusFilter === 'all'" (click)="setStatusFilter('all')">All</button>
+        <button type="button" [class.active]="statusFilter === 'active'" (click)="setStatusFilter('active')">Active</button>
+        <button type="button" [class.active]="statusFilter === 'inactive'" (click)="setStatusFilter('inactive')">Inactive</button>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-shell" [ngSwitch]="activeSection">
+        <table class="master-table" *ngSwitchCase="'departments'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Department</th>
+              <th>Code</th>
+              <th>Branch</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredDepartments; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.departmentId)">{{ item.name }}</button>
+              </td>
+              <td>{{ item.code }}</td>
+              <td>{{ item.branchName }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="editDepartment(item)">Edit</button>
+                <button mat-button type="button" (click)="updateDepartmentStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'doctors'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Doctor</th>
+              <th>Specialization</th>
+              <th>Branch</th>
+              <th>Department</th>
+              <th>Fee</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredDoctors; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.doctorId)">{{ item.fullName }}</button>
+              </td>
+              <td>{{ item.specialization }}</td>
+              <td>{{ item.branchName || 'Not mapped' }}</td>
+              <td>{{ item.departmentName || 'Not mapped' }}</td>
+              <td>NPR {{ item.consultationFee | number:'1.0-0' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="editDoctor(item)">Edit</button>
+                <button mat-button type="button" (click)="updateDoctorStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'staff'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Designation</th>
+              <th>Employee code</th>
+              <th>Branch</th>
+              <th>Department</th>
+              <th>Shift</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredStaffMembers; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.staffId)">{{ item.fullName }}</button>
+              </td>
+              <td>{{ item.designation }}</td>
+              <td>{{ item.employeeCode || 'Not set' }}</td>
+              <td>{{ item.branchName || 'Not mapped' }}</td>
+              <td>{{ item.departmentName || 'Not mapped' }}</td>
+              <td>{{ item.shift || 'Not set' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="editStaff(item)">Edit</button>
+                <button mat-button type="button" (click)="updateStaffStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'patientCategories'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Category</th>
+              <th>Priority</th>
+              <th>Description</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredPatientCategories; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td><button type="button" class="name-link" (click)="goToDetails(item.patientCategoryId)">{{ item.name }}</button></td>
+              <td>{{ item.priorityOrder }}</td>
+              <td>{{ item.description || 'No description' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="editPatientCategory(item)">Edit</button>
+                <button mat-button type="button" (click)="updatePatientCategoryStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'wards'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Ward</th>
+              <th>Ward type</th>
+              <th>Room type</th>
+              <th>Branch</th>
+              <th>Charge/day</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredWards; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td><button type="button" class="name-link" (click)="goToDetails(item.wardId)">{{ item.name }}</button></td>
+              <td>{{ item.wardType }}</td>
+              <td>{{ item.roomType }}</td>
+              <td>{{ item.branchName }}</td>
+              <td>NPR {{ item.chargePerDay | number:'1.0-0' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="editWard(item)">Edit</button>
+                <button mat-button type="button" (click)="updateWardStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'beds'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Bed</th>
+              <th>Ward</th>
+              <th>Branch</th>
+              <th>Occupancy</th>
+              <th>Charge/day</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredBeds; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td><button type="button" class="name-link" (click)="goToDetails(item.bedId)">{{ item.bedNumber }}</button></td>
+              <td>{{ item.wardName }}</td>
+              <td>{{ item.branchName }}</td>
+              <td>{{ item.isOccupied ? 'Occupied' : 'Available' }}</td>
+              <td>NPR {{ item.chargePerDay | number:'1.0-0' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="editBed(item)">Edit</button>
+                <button mat-button type="button" (click)="updateBedStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" *ngIf="sectionRecordCount === 0">
+        No {{ currentSection.label.toLowerCase() }} found for the current filter.
+      </div>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="isFormView">
+    <section class="editor-panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span>
+          <h2>{{ isCreateView ? ('Create ' + currentRecordLabel) : ('Edit ' + currentRecordLabel) }}</h2>
+        </div>
+      </div>
+
+      <div [ngSwitch]="activeSection">
+        <div class="form-grid" *ngSwitchCase="'departments'">
+          <mat-form-field appearance="outline">
+            <mat-label>Branch</mat-label>
+            <mat-select [(ngModel)]="departmentForm.branchId">
+              <mat-option *ngFor="let branch of availableBranches" [value]="branch.branchId">{{ branch.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Department code</mat-label>
+            <input matInput [(ngModel)]="departmentForm.code" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Department name</mat-label>
+            <input matInput [(ngModel)]="departmentForm.name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="departmentForm.description"></textarea>
+          </mat-form-field>
+          <label class="toggle-box full-width">
+            <input type="checkbox" [(ngModel)]="departmentForm.isActive" />
+            <span>Department active</span>
+          </label>
+        </div>
+
+        <div class="form-grid" *ngSwitchCase="'doctors'">
+          <mat-form-field appearance="outline"><mat-label>Full name</mat-label><input matInput [(ngModel)]="doctorForm.fullName" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Specialization</mat-label><input matInput [(ngModel)]="doctorForm.specialization" /></mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Branch</mat-label>
+            <mat-select [(ngModel)]="doctorForm.branchId" (selectionChange)="onDoctorBranchChange()">
+              <mat-option [value]="null">No branch</mat-option>
+              <mat-option *ngFor="let branch of availableBranches" [value]="branch.branchId">{{ branch.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Department</mat-label>
+            <mat-select [(ngModel)]="doctorForm.departmentId">
+              <mat-option [value]="null">No department</mat-option>
+              <mat-option *ngFor="let department of doctorDepartmentOptions" [value]="department.departmentId">{{ department.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput [(ngModel)]="doctorForm.email" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput [(ngModel)]="doctorForm.phone" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Experience (years)</mat-label><input matInput type="number" [(ngModel)]="doctorForm.experienceYears" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Consultation fee</mat-label><input matInput type="number" [(ngModel)]="doctorForm.consultationFee" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Qualification</mat-label><input matInput [(ngModel)]="doctorForm.qualification" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>OPD days</mat-label><input matInput [(ngModel)]="doctorForm.opdDays" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Start time</mat-label><input matInput type="time" [(ngModel)]="doctorForm.opdStartTime" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>End time</mat-label><input matInput type="time" [(ngModel)]="doctorForm.opdEndTime" /></mat-form-field>
+          <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="doctorForm.isActive" /><span>Doctor active</span></label>
+        </div>
+
+        <div class="form-grid" *ngSwitchCase="'staff'">
+          <mat-form-field appearance="outline"><mat-label>Full name</mat-label><input matInput [(ngModel)]="staffForm.fullName" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Designation</mat-label><input matInput [(ngModel)]="staffForm.designation" /></mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Branch</mat-label>
+            <mat-select [(ngModel)]="staffForm.branchId" (selectionChange)="onStaffBranchChange()">
+              <mat-option [value]="null">No branch</mat-option>
+              <mat-option *ngFor="let branch of availableBranches" [value]="branch.branchId">{{ branch.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Department</mat-label>
+            <mat-select [(ngModel)]="staffForm.departmentId">
+              <mat-option [value]="null">No department</mat-option>
+              <mat-option *ngFor="let department of staffDepartmentOptions" [value]="department.departmentId">{{ department.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Employee code</mat-label><input matInput [(ngModel)]="staffForm.employeeCode" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Shift</mat-label><input matInput [(ngModel)]="staffForm.shift" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput [(ngModel)]="staffForm.email" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput [(ngModel)]="staffForm.phone" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Join date</mat-label><input matInput type="date" [(ngModel)]="staffForm.joinDate" /></mat-form-field>
+          <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="staffForm.isActive" /><span>Staff active</span></label>
+        </div>
+
+        <div class="form-grid" *ngSwitchCase="'patientCategories'">
+          <mat-form-field appearance="outline"><mat-label>Category name</mat-label><input matInput [(ngModel)]="patientCategoryForm.name" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Priority order</mat-label><input matInput type="number" [(ngModel)]="patientCategoryForm.priorityOrder" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Description</mat-label><textarea matInput rows="3" [(ngModel)]="patientCategoryForm.description"></textarea></mat-form-field>
+          <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="patientCategoryForm.isActive" /><span>Category active</span></label>
+        </div>
+
+        <div class="form-grid" *ngSwitchCase="'wards'">
+          <mat-form-field appearance="outline"><mat-label>Ward name</mat-label><input matInput [(ngModel)]="wardForm.name" /></mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Branch</mat-label>
+            <mat-select [(ngModel)]="wardForm.branchId" (selectionChange)="onWardBranchChange()">
+              <mat-option *ngFor="let branch of availableBranches" [value]="branch.branchId">{{ branch.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Department</mat-label>
+            <mat-select [(ngModel)]="wardForm.departmentId">
+              <mat-option [value]="null">No department</mat-option>
+              <mat-option *ngFor="let department of wardDepartmentOptions" [value]="department.departmentId">{{ department.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Ward type</mat-label><input matInput [(ngModel)]="wardForm.wardType" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Room type</mat-label><input matInput [(ngModel)]="wardForm.roomType" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Charge per day</mat-label><input matInput type="number" [(ngModel)]="wardForm.chargePerDay" /></mat-form-field>
+          <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="wardForm.isActive" /><span>Ward active</span></label>
+        </div>
+
+        <div class="form-grid" *ngSwitchCase="'beds'">
+          <mat-form-field appearance="outline">
+            <mat-label>Branch</mat-label>
+            <mat-select [(ngModel)]="bedForm.branchId" (selectionChange)="onBedBranchChange()">
+              <mat-option *ngFor="let branch of availableBranches" [value]="branch.branchId">{{ branch.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Ward</mat-label>
+            <mat-select [(ngModel)]="bedForm.wardId" (selectionChange)="onBedWardChange()">
+              <mat-option *ngFor="let ward of bedWardOptions" [value]="ward.wardId">{{ ward.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Department</mat-label>
+            <mat-select [(ngModel)]="bedForm.departmentId">
+              <mat-option [value]="null">No department</mat-option>
+              <mat-option *ngFor="let department of bedDepartmentOptions" [value]="department.departmentId">{{ department.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Bed number</mat-label><input matInput [(ngModel)]="bedForm.bedNumber" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Charge per day</mat-label><input matInput type="number" [(ngModel)]="bedForm.chargePerDay" /></mat-form-field>
+          <label class="toggle-box"><input type="checkbox" [(ngModel)]="bedForm.isOccupied" /><span>Marked occupied</span></label>
+          <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="bedForm.isActive" /><span>Bed active</span></label>
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'departments'" (click)="saveDepartment()" [disabled]="isSaving">Save department</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'doctors'" (click)="saveDoctor()" [disabled]="isSaving">Save doctor</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'staff'" (click)="saveStaff()" [disabled]="isSaving">Save staff</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'patientCategories'" (click)="savePatientCategory()" [disabled]="isSaving">Save category</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'wards'" (click)="saveWard()" [disabled]="isSaving">Save ward</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'beds'" (click)="saveBed()" [disabled]="isSaving">Save bed</button>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isDetailsView">
+    <section class="details-panel" *ngIf="hasDetailsRecord; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Details page</span>
+          <h2>{{ currentRecordLabel }} details</h2>
+        </div>
+      </div>
+
+      <div class="details-showcase" *ngIf="selectedDepartment as item">
+        <div class="details-hero amber">
+          <span class="hero-kicker">Department profile</span>
+          <h3>{{ item.name }}</h3>
+          <p>{{ item.description || 'Operational department ready for branch mapping and downstream references.' }}</p>
+          <div class="hero-badges">
+            <span class="hero-badge">{{ item.branchName }}</span>
+            <span class="hero-badge">Code {{ item.code }}</span>
+            <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div><span>Department name</span><strong>{{ item.name }}</strong></div>
+          <div><span>Department code</span><strong>{{ item.code }}</strong></div>
+          <div><span>Branch</span><strong>{{ item.branchName }}</strong></div>
+          <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+          <div class="full-width"><span>Operational note</span><strong>{{ item.description || 'No additional department note provided.' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="details-showcase" *ngIf="selectedDoctor as item">
+        <div class="details-hero blue">
+          <span class="hero-kicker">Doctor profile</span>
+          <h3>{{ item.fullName }}</h3>
+          <p>{{ item.specialization }} specialist with {{ item.experienceYears }} years of experience and a consultation fee of NPR {{ item.consultationFee | number:'1.0-0' }}.</p>
+          <div class="hero-badges">
+            <span class="hero-badge">{{ item.branchName || 'No branch' }}</span>
+            <span class="hero-badge">{{ item.departmentName || 'No department' }}</span>
+            <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div><span>Full name</span><strong>{{ item.fullName }}</strong></div>
+          <div><span>Specialization</span><strong>{{ item.specialization }}</strong></div>
+          <div><span>Branch</span><strong>{{ item.branchName || 'Not mapped' }}</strong></div>
+          <div><span>Department</span><strong>{{ item.departmentName || 'Not mapped' }}</strong></div>
+          <div><span>Email</span><strong>{{ item.email }}</strong></div>
+          <div><span>Phone</span><strong>{{ item.phone || 'Not set' }}</strong></div>
+          <div><span>Experience</span><strong>{{ item.experienceYears }} years</strong></div>
+          <div><span>Consultation fee</span><strong>NPR {{ item.consultationFee | number:'1.0-0' }}</strong></div>
+          <div><span>OPD days</span><strong>{{ item.opdDays || 'Not set' }}</strong></div>
+          <div><span>Schedule</span><strong>{{ getDoctorSchedule(item) }}</strong></div>
+          <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+          <div class="full-width"><span>Qualification</span><strong>{{ item.qualification || 'Not set' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="details-showcase" *ngIf="selectedStaff as item">
+        <div class="details-hero teal">
+          <span class="hero-kicker">Staff profile</span>
+          <h3>{{ item.fullName }}</h3>
+          <p>{{ item.designation }} assigned to {{ item.departmentName || 'general operations' }} with {{ item.shift || 'unassigned' }} shift coverage.</p>
+          <div class="hero-badges">
+            <span class="hero-badge">{{ item.branchName || 'No branch' }}</span>
+            <span class="hero-badge">{{ item.employeeCode || 'Code pending' }}</span>
+            <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div><span>Name</span><strong>{{ item.fullName }}</strong></div>
+          <div><span>Designation</span><strong>{{ item.designation }}</strong></div>
+          <div><span>Employee code</span><strong>{{ item.employeeCode || 'Not set' }}</strong></div>
+          <div><span>Shift</span><strong>{{ item.shift || 'Not set' }}</strong></div>
+          <div><span>Branch</span><strong>{{ item.branchName || 'Not mapped' }}</strong></div>
+          <div><span>Department</span><strong>{{ item.departmentName || 'Not mapped' }}</strong></div>
+          <div><span>Email</span><strong>{{ item.email }}</strong></div>
+          <div><span>Phone</span><strong>{{ item.phone || 'Not set' }}</strong></div>
+          <div><span>Join date</span><strong>{{ item.joinDate | date:'mediumDate' }}</strong></div>
+          <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="details-showcase" *ngIf="selectedPatientCategory as item">
+        <div class="details-hero violet">
+          <span class="hero-kicker">Patient category</span>
+          <h3>{{ item.name }}</h3>
+          <p>{{ item.description || 'Patient routing category for billing, triage, and downstream workflow references.' }}</p>
+          <div class="hero-badges">
+            <span class="hero-badge">Priority {{ item.priorityOrder }}</span>
+            <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div><span>Name</span><strong>{{ item.name }}</strong></div>
+          <div><span>Priority</span><strong>{{ item.priorityOrder }}</strong></div>
+          <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+          <div class="full-width"><span>Description</span><strong>{{ item.description || 'No description' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="details-showcase" *ngIf="selectedWard as item">
+        <div class="details-hero rose">
+          <span class="hero-kicker">Ward setup</span>
+          <h3>{{ item.name }}</h3>
+          <p>{{ item.wardType }} ward with {{ item.roomType }} room setup and daily charge of NPR {{ item.chargePerDay | number:'1.0-0' }}.</p>
+          <div class="hero-badges">
+            <span class="hero-badge">{{ item.branchName }}</span>
+            <span class="hero-badge">{{ item.departmentName || 'No department' }}</span>
+            <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div><span>Name</span><strong>{{ item.name }}</strong></div>
+          <div><span>Ward type</span><strong>{{ item.wardType }}</strong></div>
+          <div><span>Room type</span><strong>{{ item.roomType }}</strong></div>
+          <div><span>Branch</span><strong>{{ item.branchName }}</strong></div>
+          <div><span>Department</span><strong>{{ item.departmentName || 'Not mapped' }}</strong></div>
+          <div><span>Charge/day</span><strong>NPR {{ item.chargePerDay | number:'1.0-0' }}</strong></div>
+          <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="details-showcase" *ngIf="selectedBed as item">
+        <div class="details-hero slate">
+          <span class="hero-kicker">Bed setup</span>
+          <h3>{{ item.bedNumber }}</h3>
+          <p>{{ item.isOccupied ? 'Currently occupied' : 'Currently available' }} bed in {{ item.wardName }} with daily charge of NPR {{ item.chargePerDay | number:'1.0-0' }}.</p>
+          <div class="hero-badges">
+            <span class="hero-badge">{{ item.branchName }}</span>
+            <span class="hero-badge">{{ item.wardName }}</span>
+            <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div><span>Bed</span><strong>{{ item.bedNumber }}</strong></div>
+          <div><span>Ward</span><strong>{{ item.wardName }}</strong></div>
+          <div><span>Branch</span><strong>{{ item.branchName }}</strong></div>
+          <div><span>Department</span><strong>{{ item.departmentName || 'Not mapped' }}</strong></div>
+          <div><span>Charge/day</span><strong>NPR {{ item.chargePerDay | number:'1.0-0' }}</strong></div>
+          <div><span>Occupancy</span><strong>{{ item.isOccupied ? 'Occupied' : 'Available' }}</strong></div>
+          <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Back</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="selectedRecordId" (click)="goToEdit(selectedRecordId)">Edit</button>
+      </div>
+    </section>
+  </ng-container>
+</section>
+
+<ng-template #missingRecord>
+  <section class="details-panel">
+    <div class="empty-state">The selected {{ currentRecordLabel.toLowerCase() }} could not be found.</div>
+  </section>
+</ng-template>
+
+<ng-template #loadingState>
+  <section class="masters-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading master setup workspace...</span>
+    </div>
+  </section>
+</ng-template>
