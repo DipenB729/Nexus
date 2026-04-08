@@ -25,12 +25,14 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register(RegisterRequestDto dto)
     {
-        if (await _db.Users.AnyAsync(x => x.Email == dto.Email))
+        var email = dto.Email.Trim().ToLowerInvariant();
+
+        if (await _db.Users.AnyAsync(x => x.Email == email))
         {
             return BadRequest(ApiResponse<AuthResponseDto>.Fail("Email already exists"));
         }
 
-        var roleName = string.Equals(dto.Role, "Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "User";
+        const string roleName = "User";
         var role = await _db.Roles.FirstAsync(x => x.Name == roleName);
 
         CreatePasswordHash(dto.Password, out var hash, out var salt);
@@ -38,7 +40,7 @@ public class AuthController : ControllerBase
         var user = new User
         {
             FullName = dto.FullName,
-            Email = dto.Email,
+            Email = email,
             RoleId = role.RoleId,
             PasswordHash = hash,
             PasswordSalt = salt,
@@ -68,7 +70,8 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login(LoginRequestDto dto)
     {
-        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.Email == dto.Email && x.IsActive);
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
         if (user is null || !VerifyPassword(dto.Password, user.PasswordHash, user.PasswordSalt))
         {
             return Unauthorized(ApiResponse<AuthResponseDto>.Fail("Invalid credentials"));

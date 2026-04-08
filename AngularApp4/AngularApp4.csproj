@@ -14,6 +14,10 @@
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.36" />
 		<PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="6.0.36" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.36" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.36">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="6.0.36" />
 		<!-- I fixed the version number below -->
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="6.0.36">
@@ -32,6 +36,8 @@
 
   <ItemGroup>
     <Folder Include="ClientApp\src\app\core\models\" />
+    <Folder Include="ClientApp\src\app\core\services\" />
+    <Folder Include="Service\" />
   </ItemGroup>
 
     <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">

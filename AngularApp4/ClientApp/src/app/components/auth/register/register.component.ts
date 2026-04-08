@@ -17,8 +17,7 @@ export class RegisterComponent {
       fullName: ['', [Validators.required]],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', [Validators.required]],
-      role: ['User', [Validators.required]]
+      confirmPassword: ['', [Validators.required]]
     },
     { validators: RegisterComponent.passwordMatchValidator }
   );
@@ -38,13 +37,13 @@ export class RegisterComponent {
     this.errorMessage = '';
     this.isSubmitting = true;
 
-    const { fullName, email, password, role } = this.form.getRawValue();
+    const { fullName, email, password } = this.form.getRawValue();
     this.auth
-      .register({ fullName: fullName!, email: email!, password: password!, role: role as 'Admin' | 'User' })
+      .register({ fullName: fullName!, email: email!, password: password! })
       .subscribe({
         next: () => {
           this.isSubmitting = false;
-          this.router.navigate(['/']);
+          this.router.navigateByUrl('/user/dashboard');
         },
         error: () => {
           this.isSubmitting = false;

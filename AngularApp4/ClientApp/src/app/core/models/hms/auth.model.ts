@@ -7,7 +7,6 @@ export interface RegisterRequest {
   fullName: string;
   email: string;
   password: string;
-  role: 'Admin' | 'User';
 }
 
 export interface AuthResponse {
@@ -17,6 +16,8 @@ export interface AuthResponse {
   email: string;
   role: string;
 }
+
+export type AuthSession = AuthResponse;
 
 export interface ApiResponse<T> {
   success: boolean;

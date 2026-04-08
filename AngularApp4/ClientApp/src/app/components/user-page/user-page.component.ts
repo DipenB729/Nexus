@@ -1,7 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { AdminUser, Appointment } from '../../core/models/admin.model';
+import { Appointment } from '../../core/models/admin.model';
+import { AuthSession } from '../../core/models/hms/auth.model';
 import { AdminStateService } from '../../core/services/admin-state.service';
+import { AuthApiService } from '../../core/services/hms/auth-api.service';
 
 @Component({
   selector: 'app-user-page',
@@ -9,20 +11,25 @@ import { AdminStateService } from '../../core/services/admin-state.service';
   styleUrls: ['./user-page.component.scss']
 })
 export class UserPageComponent implements OnInit, OnDestroy {
-  user?: AdminUser;
+  session: AuthSession | null = null;
   appointments: Appointment[] = [];
 
-  private usersSub?: Subscription;
+  private sessionSub?: Subscription;
   private bookingsSub?: Subscription;
 
-  constructor(private state: AdminStateService) {}
+  constructor(
+    private readonly state: AdminStateService,
+    private readonly auth: AuthApiService
+  ) {}
 
   ngOnInit(): void {
-    this.usersSub = this.state.users$.subscribe(users => {
-      this.user = users.find(u => u.status === 'Active') ?? users[0];
+    this.session = this.auth.getSession();
+
+    this.sessionSub = this.auth.session$.subscribe((session) => {
+      this.session = session;
     });
 
-    this.bookingsSub = this.state.bookings$.subscribe(bookings => {
+    this.bookingsSub = this.state.bookings$.subscribe((bookings) => {
       this.appointments = [...bookings].sort(
         (a, b) => +new Date(a.appointmentDate) - +new Date(b.appointmentDate)
       );
@@ -30,14 +37,26 @@ export class UserPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.usersSub?.unsubscribe();
+    this.sessionSub?.unsubscribe();
     this.bookingsSub?.unsubscribe();
+  }
+
+  get displayName(): string {
+    return this.session?.fullName ?? 'Nexus User';
+  }
+
+  get email(): string {
+    return this.session?.email ?? 'user@nexus.local';
+  }
+
+  get role(): string {
+    return this.session?.role ?? 'User';
   }
 
   get upcomingAppointments(): Appointment[] {
     const today = new Date();
     return this.appointments
-      .filter(item => new Date(item.appointmentDate) >= today)
+      .filter((item) => new Date(item.appointmentDate) >= today)
       .slice(0, 3);
   }
 
@@ -49,7 +68,7 @@ export class UserPageComponent implements OnInit, OnDestroy {
 
   get totalSpent(): number {
     return this.appointments
-      .filter(item => item.status === 'Completed')
+      .filter((item) => item.status === 'Completed')
       .reduce((sum, item) => sum + item.price, 0);
   }
 

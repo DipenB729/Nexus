@@ -3,6 +3,7 @@ import { MatTableDataSource } from '@angular/material/table';
 import { Subscription } from 'rxjs';
 import { Appointment } from '../../core/models/admin.model';
 import { AdminStateService } from '../../core/services/admin-state.service';
+import { AuthApiService } from '../../core/services/hms/auth-api.service';
 
 @Component({
   selector: 'app-my-bookings',
@@ -10,21 +11,40 @@ import { AdminStateService } from '../../core/services/admin-state.service';
   styleUrls: ['./my-bookings.component.scss']
 })
 export class MyBookingsComponent implements OnInit, OnDestroy {
-  displayedColumns: string[] = ['id', 'customer', 'service', 'date', 'status', 'actions'];
+  displayedColumns: string[] = [];
   dataSource = new MatTableDataSource<Appointment>([]);
+  isAdmin = false;
 
   private sub?: Subscription;
 
-  constructor(private state: AdminStateService) {}
+  constructor(
+    private readonly state: AdminStateService,
+    private readonly auth: AuthApiService
+  ) {}
 
   ngOnInit(): void {
-    this.sub = this.state.bookings$.subscribe(data => {
+    this.isAdmin = this.auth.getRole() === 'Admin';
+    this.displayedColumns = this.isAdmin
+      ? ['id', 'customer', 'service', 'date', 'status', 'price']
+      : ['id', 'service', 'date', 'status', 'price'];
+
+    this.sub = this.state.bookings$.subscribe((data) => {
       this.dataSource.data = data;
     });
   }
 
   ngOnDestroy(): void {
     this.sub?.unsubscribe();
+  }
+
+  get pageTitle(): string {
+    return this.isAdmin ? 'All Appointments' : 'My Appointments';
+  }
+
+  get pageSubtitle(): string {
+    return this.isAdmin
+      ? 'Monitor and review appointments across the platform.'
+      : 'Track your booking history and upcoming sessions.';
   }
 
   applyFilter(event: Event): void {
@@ -45,4 +65,3 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
     return status;
   }
 }
-

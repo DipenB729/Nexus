@@ -3,6 +3,13 @@ import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthApiService } from '../../../core/services/hms/auth-api.service';
 
+interface DemoAccount {
+  label: string;
+  email: string;
+  password: string;
+  role: 'Admin' | 'User';
+}
+
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
@@ -11,6 +18,11 @@ import { AuthApiService } from '../../../core/services/hms/auth-api.service';
 export class LoginComponent {
   errorMessage = '';
   isSubmitting = false;
+
+  readonly demoAccounts: DemoAccount[] = [
+    { label: 'Admin Demo', email: 'admin@nexus.local', password: 'Admin@123', role: 'Admin' },
+    { label: 'User Demo', email: 'user@nexus.local', password: 'User@123', role: 'User' }
+  ];
 
   readonly form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
@@ -22,6 +34,13 @@ export class LoginComponent {
     private readonly auth: AuthApiService,
     private readonly router: Router
   ) {}
+
+  fillDemo(account: DemoAccount): void {
+    this.form.patchValue({
+      email: account.email,
+      password: account.password
+    });
+  }
 
   submit(): void {
     if (this.form.invalid || this.isSubmitting) {
@@ -35,7 +54,7 @@ export class LoginComponent {
     this.auth.login(this.form.getRawValue() as { email: string; password: string }).subscribe({
       next: (res) => {
         this.isSubmitting = false;
-        this.router.navigate([res.role === 'Admin' ? '/settings' : '/users']);
+        this.router.navigateByUrl(this.auth.getDashboardRoute(res.role));
       },
       error: () => {
         this.isSubmitting = false;

@@ -21,7 +21,7 @@ export class AddServiceDialogComponent implements OnInit {
       name: ['', [Validators.required, Validators.minLength(3)]],
       category: ['', Validators.required],
       description: ['', [Validators.required, Validators.maxLength(100)]],
-      duration: ['', Validators.required],
+      durationMinutes: [30, [Validators.required, Validators.min(1)]],
       price: ['', [Validators.required, Validators.min(0)]],
       icon: ['medical_services', Validators.required],
       color: ['#3b82f6', Validators.required]

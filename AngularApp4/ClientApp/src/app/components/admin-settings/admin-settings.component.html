@@ -1,56 +1,233 @@
-<section class="settings-page">
-  <h1>Admin Settings</h1>
-  <p class="subtitle">Configure SMTP and notification behavior for the admin panel.</p>
-
-  <div class="settings-grid">
-    <div class="card">
-      <h3>SMTP Configuration</h3>
-
-      <mat-form-field appearance="outline">
-        <mat-label>SMTP Host</mat-label>
-        <input matInput [(ngModel)]="form.smtpHost" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>SMTP Port</mat-label>
-        <input matInput type="number" [(ngModel)]="form.smtpPort" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Sender Email</mat-label>
-        <input matInput [(ngModel)]="form.senderEmail" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Sender Name</mat-label>
-        <input matInput [(ngModel)]="form.senderName" />
-      </mat-form-field>
-
-      <label class="toggle">
-        <input type="checkbox" [(ngModel)]="form.enableTls" />
-        <span>Enable TLS/STARTTLS</span>
-      </label>
-    </div>
-
-    <div class="card">
-      <h3>Notification Rules</h3>
-
-      <label class="toggle">
-        <input type="checkbox" [(ngModel)]="form.bookingNotifications" />
-        <span>Send booking confirmation emails</span>
-      </label>
-
-      <label class="toggle">
-        <input type="checkbox" [(ngModel)]="form.reminderNotifications" />
-        <span>Send appointment reminder emails</span>
-      </label>
-
-      <button mat-raised-button color="primary" (click)="saveSettings()">
-        <mat-icon>save</mat-icon>
-        Save Settings
-      </button>
-
-      <p class="save-ok" *ngIf="saveMessage">{{ saveMessage }}</p>
+<section class="settings-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-header">
+    <div>
+      <span class="eyebrow">Organization setup</span>
+      <h1>Branch and hospital profile settings</h1>
+      <p>Manage hospital identity, tax rules, contact information, invoice format, and multi-branch operations.</p>
     </div>
   </div>
+
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success-box" *ngIf="saveMessage">{{ saveMessage }}</p>
+
+  <div class="settings-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Hospital identity</span>
+          <h2>Profile</h2>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Hospital name</mat-label>
+          <input matInput [(ngModel)]="profile.hospitalName" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Logo URL</mat-label>
+          <input matInput [(ngModel)]="profile.logoUrl" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Address</mat-label>
+          <input matInput [(ngModel)]="profile.addressLine1" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>City</mat-label>
+          <input matInput [(ngModel)]="profile.city" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>State / Province</mat-label>
+          <input matInput [(ngModel)]="profile.stateOrProvince" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Postal code</mat-label>
+          <input matInput [(ngModel)]="profile.postalCode" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Country</mat-label>
+          <input matInput [(ngModel)]="profile.country" />
+        </mat-form-field>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Contacts and tax</span>
+          <h2>Business settings</h2>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Contact email</mat-label>
+          <input matInput [(ngModel)]="profile.contactEmail" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Contact phone</mat-label>
+          <input matInput [(ngModel)]="profile.contactPhone" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Tax / VAT label</mat-label>
+          <input matInput [(ngModel)]="profile.taxLabel" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Tax registration</mat-label>
+          <input matInput [(ngModel)]="profile.taxRegistrationNumber" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Tax percentage</mat-label>
+          <input matInput type="number" [(ngModel)]="profile.taxPercentage" />
+        </mat-form-field>
+
+        <label class="toggle-box">
+          <input type="checkbox" [(ngModel)]="profile.multiBranchEnabled" />
+          <span>Enable multi-branch support</span>
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <span class="eyebrow">Invoice setup</span>
+        <h2>Invoice format settings</h2>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Currency code</mat-label>
+        <input matInput [(ngModel)]="profile.currencyCode" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Invoice prefix</mat-label>
+        <input matInput [(ngModel)]="profile.invoicePrefix" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Starting invoice number</mat-label>
+        <input matInput type="number" [(ngModel)]="profile.invoiceStartingNumber" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Invoice footer note</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="profile.invoiceFooterNote"></textarea>
+      </mat-form-field>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <span class="eyebrow">Multi-branch setup</span>
+        <h2>Branches</h2>
+      </div>
+
+      <button mat-stroked-button (click)="addBranch()">
+        <mat-icon>add_business</mat-icon>
+        Add branch
+      </button>
+    </div>
+
+    <div class="branch-grid" *ngIf="branches.length; else noBranches">
+      <article class="branch-card" *ngFor="let branch of branches; let i = index">
+        <div class="branch-head">
+          <div>
+            <strong>{{ branch.name || 'New branch' }}</strong>
+            <small>{{ branch.code || 'Code pending' }}</small>
+          </div>
+
+          <div class="branch-actions">
+            <button mat-button type="button" (click)="setPrimary(i)" [disabled]="branch.isPrimary">Set primary</button>
+            <button mat-icon-button type="button" (click)="removeBranch(i)">
+              <mat-icon>{{ branch.branchId > 0 ? 'block' : 'delete' }}</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="branch-badges">
+          <span class="badge primary" *ngIf="branch.isPrimary">Primary</span>
+          <span class="badge inactive" *ngIf="!branch.isActive">Inactive</span>
+        </div>
+
+        <div class="form-grid compact">
+          <mat-form-field appearance="outline">
+            <mat-label>Branch name</mat-label>
+            <input matInput [(ngModel)]="branch.name" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Code</mat-label>
+            <input matInput [(ngModel)]="branch.code" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Address</mat-label>
+            <input matInput [(ngModel)]="branch.address" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Phone</mat-label>
+            <input matInput [(ngModel)]="branch.contactPhone" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput [(ngModel)]="branch.contactEmail" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Total beds</mat-label>
+            <input matInput type="number" [(ngModel)]="branch.totalBeds" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Occupied beds</mat-label>
+            <input matInput type="number" [(ngModel)]="branch.occupiedBeds" />
+          </mat-form-field>
+
+          <label class="toggle-box">
+            <input type="checkbox" [(ngModel)]="branch.isActive" />
+            <span>Branch active</span>
+          </label>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <div class="actions-row">
+    <button mat-raised-button color="primary" (click)="saveSettings()" [disabled]="isSaving">
+      <mat-icon>save</mat-icon>
+      Save organization settings
+    </button>
+  </div>
 </section>
+
+<ng-template #loadingState>
+  <section class="settings-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading hospital settings...</span>
+    </div>
+  </section>
+</ng-template>
+
+<ng-template #noBranches>
+  <div class="empty-state">
+    No branches configured yet. Add your first branch to enable bed occupancy and multi-site management.
+  </div>
+</ng-template>

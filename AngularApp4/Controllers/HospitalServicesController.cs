@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AngularApp4.Controllers;
 
 [ApiController]
-[Route("api/services")]
+[Route("api/hospital-services")]
 public class HospitalServicesController : ControllerBase
 {
     private readonly AppDbContext _db;

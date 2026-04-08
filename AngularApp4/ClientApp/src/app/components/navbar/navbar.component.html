@@ -1,80 +1,41 @@
-<div class="admin-sidebar" [class.collapsed]="!isExpanded">
-
-  <!-- Brand / Logo Section -->
+<aside class="sidebar" [class.collapsed]="!isExpanded" [class.user-theme]="role === 'User'">
   <div class="sidebar-header">
     <div class="logo-box">
-      <mat-icon class="logo-icon">admin_panel_settings</mat-icon>
-      <span class="brand-text" *ngIf="isExpanded">ADMIN PANEL</span>
+      <div class="logo-mark">{{ role === 'Admin' ? 'A' : 'U' }}</div>
+      <div class="brand-copy" *ngIf="isExpanded">
+        <strong>{{ brandText }}</strong>
+        <span>{{ roleSubtitle }}</span>
+      </div>
     </div>
-    <!--<button mat-icon-button (click)="toggle()" class="toggle-btn">
-      <mat-icon>{{ isExpanded ? 'chevron_left' : 'menu' }}</mat-icon>
-    </button>-->
   </div>
 
-  <!-- User Profile -->
   <div class="user-profile" *ngIf="isExpanded">
-    <div class="avatar">AD</div>
-    <div class="user-info">
-      <span class="user-name">System Admin</span>
-      <span class="user-role">Super User</span>
+    <span class="avatar">{{ initials }}</span>
+    <div class="profile-copy">
+      <strong>{{ displayName }}</strong>
+      <span>{{ roleSubtitle }}</span>
     </div>
   </div>
 
-  <!-- Navigation Links -->
   <nav class="sidebar-nav">
-    <ul class="nav-list">
-      <li class="nav-item">
-        <a [routerLink]="['/']" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
-          <mat-icon>dashboard</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">Dashboard</span>
-        </a>
-      </li>
-
-      <li class="nav-label" *ngIf="isExpanded">MANAGEMENT</li>
-
-      <li class="nav-item">
-        <a [routerLink]="['/services']" routerLinkActive="active-link">
-          <mat-icon>settings_suggest</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">Services</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a [routerLink]="['/my-appointments']" routerLinkActive="active-link">
-          <mat-icon>format_list_bulleted</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">Bookings</span>
-        </a>
-      </li>
-      <li class="nav-item">
-        <a [routerLink]="['/users']" routerLinkActive="active-link">
-          <mat-icon>people</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">Users</span>
-        </a>
-      </li>
-
-      <li class="nav-label" *ngIf="isExpanded">SYSTEM</li>
-
-
-      <li class="nav-item">
-        <a [routerLink]="['/user']" routerLinkActive="active-link">
-          <mat-icon>account_circle</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">User Page</span>
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a [routerLink]="['/settings']" routerLinkActive="active-link">
-          <mat-icon>alternate_email</mat-icon>
-          <span class="link-text" *ngIf="isExpanded">SMTP Config</span>
+    <ul class="nav-list" *ngFor="let section of navigationSections">
+      <li class="nav-label" *ngIf="isExpanded">{{ section.label }}</li>
+      <li class="nav-item" *ngFor="let item of section.items">
+        <a
+          [routerLink]="[item.route]"
+          routerLinkActive="active-link"
+          [routerLinkActiveOptions]="{ exact: item.exact ?? false }">
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span class="link-text" *ngIf="isExpanded">{{ item.label }}</span>
         </a>
       </li>
     </ul>
   </nav>
 
-  <!-- Bottom Action -->
   <div class="sidebar-footer">
-    <a href="javascript:void(0)" class="logout-link">
+    <button type="button" class="logout-link" (click)="logout()">
       <mat-icon>logout</mat-icon>
       <span class="link-text" *ngIf="isExpanded">Logout</span>
-    </a>
+    </button>
   </div>
-</div>
+</aside>

@@ -1,139 +1,162 @@
-<div class="admin-dashboard">
-  <!-- Admin Hero Section -->
-  <section class="admin-hero">
-    <div class="hero-content">
-      <div class="status-pill">
-        <span class="pulse-icon"></span> System Status: Online
-      </div>
-      <h1>Welcome back, <span class="highlight">Admin</span></h1>
-      <p>Manage your appointment ecosystem, monitor service performance, and handle user bookings from a single control center.</p>
+<section class="dashboard-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-intro">
+    <div>
+      <span class="eyebrow">Operations snapshot</span>
+      <h1>Hospital command dashboard</h1>
+      <p>Monitor live patient volume, billing pressure, stock risks, and branch bed occupancy from one place.</p>
+    </div>
 
-      <div class="quick-stats-grid">
-        <div class="q-stat">
-          <mat-icon>event_note</mat-icon>
-          <div>
-            <strong>{{ bookings.length }}</strong>
-            <span>Today's Bookings</span>
+    <div class="hero-panel" *ngIf="summary">
+      <div>
+        <span>Total beds</span>
+        <strong>{{ summary.occupiedBeds }} / {{ summary.totalBeds }}</strong>
+      </div>
+      <div>
+        <span>Outstanding</span>
+        <strong>NPR {{ summary.pendingPaymentAmount | number:'1.0-0' }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <div class="metrics-grid">
+    <article class="metric-card" *ngFor="let metric of metrics" [ngClass]="metric.accent">
+      <div class="metric-icon">
+        <mat-icon>{{ metric.icon }}</mat-icon>
+      </div>
+      <div class="metric-copy">
+        <span>{{ metric.label }}</span>
+        <strong>{{ formatMetric(metric) }}</strong>
+      </div>
+    </article>
+  </div>
+
+  <div class="content-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Pharmacy alerts</span>
+          <h2>Low stock items</h2>
+        </div>
+      </div>
+
+      <div class="list-table" *ngIf="lowStockAlerts.length; else noLowStock">
+        <div class="list-row header">
+          <span>Medicine</span>
+          <span>Branch</span>
+          <span>Stock</span>
+          <span>Expiry</span>
+        </div>
+
+        <div class="list-row" *ngFor="let item of lowStockAlerts">
+          <span>{{ item.name }}</span>
+          <span>{{ item.branchName }}</span>
+          <span>{{ item.quantityInStock }} / {{ item.reorderLevel }}</span>
+          <span>{{ item.expiryDate | date:'mediumDate' }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Expiry watch</span>
+          <h2>Expired medicines</h2>
+        </div>
+      </div>
+
+      <div class="list-table" *ngIf="expiredMedicineAlerts.length; else noExpired">
+        <div class="list-row header">
+          <span>Medicine</span>
+          <span>Branch</span>
+          <span>Stock</span>
+          <span>Expired</span>
+        </div>
+
+        <div class="list-row danger" *ngFor="let item of expiredMedicineAlerts">
+          <span>{{ item.name }}</span>
+          <span>{{ item.branchName }}</span>
+          <span>{{ item.quantityInStock }} left</span>
+          <span>{{ item.expiryDate | date:'mediumDate' }}</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="content-grid secondary">
+    <section class="panel wide">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Billing follow-up</span>
+          <h2>Pending payments</h2>
+        </div>
+      </div>
+
+      <div class="list-table" *ngIf="pendingPayments.length; else noPayments">
+        <div class="list-row header">
+          <span>Invoice</span>
+          <span>Patient</span>
+          <span>Status</span>
+          <span>Due date</span>
+          <span>Amount due</span>
+        </div>
+
+        <div class="list-row" *ngFor="let item of pendingPayments">
+          <span>{{ item.invoiceNumber }}</span>
+          <span>{{ item.patientName }}</span>
+          <span><b>{{ item.status }}</b></span>
+          <span>{{ item.dueDate ? (item.dueDate | date:'mediumDate') : 'Not set' }}</span>
+          <span>NPR {{ item.dueAmount | number:'1.0-0' }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Capacity monitor</span>
+          <h2>Bed occupancy summary</h2>
+        </div>
+      </div>
+
+      <div class="occupancy-stack" *ngIf="branchOccupancy.length; else noBranches">
+        <div class="occupancy-card" *ngFor="let branch of branchOccupancy">
+          <div class="occupancy-top">
+            <strong>{{ branch.branchName }}</strong>
+            <span>{{ branch.occupancyRate }}%</span>
           </div>
-        </div>
-        <div class="q-stat">
-          <mat-icon>people_outline</mat-icon>
-          <div>
-            <strong>{{ users.length }}</strong>
-            <span>Registered Users</span>
+          <div class="progress-track">
+            <div class="progress-bar" [style.width.%]="branch.occupancyRate"></div>
           </div>
+          <small>{{ branch.occupiedBeds }} of {{ branch.totalBeds }} beds occupied</small>
         </div>
       </div>
-    </div>
+    </section>
+  </div>
+</section>
 
-    <div class="hero-visual">
-      <div class="admin-shape">
-        <mat-icon class="dashboard-icon">dashboard_customize</mat-icon>
-      </div>
-    </div>
-  </section>
-
-  <!-- Management Shortcuts -->
-  <section class="shortcuts-section">
-    <h2 class="section-title">System Management</h2>
-    <div class="shortcuts-grid">
-      <!-- Shortcut 1 -->
-      <div class="shortcut-card" routerLink="/services">
-        <div class="card-icon blue"><mat-icon>settings_suggest</mat-icon></div>
-        <h3>Service Catalog</h3>
-        <p>Update service prices, duration, and availability windows.</p>
-        <span class="action-link">Configure <mat-icon>chevron_right</mat-icon></span>
-      </div>
-
-      <!-- Shortcut 2 -->
-      <div class="shortcut-card" routerLink="/my-appointments">
-        <div class="card-icon pink"><mat-icon>history_edu</mat-icon></div>
-        <h3>Booking Logs</h3>
-        <p>Review and manage all client appointments and status history.</p>
-        <span class="action-link">View Logs <mat-icon>chevron_right</mat-icon></span>
-      </div>
-
-      <!-- Shortcut 3 -->
-      <div class="shortcut-card" routerLink="/users">
-        <div class="card-icon orange"><mat-icon>group</mat-icon></div>
-        <h3>User Dashboard</h3>
-        <p>Manage admin users, roles, invites, and account status.</p>
-        <span class="action-link">Manage Users <mat-icon>chevron_right</mat-icon></span>
-      </div>
-
-      <!-- Shortcut 4 -->
-      <div class="shortcut-card" routerLink="/settings">
-        <div class="card-icon orange"><mat-icon>mail_outline</mat-icon></div>
-        <h3>Email & SMTP</h3>
-        <p>Configure organizational SMTP and email notification templates.</p>
-        <span class="action-link">Setup <mat-icon>chevron_right</mat-icon></span>
-      </div>
+<ng-template #loadingState>
+  <section class="dashboard-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading hospital dashboard...</span>
     </div>
   </section>
+</ng-template>
 
-  <!-- Dashboard Insights -->
-  <section class="insights-section">
-    <h2 class="section-title">Dashboard Insights</h2>
-    <div class="insights-grid">
-      <div class="metrics-panel">
-        <article class="metric-card" *ngFor="let m of metrics">
-          <div class="metric-head">
-            <mat-icon>{{ m.icon }}</mat-icon>
-            <span>{{ m.label }}</span>
-          </div>
-          <strong>{{ m.value }}</strong>
-          <small [class.positive]="m.positive" [class.negative]="!m.positive">{{ m.trend }}</small>
-        </article>
-      </div>
+<ng-template #noLowStock>
+  <p class="empty-state">No low-stock medicines right now.</p>
+</ng-template>
 
-      <div class="activity-panel">
-        <div class="activity-header">
-          <h3>Recent Admin Activity</h3>
-          <button mat-stroked-button routerLink="/my-appointments">View Logs</button>
-        </div>
-        <ul>
-          <li *ngFor="let item of recentActivities">
-            <span [class]="badgeClass(item.type)">{{ item.type }}</span>
-            <div>
-              <strong>{{ item.actor }}</strong> {{ item.action }}
-              <small>{{ item.when }}</small>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </section>
+<ng-template #noExpired>
+  <p class="empty-state">No expired medicines found.</p>
+</ng-template>
 
-  <!-- System Health & Analytics -->
-  <section class="analytics-preview">
-    <div class="analytics-grid">
-      <div class="performance-card">
-        <div class="card-header">
-          <mat-icon>analytics</mat-icon>
-          <h3>Operational Health</h3>
-        </div>
-        <ul class="health-list">
-          <li>
-            <span>Database Connectivity</span>
-            <span class="status-ok">Stable</span>
-          </li>
-          <li>
-            <span>Email Delivery Rate</span>
-            <span class="status-ok">98.2%</span>
-          </li>
-          <li>
-            <span>Server Response Time</span>
-            <span class="status-warning">240ms</span>
-          </li>
-        </ul>
-      </div>
+<ng-template #noPayments>
+  <p class="empty-state">No pending payments at the moment.</p>
+</ng-template>
 
-      <div class="admin-cta-text">
-        <span class="tag">Maintenance</span>
-        <h2>System Configuration</h2>
-        <p>Ensure your organization settings are up to date. This includes time zones, currency settings, and employee permissions.</p>
-        <button mat-flat-button color="primary" routerLink="/settings">Open System Settings</button>
-      </div>
-    </div>
-  </section>
-</div>
+<ng-template #noBranches>
+  <p class="empty-state">Branch occupancy will appear once branches are configured.</p>
+</ng-template>

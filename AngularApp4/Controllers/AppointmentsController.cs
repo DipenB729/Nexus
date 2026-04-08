@@ -22,7 +22,7 @@ public class AppointmentsController : ControllerBase
 
     [HttpPost]
     [Authorize(Policy = "UserOnly")]
-    public async Task<ActionResult<ApiResponse<Appointment>>> Create(AppointmentCreateDto dto)
+    public async Task<ActionResult<ApiResponse<Appointment>>> Create([FromBody] AppointmentCreateDto dto)
     {
         var userId = GetUserId();
         var patient = await _db.Patients.FirstOrDefaultAsync(x => x.UserId == userId);
@@ -76,19 +76,18 @@ public class AppointmentsController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = "AdminOnly")]
-    public async Task<ActionResult<ApiResponse<PagedResult<Appointment>>>> All([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] AppointmentStatus? status = null)
+    public async Task<ActionResult<ApiResponse<IEnumerable<Appointment>>>> GetAll([FromQuery] AppointmentStatus? status = null)
     {
         var query = _db.Appointments.AsQueryable();
         if (status.HasValue) query = query.Where(x => x.Status == status.Value);
 
-        var total = await query.CountAsync();
-        var items = await query.OrderByDescending(x => x.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-        return Ok(ApiResponse<PagedResult<Appointment>>.Ok(new PagedResult<Appointment> { Items = items, Page = page, PageSize = pageSize, TotalCount = total }));
+        var items = await query.OrderByDescending(x => x.AppointmentDate).ToListAsync();
+        return Ok(ApiResponse<IEnumerable<Appointment>>.Ok(items));
     }
 
     [HttpPut("{appointmentId:long}/status")]
     [Authorize(Policy = "AdminOnly")]
-    public async Task<ActionResult<ApiResponse<Appointment>>> UpdateStatus(long appointmentId, AppointmentStatusUpdateDto dto)
+    public async Task<ActionResult<ApiResponse<Appointment>>> UpdateStatus(long appointmentId, [FromBody] AppointmentStatusUpdateDto dto)
     {
         var item = await _db.Appointments.FindAsync(appointmentId);
         if (item is null) return NotFound(ApiResponse<Appointment>.Fail("Appointment not found"));

@@ -1,16 +1,20 @@
-<ng-container *ngIf="isAuthRoute; else nonAuthLayout">
+<ng-container *ngIf="isAuthRoute; else appLayout">
   <main class="auth-shell">
     <router-outlet></router-outlet>
   </main>
 </ng-container>
 
-<ng-template #nonAuthLayout>
-  <ng-container *ngIf="isAdminRoute; else nonAdminLayout">
-    <div class="dashboard-wrapper">
-      <app-navbar [isExpanded]="isSidebarExpanded"
-                  (toggleEvent)="toggleSidebar()"
-                  class="sidebar-nav"
-                  [class.collapsed]="!isSidebarExpanded">
+<ng-template #appLayout>
+  <ng-container *ngIf="isDashboardRoute; else publicLayout">
+    <div class="dashboard-wrapper" [class.user-mode]="currentRole === 'User'">
+      <app-navbar
+        class="sidebar-nav"
+        [class.collapsed]="!isSidebarExpanded"
+        [isExpanded]="isSidebarExpanded"
+        [role]="currentRole || 'Admin'"
+        [displayName]="userDisplayName"
+        (toggleEvent)="toggleSidebar()"
+        (logoutEvent)="logout()">
       </app-navbar>
 
       <main class="main-content">
@@ -19,7 +23,10 @@
             <button mat-icon-button (click)="toggleSidebar()" class="menu-toggle">
               <mat-icon>{{ isSidebarExpanded ? 'menu_open' : 'menu' }}</mat-icon>
             </button>
-            <h2 class="page-title">Dashboard Overview</h2>
+            <div>
+              <span class="workspace-chip">{{ workspaceLabel }}</span>
+              <h2 class="page-title">{{ pageTitle }}</h2>
+            </div>
           </div>
 
           <div class="header-right">
@@ -30,27 +37,25 @@
             <div class="vertical-divider"></div>
 
             <div class="profile-section" [matMenuTriggerFor]="profileMenu">
-              <div class="user-info d-none d-md-flex">
-                <span class="user-name">System Admin</span>
-                <span class="user-status">Online</span>
+              <div class="user-info">
+                <span class="user-name">{{ userDisplayName }}</span>
+                <span class="user-status">{{ currentSession?.role ?? workspaceLabel }}</span>
               </div>
-              <div class="avatar-wrapper">
-                <img src="https://ui-avatars.com/api/?name=Admin&background=38bdf8&color=fff" alt="Admin">
-              </div>
+              <div class="avatar-wrapper">{{ userInitial }}</div>
               <mat-icon class="expand-icon">expand_more</mat-icon>
             </div>
 
             <mat-menu #profileMenu="matMenu">
-              <button mat-menu-item [routerLink]="['/user']">
-                <mat-icon>person</mat-icon>
-                <span>My Profile</span>
+              <button mat-menu-item [routerLink]="[primaryMenuRoute]">
+                <mat-icon>dashboard</mat-icon>
+                <span>Dashboard</span>
               </button>
-              <button mat-menu-item [routerLink]="['/settings']">
-                <mat-icon>settings</mat-icon>
-                <span>Settings</span>
+              <button mat-menu-item [routerLink]="[secondaryMenuRoute]">
+                <mat-icon>{{ currentRole === 'Admin' ? 'settings' : 'medical_services' }}</mat-icon>
+                <span>{{ secondaryMenuLabel }}</span>
               </button>
               <mat-divider></mat-divider>
-              <button mat-menu-item color="warn" (click)="logout()">
+              <button mat-menu-item (click)="logout()">
                 <mat-icon>logout</mat-icon>
                 <span>Logout</span>
               </button>
@@ -65,17 +70,9 @@
     </div>
   </ng-container>
 
-  <ng-template #nonAdminLayout>
-    <ng-container *ngIf="isUserDashboardRoute; else publicLayout">
-      <main class="user-dashboard-shell">
-        <router-outlet></router-outlet>
-      </main>
-    </ng-container>
-
-    <ng-template #publicLayout>
-      <main class="public-shell">
-        <router-outlet></router-outlet>
-      </main>
-    </ng-template>
+  <ng-template #publicLayout>
+    <main class="public-shell">
+      <router-outlet></router-outlet>
+    </main>
   </ng-template>
 </ng-template>
