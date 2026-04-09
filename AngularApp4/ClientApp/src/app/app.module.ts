@@ -39,6 +39,10 @@ import { MasterSetupComponent } from './components/master-setup/master-setup.com
 import { UserPageComponent } from './components/user-page/user-page.component';
 import { LoginComponent } from './components/auth/login/login.component';
 import { RegisterComponent } from './components/auth/register/register.component';
+import { PatientRegistryComponent } from './components/patient-registry/patient-registry.component';
+import { AppointmentControlComponent } from './components/appointment-control/appointment-control.component';
+import { AdmissionControlComponent } from './components/admission-control/admission-control.component';
+import { BillingFinanceComponent } from './components/billing-finance/billing-finance.component';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { AuthInterceptor } from './core/services/hms/auth.interceptor';
@@ -57,7 +61,11 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     MasterSetupComponent,
     UserPageComponent,
     LoginComponent,
-    RegisterComponent
+    RegisterComponent,
+    PatientRegistryComponent,
+    AppointmentControlComponent,
+    AdmissionControlComponent,
+    BillingFinanceComponent
   ],
   imports: [
     BrowserModule,
@@ -72,8 +80,20 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'auth/register', component: RegisterComponent },
       { path: 'admin', pathMatch: 'full', redirectTo: 'admin/dashboard' },
       { path: 'admin/dashboard', component: HomeComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/patients', component: PatientRegistryComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/patients/create', component: PatientRegistryComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/patients/:id/edit', component: PatientRegistryComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/patients/:id', component: PatientRegistryComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/services', component: ServiceListComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
-      { path: 'admin/bookings', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/bookings', component: AppointmentControlComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/bookings/:id/edit', component: AppointmentControlComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/bookings/:id', component: AppointmentControlComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/admissions', component: AdmissionControlComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/admissions/create', component: AdmissionControlComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/admissions/:id/edit', component: AdmissionControlComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/admissions/:id', component: AdmissionControlComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/billing', pathMatch: 'full', redirectTo: 'admin/billing/bills' },
+      { path: 'admin/billing/:section', component: BillingFinanceComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/roles', component: UsersDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/users', pathMatch: 'full', redirectTo: 'admin/roles' },
       { path: 'admin/masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
@@ -86,7 +106,10 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'user/dashboard', component: UserPageComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
       { path: 'user/services', component: ServiceListComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
       { path: 'user/appointments', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patients', pathMatch: 'full', redirectTo: 'admin/patients' },
       { path: 'services', pathMatch: 'full', redirectTo: 'admin/services' },
+      { path: 'admissions', pathMatch: 'full', redirectTo: 'admin/admissions' },
+      { path: 'billing', pathMatch: 'full', redirectTo: 'admin/billing/bills' },
       { path: 'settings', pathMatch: 'full', redirectTo: 'admin/settings' },
       { path: 'masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
       { path: 'users', pathMatch: 'full', redirectTo: 'admin/roles' },

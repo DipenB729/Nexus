@@ -31,8 +31,10 @@ export class NavbarComponent {
       label: 'Overview',
       items: [
         { label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard', exact: true },
+        { label: 'Patients', icon: 'groups', route: '/admin/patients' },
         { label: 'Services', icon: 'medical_services', route: '/admin/services' },
-        { label: 'Appointments', icon: 'event_note', route: '/admin/bookings' }
+        { label: 'Appointments', icon: 'event_note', route: '/admin/bookings' },
+        { label: 'Admissions', icon: 'local_hotel', route: '/admin/admissions' }
       ]
     },
     {
@@ -49,6 +51,7 @@ export class NavbarComponent {
     {
       label: 'Administration',
       items: [
+        { label: 'Billing & Finance', icon: 'account_balance_wallet', route: '/admin/billing/bills' },
         { label: 'Roles & Access', icon: 'admin_panel_settings', route: '/admin/roles' },
         { label: 'Hospital Settings', icon: 'settings', route: '/admin/settings' }
       ]

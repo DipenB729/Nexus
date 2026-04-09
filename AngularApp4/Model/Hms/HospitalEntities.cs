@@ -34,11 +34,15 @@ public class Patient
     [Key] public long PatientId { get; set; }
     public long UserId { get; set; }
     public long? PatientCategoryId { get; set; }
+    [MaxLength(30)] public string? MedicalRecordNumber { get; set; }
     [MaxLength(20)] public string? Gender { get; set; }
     public DateTime? DateOfBirth { get; set; }
     [MaxLength(300)] public string? Address { get; set; }
     [MaxLength(10)] public string? BloodGroup { get; set; }
     [MaxLength(20)] public string? EmergencyContact { get; set; }
+    [MaxLength(500)] public string? Notes { get; set; }
+    public bool IsActive { get; set; } = true;
+    public long? MergedIntoPatientId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
@@ -249,12 +253,117 @@ public class MedicineInventoryItem
     public Branch? Branch { get; set; }
 }
 
+public enum BillingChargeType
+{
+    Consultation,
+    Lab,
+    Procedure,
+    Bed,
+    NursingService
+}
+
+public class BillingChargeDefinition
+{
+    [Key] public long BillingChargeDefinitionId { get; set; }
+    public BillingChargeType ChargeType { get; set; } = BillingChargeType.Consultation;
+    [Required, MaxLength(120)] public string Name { get; set; } = string.Empty;
+    [Required, MaxLength(30)] public string Code { get; set; } = string.Empty;
+    [MaxLength(250)] public string? Description { get; set; }
+    [MaxLength(30)] public string UnitLabel { get; set; } = "unit";
+    [Column(TypeName = "decimal(10,2)")] public decimal DefaultAmount { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public enum PaymentMethodType
+{
+    Cash,
+    Card,
+    Bank,
+    MobileWallet,
+    InsuranceClaim
+}
+
+public class BillingPaymentMethod
+{
+    [Key] public long BillingPaymentMethodId { get; set; }
+    [Required, MaxLength(100)] public string Name { get; set; } = string.Empty;
+    public PaymentMethodType MethodType { get; set; } = PaymentMethodType.Cash;
+    [MaxLength(100)] public string? ProviderName { get; set; }
+    public bool RequiresReference { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public enum BillingPartnerKind
+{
+    InsuranceCompany,
+    PanelOrganization
+}
+
+public class BillingPartner
+{
+    [Key] public long BillingPartnerId { get; set; }
+    public BillingPartnerKind Kind { get; set; } = BillingPartnerKind.InsuranceCompany;
+    [Required, MaxLength(150)] public string Name { get; set; } = string.Empty;
+    [Required, MaxLength(40)] public string Code { get; set; } = string.Empty;
+    [MaxLength(150)] public string? ContactPerson { get; set; }
+    [MaxLength(150)] public string? ContactEmail { get; set; }
+    [MaxLength(30)] public string? ContactPhone { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal CreditLimit { get; set; }
+    [MaxLength(80)] public string ClaimSubmissionMode { get; set; } = "Manual";
+    [MaxLength(250)] public string? Notes { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class BillingRule
+{
+    [Key] public long BillingRuleId { get; set; }
+    public long BillingPartnerId { get; set; }
+    [Required, MaxLength(120)] public string RuleName { get; set; } = string.Empty;
+    [MaxLength(120)] public string? PolicyName { get; set; }
+    [Column(TypeName = "decimal(5,2)")] public decimal DiscountPercentage { get; set; }
+    [Column(TypeName = "decimal(5,2)")] public decimal CoPayPercentage { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal CreditLimit { get; set; }
+    public int ClaimSubmissionWindowDays { get; set; }
+    public bool RequiresPreApproval { get; set; }
+    [MaxLength(300)] public string? Notes { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    public BillingPartner? BillingPartner { get; set; }
+}
+
 public enum InvoiceStatus
 {
     Pending,
     Partial,
     Paid,
     Cancelled
+}
+
+public enum InvoicePayerType
+{
+    SelfPay,
+    Insurance,
+    Corporate
+}
+
+public enum BillingClaimStatus
+{
+    None,
+    Draft,
+    Submitted,
+    UnderReview,
+    Approved,
+    Rejected,
+    Settled
 }
 
 public class BillingInvoice
@@ -264,12 +373,23 @@ public class BillingInvoice
     public long? PatientId { get; set; }
     public long? AppointmentId { get; set; }
     public long? BranchId { get; set; }
+    public InvoicePayerType PayerType { get; set; } = InvoicePayerType.SelfPay;
+    public long? BillingPartnerId { get; set; }
+    public long? BillingRuleId { get; set; }
     [Column(TypeName = "decimal(10,2)")] public decimal TotalAmount { get; set; }
     [Column(TypeName = "decimal(10,2)")] public decimal AmountPaid { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal RequestedDiscountAmount { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal ApprovedDiscountAmount { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal RefundedAmount { get; set; }
     public InvoiceStatus Status { get; set; } = InvoiceStatus.Pending;
+    public BillingClaimStatus ClaimStatus { get; set; } = BillingClaimStatus.None;
     public DateTime InvoiceDate { get; set; } = DateTime.UtcNow.Date;
     public DateTime? DueDate { get; set; }
     public DateTime? LastPaymentDate { get; set; }
+    public DateTime? ClaimSubmittedAt { get; set; }
+    public DateTime? ClaimSettledAt { get; set; }
+    [MaxLength(60)] public string? ClaimReferenceNumber { get; set; }
+    [MaxLength(250)] public string? DiscountNotes { get; set; }
     [MaxLength(250)] public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -277,6 +397,67 @@ public class BillingInvoice
     public Patient? Patient { get; set; }
     public Branch? Branch { get; set; }
     public Appointment? Appointment { get; set; }
+    public BillingPartner? BillingPartner { get; set; }
+    public BillingRule? BillingRule { get; set; }
+}
+
+public class BillingInvoiceItem
+{
+    [Key] public long BillingInvoiceItemId { get; set; }
+    public long BillingInvoiceId { get; set; }
+    public long? BillingChargeDefinitionId { get; set; }
+    public BillingChargeType ChargeType { get; set; } = BillingChargeType.Consultation;
+    [Required, MaxLength(150)] public string Description { get; set; } = string.Empty;
+    [Column(TypeName = "decimal(10,2)")] public decimal Quantity { get; set; } = 1m;
+    [Column(TypeName = "decimal(10,2)")] public decimal UnitPrice { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal DiscountAmount { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal TotalAmount { get; set; }
+    [MaxLength(250)] public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    public BillingInvoice? BillingInvoice { get; set; }
+    public BillingChargeDefinition? BillingChargeDefinition { get; set; }
+}
+
+public class BillingInvoicePayment
+{
+    [Key] public long BillingInvoicePaymentId { get; set; }
+    public long BillingInvoiceId { get; set; }
+    public long BillingPaymentMethodId { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal Amount { get; set; }
+    public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
+    [MaxLength(100)] public string? ReferenceNumber { get; set; }
+    [MaxLength(250)] public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public BillingInvoice? BillingInvoice { get; set; }
+    public BillingPaymentMethod? BillingPaymentMethod { get; set; }
+}
+
+public enum RefundStatus
+{
+    Requested,
+    Approved,
+    Processed,
+    Rejected
+}
+
+public class BillingRefund
+{
+    [Key] public long BillingRefundId { get; set; }
+    public long BillingInvoiceId { get; set; }
+    public long? BillingPaymentMethodId { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal Amount { get; set; }
+    public RefundStatus Status { get; set; } = RefundStatus.Requested;
+    [Required, MaxLength(250)] public string Reason { get; set; } = string.Empty;
+    [MaxLength(250)] public string? Notes { get; set; }
+    public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ProcessedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public BillingInvoice? BillingInvoice { get; set; }
+    public BillingPaymentMethod? BillingPaymentMethod { get; set; }
 }
 
 public enum AppointmentStatus
@@ -298,10 +479,77 @@ public class Appointment
     public DateTime AppointmentDate { get; set; }
     public TimeSpan SlotStartTime { get; set; }
     public TimeSpan SlotEndTime { get; set; }
+    [MaxLength(40)] public string? TokenNumber { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Pending;
     [MaxLength(500)] public string? Reason { get; set; }
     [MaxLength(500)] public string? AdminRemarks { get; set; }
     public long CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+}
+
+public class AppointmentTokenSetting
+{
+    [Key] public long AppointmentTokenSettingId { get; set; }
+    [Required, MaxLength(20)] public string Prefix { get; set; } = "OPD";
+    public int StartingNumber { get; set; } = 1;
+    public int NumberPadding { get; set; } = 3;
+    public bool ResetDaily { get; set; } = true;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public enum AdmissionStatus
+{
+    Active,
+    DischargePending,
+    Discharged
+}
+
+public class PatientAdmission
+{
+    [Key] public long PatientAdmissionId { get; set; }
+    [Required, MaxLength(30)] public string AdmissionNumber { get; set; } = string.Empty;
+    public long PatientId { get; set; }
+    public long? AppointmentId { get; set; }
+    public long? DoctorId { get; set; }
+    public long BranchId { get; set; }
+    public long WardId { get; set; }
+    public long BedId { get; set; }
+    public AdmissionStatus Status { get; set; } = AdmissionStatus.Active;
+    public DateTime AdmissionDate { get; set; } = DateTime.UtcNow;
+    public DateTime? ExpectedDischargeDate { get; set; }
+    public DateTime? DischargeDate { get; set; }
+    [MaxLength(500)] public string? Reason { get; set; }
+    [MaxLength(500)] public string? Notes { get; set; }
+    [MaxLength(2000)] public string? DischargeSummary { get; set; }
+    public long? DischargeApprovedByUserId { get; set; }
+    public DateTime? DischargeApprovedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    public Patient? Patient { get; set; }
+    public Appointment? Appointment { get; set; }
+    public Doctor? Doctor { get; set; }
+    public Branch? Branch { get; set; }
+    public Ward? Ward { get; set; }
+    public Bed? Bed { get; set; }
+}
+
+public class AdmissionTransfer
+{
+    [Key] public long AdmissionTransferId { get; set; }
+    public long PatientAdmissionId { get; set; }
+    public long? FromWardId { get; set; }
+    public long? FromBedId { get; set; }
+    public long ToWardId { get; set; }
+    public long ToBedId { get; set; }
+    public DateTime TransferDate { get; set; } = DateTime.UtcNow;
+    [MaxLength(500)] public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public PatientAdmission? PatientAdmission { get; set; }
+    public Ward? FromWard { get; set; }
+    public Bed? FromBed { get; set; }
+    public Ward? ToWard { get; set; }
+    public Bed? ToBed { get; set; }
 }

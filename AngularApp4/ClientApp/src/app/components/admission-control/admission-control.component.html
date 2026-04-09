@@ -1,0 +1,372 @@
+<section class="phase-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-header">
+    <div>
+      <h1>Admission and Discharge Control</h1>
+      <p>Admit patients, assign wards and beds, move them between units, and finalize discharge summaries with a clear review flow.</p>
+    </div>
+
+    <div class="header-actions">
+      <button mat-stroked-button type="button" *ngIf="!isIndexView" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to list
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isIndexView" (click)="goToCreate()">
+        <mat-icon>add</mat-icon>
+        Admit patient
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        *ngIf="isDetailsView && selectedAdmissionId"
+        (click)="goToEdit(selectedAdmissionId)">
+        <mat-icon>edit</mat-icon>
+        Manage admission
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <article>
+      <span>Active admissions</span>
+      <strong>{{ activeAdmissions }}</strong>
+    </article>
+    <article>
+      <span>Discharged</span>
+      <strong>{{ dischargedAdmissions }}</strong>
+    </article>
+    <article>
+      <span>Occupied beds</span>
+      <strong>{{ occupiedBeds }}</strong>
+    </article>
+  </div>
+
+  <p class="status-message error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="status-message success" *ngIf="statusMessage">{{ statusMessage }}</p>
+
+  <ng-container *ngIf="isIndexView">
+    <div class="table-actions">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search admissions</mat-label>
+        <input matInput [(ngModel)]="searchTerm" placeholder="Patient, MRN, admission number, doctor" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="statusFilter">
+          <mat-option value="All">All statuses</mat-option>
+          <mat-option value="Active">Active</mat-option>
+          <mat-option value="DischargePending">Discharge pending</mat-option>
+          <mat-option value="Discharged">Discharged</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-stroked-button type="button" (click)="refresh()">Refresh</button>
+    </div>
+
+    <section class="table-card">
+      <table class="phase-table" *ngIf="filteredAdmissions.length > 0; else noAdmissions">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Patient</th>
+            <th>Location</th>
+            <th>Doctor</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let admission of filteredAdmissions; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>
+              <button type="button" class="name-link" (click)="goToDetails(admission.patientAdmissionId)">{{ admission.patientName }}</button>
+              <small>{{ admission.admissionNumber }} | {{ admission.medicalRecordNumber }}</small>
+            </td>
+            <td>
+              <strong>{{ admission.wardName }}</strong>
+              <small>{{ admission.bedNumber }} | {{ admission.branchName }}</small>
+            </td>
+            <td>
+              <strong>{{ admission.doctorName || 'Unassigned' }}</strong>
+              <small>{{ admission.admissionDate | date:'mediumDate' }}</small>
+            </td>
+            <td><span class="status-pill" [ngClass]="admission.status.toLowerCase()">{{ admission.status }}</span></td>
+            <td class="actions-cell">
+              <button mat-button type="button" (click)="goToDetails(admission.patientAdmissionId)">View</button>
+              <button mat-button type="button" (click)="goToEdit(admission.patientAdmissionId)">Manage</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isCreateView">
+    <section class="editor-panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Create page</span>
+          <h2>Admit patient</h2>
+          <p>Create a new inpatient record and allocate the first ward and bed.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Patient</mat-label>
+          <mat-select [(ngModel)]="admissionForm.patientId">
+            <mat-option *ngFor="let patient of availablePatients" [value]="patient.patientId">
+              {{ patient.fullName }} | {{ patient.medicalRecordNumber }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Doctor</mat-label>
+          <mat-select [(ngModel)]="admissionForm.doctorId">
+            <mat-option [value]="null">Unassigned</mat-option>
+            <mat-option *ngFor="let doctor of availableDoctors" [value]="doctor.doctorId">
+              {{ doctor.fullName }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Ward</mat-label>
+          <mat-select [(ngModel)]="admissionForm.wardId" (selectionChange)="onAdmissionWardChange()">
+            <mat-option *ngFor="let ward of availableWards" [value]="ward.wardId">
+              {{ ward.name }} | {{ ward.branchName }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Bed</mat-label>
+          <mat-select [(ngModel)]="admissionForm.bedId">
+            <mat-option *ngFor="let bed of availableAdmissionBeds" [value]="bed.bedId">
+              {{ bed.bedNumber }} | {{ bed.wardName }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Admission date</mat-label>
+          <input matInput type="date" [(ngModel)]="admissionForm.admissionDate" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Expected discharge</mat-label>
+          <input matInput type="date" [(ngModel)]="admissionForm.expectedDischargeDate" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Reason for admission</mat-label>
+          <textarea matInput rows="2" [(ngModel)]="admissionForm.reason"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Admission notes</mat-label>
+          <textarea matInput rows="2" [(ngModel)]="admissionForm.notes"></textarea>
+        </mat-form-field>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingAdmission" (click)="createAdmission()">
+          Admit patient
+        </button>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isDetailsView">
+    <section class="details-panel" *ngIf="selectedAdmission as admission; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Details page</span>
+          <h2>Admission details</h2>
+        </div>
+      </div>
+
+      <div class="details-hero">
+        <span class="hero-kicker">Inpatient profile</span>
+        <h3>{{ admission.patientName }}</h3>
+        <p>{{ admission.admissionNumber }} | {{ admission.medicalRecordNumber }}</p>
+        <div class="hero-badges">
+          <span class="status-pill" [ngClass]="admission.status.toLowerCase()">{{ admission.status }}</span>
+          <span class="info-pill">{{ admission.wardName }} / {{ admission.bedNumber }}</span>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div><span>Doctor</span><strong>{{ admission.doctorName || 'Unassigned' }}</strong></div>
+        <div><span>Branch</span><strong>{{ admission.branchName }}</strong></div>
+        <div><span>Ward</span><strong>{{ admission.wardName }}</strong></div>
+        <div><span>Bed</span><strong>{{ admission.bedNumber }}</strong></div>
+        <div><span>Admission date</span><strong>{{ admission.admissionDate | date:'mediumDate' }}</strong></div>
+        <div><span>Expected discharge</span><strong>{{ admission.expectedDischargeDate ? (admission.expectedDischargeDate | date:'mediumDate') : 'Not planned' }}</strong></div>
+        <div><span>Discharge date</span><strong>{{ admission.dischargeDate ? (admission.dischargeDate | date:'mediumDate') : 'Not discharged' }}</strong></div>
+        <div><span>Approved at</span><strong>{{ admission.dischargeApprovedAt ? (admission.dischargeApprovedAt | date:'medium') : 'Pending approval' }}</strong></div>
+        <div class="full-width"><span>Reason</span><strong>{{ admission.reason || 'No admission reason recorded' }}</strong></div>
+        <div class="full-width"><span>Notes</span><strong>{{ admission.notes || 'No admission notes recorded' }}</strong></div>
+        <div class="full-width"><span>Discharge summary</span><strong>{{ admission.dischargeSummary || 'No discharge summary approved yet' }}</strong></div>
+      </div>
+
+      <section class="timeline-panel" *ngIf="admission.transfers.length > 0">
+        <div class="section-head">
+          <div>
+            <h3>Transfer history</h3>
+            <p>Latest movement trail for this admission.</p>
+          </div>
+        </div>
+
+        <div class="transfer-item" *ngFor="let transfer of admission.transfers">
+          <strong>{{ transfer.transferDate | date:'mediumDate' }}</strong>
+          <span>{{ transfer.fromWardName || 'Initial ward' }} {{ transfer.fromBedNumber || '' }} -> {{ transfer.toWardName }} {{ transfer.toBedNumber }}</span>
+          <small>{{ transfer.notes || 'No transfer note provided.' }}</small>
+        </div>
+      </section>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Back</button>
+        <button mat-raised-button color="primary" type="button" (click)="goToEdit(admission.patientAdmissionId)">Manage admission</button>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isEditView">
+    <section class="editor-panel" *ngIf="selectedAdmission as admission; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Edit page</span>
+          <h2>Manage admission workflow</h2>
+          <p>{{ admission.patientName }} | {{ admission.admissionNumber }}</p>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <article>
+          <span>Current location</span>
+          <strong>{{ admission.wardName }} / {{ admission.bedNumber }}</strong>
+        </article>
+        <article>
+          <span>Status</span>
+          <strong>{{ admission.status }}</strong>
+        </article>
+        <article>
+          <span>Doctor</span>
+          <strong>{{ admission.doctorName || 'Unassigned' }}</strong>
+        </article>
+      </div>
+
+      <div class="support-grid">
+        <section class="sub-panel" *ngIf="admission.status !== 'Discharged'">
+          <div class="section-head">
+            <div>
+              <h3>Transfer patient</h3>
+              <p>Move this admission to another ward or bed and keep the transfer trail current.</p>
+            </div>
+          </div>
+
+          <div class="form-grid compact-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Ward</mat-label>
+              <mat-select [(ngModel)]="transferForm.wardId" (selectionChange)="onTransferWardChange()">
+                <mat-option *ngFor="let ward of availableWards" [value]="ward.wardId">
+                  {{ ward.name }} | {{ ward.branchName }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Bed</mat-label>
+              <mat-select [(ngModel)]="transferForm.bedId">
+                <mat-option *ngFor="let bed of availableTransferBeds" [value]="bed.bedId">
+                  {{ bed.bedNumber }} | {{ bed.wardName }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Transfer date</mat-label>
+              <input matInput type="date" [(ngModel)]="transferForm.transferDate" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Transfer notes</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="transferForm.notes"></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="actions-row">
+            <button mat-stroked-button type="button" [disabled]="isSavingTransfer" (click)="transferPatient()">
+              Record transfer
+            </button>
+          </div>
+        </section>
+
+        <section class="sub-panel">
+          <div class="section-head">
+            <div>
+              <h3>Discharge summary approval</h3>
+              <p>Approve the final summary to discharge the patient and free the assigned bed.</p>
+            </div>
+          </div>
+
+          <div class="form-grid compact-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Discharge date</mat-label>
+              <input matInput type="date" [(ngModel)]="dischargeForm.dischargeDate" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Discharge summary</mat-label>
+              <textarea matInput rows="4" [(ngModel)]="dischargeForm.dischargeSummary"></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Approval notes</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="dischargeForm.notes"></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="actions-row">
+            <button
+              mat-raised-button
+              color="primary"
+              type="button"
+              [disabled]="isSavingDischarge || admission.status === 'Discharged'"
+              (click)="approveDischarge()">
+              {{ admission.status === 'Discharged' ? 'Already discharged' : 'Approve discharge' }}
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="goToDetails(admission.patientAdmissionId)">Back to details</button>
+      </div>
+    </section>
+  </ng-container>
+</section>
+
+<ng-template #missingRecord>
+  <section class="details-panel">
+    <div class="empty-state">The selected admission record could not be found.</div>
+  </section>
+</ng-template>
+
+<ng-template #noAdmissions>
+  <div class="empty-state">No admissions match the current filters.</div>
+</ng-template>
+
+<ng-template #loadingState>
+  <section class="phase-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading admission controls...</span>
+    </div>
+  </section>
+</ng-template>

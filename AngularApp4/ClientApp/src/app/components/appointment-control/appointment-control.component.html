@@ -1,0 +1,359 @@
+<section class="phase-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-header">
+    <div>
+      <h1>Appointment Management</h1>
+      <p>Review bookings, approve or reschedule them, and keep schedule and token controls aligned with actual OPD operations.</p>
+    </div>
+
+    <div class="header-actions">
+      <button mat-stroked-button type="button" *ngIf="!isIndexView" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to list
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        *ngIf="isDetailsView && selectedAppointmentId"
+        (click)="goToEdit(selectedAppointmentId)">
+        <mat-icon>edit</mat-icon>
+        Edit booking
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <article>
+      <span>Pending</span>
+      <strong>{{ pendingCount }}</strong>
+    </article>
+    <article>
+      <span>Approved / completed</span>
+      <strong>{{ approvedCount }}</strong>
+    </article>
+    <article>
+      <span>Rescheduled</span>
+      <strong>{{ rescheduledCount }}</strong>
+    </article>
+  </div>
+
+  <p class="status-message error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="status-message success" *ngIf="statusMessage">{{ statusMessage }}</p>
+
+  <ng-container *ngIf="isIndexView">
+    <div class="table-actions">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search bookings</mat-label>
+        <input matInput [(ngModel)]="searchTerm" placeholder="Patient, MRN, doctor, token" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="statusFilter">
+          <mat-option value="All">All statuses</mat-option>
+          <mat-option *ngFor="let status of statusOptions" [value]="status">{{ status }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Doctor</mat-label>
+        <mat-select [(ngModel)]="doctorFilter">
+          <mat-option [value]="null">All doctors</mat-option>
+          <mat-option *ngFor="let doctor of doctors" [value]="doctor.doctorId">{{ doctor.fullName }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-stroked-button type="button" (click)="refresh()">Refresh</button>
+    </div>
+
+    <section class="table-card">
+      <table class="phase-table" *ngIf="filteredAppointments.length > 0; else noAppointments">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Patient</th>
+            <th>Doctor</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Token</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let appointment of filteredAppointments; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>
+              <button type="button" class="name-link" (click)="goToDetails(appointment.appointmentId)">{{ appointment.patientName }}</button>
+              <small>{{ appointment.medicalRecordNumber }} | {{ appointment.serviceName }}</small>
+            </td>
+            <td>
+              <strong>{{ appointment.doctorName }}</strong>
+              <small>{{ appointment.branchName || 'No branch' }}</small>
+            </td>
+            <td>
+              <strong>{{ appointment.appointmentDate | date:'mediumDate' }}</strong>
+              <small>{{ formatSlot(appointment) }}</small>
+            </td>
+            <td><span class="status-pill" [ngClass]="appointment.status.toLowerCase()">{{ appointment.status }}</span></td>
+            <td>{{ appointment.tokenNumber || 'Pending' }}</td>
+            <td class="actions-cell">
+              <button mat-button type="button" (click)="goToDetails(appointment.appointmentId)">View</button>
+              <button mat-button type="button" (click)="goToEdit(appointment.appointmentId)">Edit</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isDetailsView">
+    <section class="details-panel" *ngIf="selectedAppointment as appointment; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Details page</span>
+          <h2>Booking details</h2>
+        </div>
+      </div>
+
+      <div class="details-hero">
+        <span class="hero-kicker">Appointment profile</span>
+        <h3>{{ appointment.patientName }}</h3>
+        <p>{{ appointment.medicalRecordNumber }} | {{ appointment.serviceName }}</p>
+        <div class="hero-badges">
+          <span class="status-pill" [ngClass]="appointment.status.toLowerCase()">{{ appointment.status }}</span>
+          <span class="info-pill">{{ appointment.tokenNumber || 'Token pending' }}</span>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        <div><span>Doctor</span><strong>{{ appointment.doctorName }}</strong></div>
+        <div><span>Department</span><strong>{{ appointment.departmentName || 'Not assigned' }}</strong></div>
+        <div><span>Branch</span><strong>{{ appointment.branchName || 'Not assigned' }}</strong></div>
+        <div><span>Appointment date</span><strong>{{ appointment.appointmentDate | date:'mediumDate' }}</strong></div>
+        <div><span>Slot</span><strong>{{ formatSlot(appointment) }}</strong></div>
+        <div><span>Schedule link</span><strong>{{ appointment.scheduleId || 'Unassigned' }}</strong></div>
+        <div><span>Service</span><strong>{{ appointment.serviceName }}</strong></div>
+        <div><span>Patient note</span><strong>{{ appointment.reason || 'No patient note provided' }}</strong></div>
+        <div class="full-width"><span>Admin remarks</span><strong>{{ appointment.adminRemarks || 'No admin remarks recorded' }}</strong></div>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Back</button>
+        <button mat-raised-button color="primary" type="button" (click)="goToEdit(appointment.appointmentId)">Edit booking</button>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isEditView">
+    <section class="editor-panel" *ngIf="selectedAppointment as appointment; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Edit page</span>
+          <h2>Update booking decision</h2>
+          <p>{{ appointment.patientName }} | {{ appointment.medicalRecordNumber }}</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Doctor</mat-label>
+          <mat-select [(ngModel)]="appointmentForm.doctorId" (selectionChange)="onAppointmentDoctorChange()">
+            <mat-option *ngFor="let doctor of doctors" [value]="doctor.doctorId">{{ doctor.fullName }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="appointmentForm.status">
+            <mat-option *ngFor="let status of statusOptions" [value]="status">{{ status }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Appointment date</mat-label>
+          <input matInput type="date" [(ngModel)]="appointmentForm.appointmentDate" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Doctor schedule</mat-label>
+          <mat-select [(ngModel)]="appointmentForm.scheduleId">
+            <mat-option [value]="null">Unassigned</mat-option>
+            <mat-option *ngFor="let schedule of appointmentSchedules" [value]="schedule.scheduleId">
+              {{ scheduleDayLabel(schedule.dayOfWeek) }} | {{ schedule.startTime | slice:0:5 }} - {{ schedule.endTime | slice:0:5 }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Start time</mat-label>
+          <input matInput type="time" [(ngModel)]="appointmentForm.slotStartTime" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>End time</mat-label>
+          <input matInput type="time" [(ngModel)]="appointmentForm.slotEndTime" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Admin remarks</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="appointmentForm.adminRemarks"></textarea>
+        </mat-form-field>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="goToDetails(appointment.appointmentId)">Cancel</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingAppointment" (click)="saveAppointment()">
+          Save booking decision
+        </button>
+      </div>
+    </section>
+  </ng-container>
+
+  <div class="support-grid">
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Control panel</span>
+          <h2>Token settings</h2>
+          <p>Control how booking tokens are generated on approval.</p>
+        </div>
+      </div>
+
+      <div class="form-grid compact-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Prefix</mat-label>
+          <input matInput [(ngModel)]="tokenSettings.prefix" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Start number</mat-label>
+          <input matInput type="number" [(ngModel)]="tokenSettings.startingNumber" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Padding</mat-label>
+          <input matInput type="number" [(ngModel)]="tokenSettings.numberPadding" />
+        </mat-form-field>
+
+        <label class="toggle-box">
+          <input type="checkbox" [(ngModel)]="tokenSettings.resetDaily" />
+          <span>Reset sequence daily per doctor</span>
+        </label>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" [disabled]="isSavingTokenSettings" (click)="saveTokenSettings()">
+          Save token settings
+        </button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Control panel</span>
+          <h2>Doctor-wise schedule control</h2>
+          <p>Keep OPD slot timings aligned with live booking windows.</p>
+        </div>
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Doctor</mat-label>
+        <mat-select [(ngModel)]="selectedDoctorId" (selectionChange)="changeScheduleDoctor()">
+          <mat-option *ngFor="let doctor of doctors" [value]="doctor.doctorId">{{ doctor.fullName }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <div class="table-card inner-table">
+        <table class="phase-table" *ngIf="schedules.length > 0; else noSchedules">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Window</th>
+              <th>Slot</th>
+              <th>Patients</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let schedule of schedules">
+              <td>{{ scheduleDayLabel(schedule.dayOfWeek) }}</td>
+              <td>{{ schedule.startTime | slice:0:5 }} - {{ schedule.endTime | slice:0:5 }}</td>
+              <td>{{ schedule.slotDurationMinutes }} min</td>
+              <td>{{ schedule.maxPatientsPerSlot }}</td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="editSchedule(schedule)">Edit</button>
+                <button mat-button type="button" color="warn" (click)="deleteSchedule(schedule.scheduleId)">Delete</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="form-grid compact-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Day</mat-label>
+          <mat-select [(ngModel)]="scheduleForm.dayOfWeek">
+            <mat-option *ngFor="let day of dayOptions" [value]="day.value">{{ day.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Start</mat-label>
+          <input matInput type="time" [(ngModel)]="scheduleForm.startTime" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>End</mat-label>
+          <input matInput type="time" [(ngModel)]="scheduleForm.endTime" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Slot duration</mat-label>
+          <input matInput type="number" [(ngModel)]="scheduleForm.slotDurationMinutes" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Max patients</mat-label>
+          <input matInput type="number" [(ngModel)]="scheduleForm.maxPatientsPerSlot" />
+        </mat-form-field>
+
+        <label class="toggle-box">
+          <input type="checkbox" [(ngModel)]="scheduleForm.isActive" />
+          <span>Schedule is active</span>
+        </label>
+      </div>
+
+      <div class="actions-row">
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingSchedule" (click)="saveSchedule()">
+          Save doctor schedule
+        </button>
+        <button mat-stroked-button type="button" (click)="resetScheduleForm()">Reset</button>
+      </div>
+    </section>
+  </div>
+</section>
+
+<ng-template #missingRecord>
+  <section class="details-panel">
+    <div class="empty-state">The selected booking could not be found.</div>
+  </section>
+</ng-template>
+
+<ng-template #noAppointments>
+  <div class="empty-state">No bookings match the current filters.</div>
+</ng-template>
+
+<ng-template #noSchedules>
+  <div class="empty-state compact-state">No schedules configured for the selected doctor.</div>
+</ng-template>
+
+<ng-template #loadingState>
+  <section class="phase-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading appointment controls...</span>
+    </div>
+  </section>
+</ng-template>
