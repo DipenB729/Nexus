@@ -80,7 +80,7 @@ public class DashboardController : ControllerBase
                 InvoiceId = invoice.BillingInvoiceId,
                 InvoiceNumber = invoice.InvoiceNumber,
                 PatientName = patientName,
-                DueAmount = invoice.TotalAmount - invoice.AmountPaid,
+                DueAmount = Math.Max(invoice.TotalAmount - invoice.ApprovedDiscountAmount - invoice.AmountPaid, 0m),
                 DueDate = invoice.DueDate,
                 Status = invoice.Status.ToString()
             };

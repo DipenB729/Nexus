@@ -112,10 +112,35 @@ export class AppComponent implements OnInit, OnDestroy {
       return 'Bed Management';
     }
 
+    if (path.startsWith('/admin/patients')) {
+      return 'Patient Registration Oversight';
+    }
+
+    if (path.startsWith('/admin/bookings')) {
+      return 'Appointment Management';
+    }
+
+    if (path.startsWith('/admin/admissions')) {
+      return 'Admission & Discharge Control';
+    }
+
+    if (path.startsWith('/admin/billing')) {
+      const billingSection = path.split('/')[3] ?? 'bills';
+      const billingTitles: Record<string, string> = {
+        charges: 'Service & Charge Setup',
+        bills: 'Billing Management',
+        paymentMethods: 'Payment Method Setup',
+        insurance: 'Insurance Billing Setup',
+        panels: 'Corporate Billing Setup',
+        rules: 'Billing Rules & Claims'
+      };
+
+      return billingTitles[billingSection] ?? 'Billing Management';
+    }
+
     const titles: Record<string, string> = {
       '/admin/dashboard': 'Admin Dashboard',
       '/admin/services': 'Service Management',
-      '/admin/bookings': 'Appointment Overview',
       '/admin/roles': 'Roles & Permissions',
       '/admin/users': 'Roles & Permissions',
       '/admin/settings': 'Hospital Settings',

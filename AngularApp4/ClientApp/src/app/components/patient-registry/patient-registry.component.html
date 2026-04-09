@@ -1,0 +1,388 @@
+<section class="phase-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-header">
+    <div>
+      <h1>Patient Registration Oversight</h1>
+      <p>Review the complete patient roster, update registration details, and merge duplicate records before they affect downstream operations.</p>
+    </div>
+
+    <div class="header-actions">
+      <button mat-stroked-button type="button" *ngIf="!isIndexView" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to list
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isIndexView" (click)="goToCreate()">
+        <mat-icon>person_add</mat-icon>
+        Create patient
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        *ngIf="isDetailsView && canEditSelectedPatient && selectedPatientId"
+        (click)="goToEdit(selectedPatientId)">
+        <mat-icon>edit</mat-icon>
+        Edit patient
+      </button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <article>
+      <span>Total patients</span>
+      <strong>{{ totalPatients }}</strong>
+    </article>
+    <article>
+      <span>Active records</span>
+      <strong>{{ activePatients }}</strong>
+    </article>
+    <article>
+      <span>Duplicate groups</span>
+      <strong>{{ duplicatePatients }}</strong>
+    </article>
+  </div>
+
+  <p class="status-message error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="status-message success" *ngIf="statusMessage">{{ statusMessage }}</p>
+
+  <ng-container *ngIf="isIndexView">
+    <div class="table-actions">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search patients</mat-label>
+        <input matInput [(ngModel)]="searchTerm" placeholder="Name, MRN, email, address" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Category</mat-label>
+        <mat-select [(ngModel)]="categoryFilter">
+          <mat-option [value]="null">All categories</mat-option>
+          <mat-option *ngFor="let category of categories" [value]="category.patientCategoryId">
+            {{ category.name }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-stroked-button type="button" (click)="refresh()">Refresh</button>
+    </div>
+
+    <section class="table-card">
+      <table class="phase-table" *ngIf="filteredPatients.length > 0; else noPatients">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Patient</th>
+            <th>MRN</th>
+            <th>Category</th>
+            <th>Contact</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let patient of filteredPatients; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>
+              <button type="button" class="name-link" (click)="goToDetails(patient.patientId)">{{ patient.fullName }}</button>
+              <small>{{ patient.address || 'Address not recorded' }}</small>
+            </td>
+            <td>{{ patient.medicalRecordNumber }}</td>
+            <td>{{ categoryLabel(patient) }}</td>
+            <td>
+              <strong>{{ patient.email }}</strong>
+              <small>{{ patient.phone || 'No phone' }}</small>
+            </td>
+            <td>
+              <div class="pill-stack">
+                <span class="status-pill" [class.inactive]="!patient.isActive">{{ patient.isActive ? 'Active' : 'Inactive' }}</span>
+                <span class="status-pill merged" *ngIf="patient.isMerged">Merged</span>
+                <span class="status-pill warning" *ngIf="!patient.isMerged && patient.duplicateGroupSize > 1">
+                  {{ patient.duplicateGroupSize }} similar
+                </span>
+              </div>
+            </td>
+            <td class="actions-cell">
+              <button mat-button type="button" (click)="goToDetails(patient.patientId)">View</button>
+              <button mat-button type="button" [disabled]="patient.isMerged" (click)="goToEdit(patient.patientId)">Edit</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isCreateView">
+    <section class="editor-panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Create page</span>
+          <h2>Create patient record</h2>
+          <p>Create a new patient profile and provision the linked user account with a temporary password.</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Full name</mat-label>
+          <input matInput [(ngModel)]="patientForm.fullName" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" [(ngModel)]="patientForm.email" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Temporary password</mat-label>
+          <input matInput type="password" [(ngModel)]="temporaryPassword" />
+          <mat-hint>At least 6 characters. The patient can change it after first sign-in.</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput [(ngModel)]="patientForm.phone" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Patient category</mat-label>
+          <mat-select [(ngModel)]="patientForm.patientCategoryId">
+            <mat-option [value]="null">Unassigned</mat-option>
+            <mat-option *ngFor="let category of categories" [value]="category.patientCategoryId">
+              {{ category.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Gender</mat-label>
+          <input matInput [(ngModel)]="patientForm.gender" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Date of birth</mat-label>
+          <input matInput type="date" [(ngModel)]="patientForm.dateOfBirth" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Blood group</mat-label>
+          <input matInput [(ngModel)]="patientForm.bloodGroup" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Emergency contact</mat-label>
+          <input matInput [(ngModel)]="patientForm.emergencyContact" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Address</mat-label>
+          <textarea matInput rows="2" [(ngModel)]="patientForm.address"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Clinical or registration notes</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="patientForm.notes"></textarea>
+        </mat-form-field>
+
+        <label class="toggle-box full-width">
+          <input type="checkbox" [(ngModel)]="patientForm.isActive" />
+          <span>Patient record is active</span>
+        </label>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSaving" (click)="createPatient()">
+          Create patient
+        </button>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isEditView">
+    <section class="editor-panel" *ngIf="selectedPatient as patient; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Edit page</span>
+          <h2>Edit patient details</h2>
+          <p>{{ patient.fullName }} | {{ patient.medicalRecordNumber }}</p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Full name</mat-label>
+          <input matInput [(ngModel)]="patientForm.fullName" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" [(ngModel)]="patientForm.email" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput [(ngModel)]="patientForm.phone" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Patient category</mat-label>
+          <mat-select [(ngModel)]="patientForm.patientCategoryId">
+            <mat-option [value]="null">Unassigned</mat-option>
+            <mat-option *ngFor="let category of categories" [value]="category.patientCategoryId">
+              {{ category.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Gender</mat-label>
+          <input matInput [(ngModel)]="patientForm.gender" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Date of birth</mat-label>
+          <input matInput type="date" [(ngModel)]="patientForm.dateOfBirth" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Blood group</mat-label>
+          <input matInput [(ngModel)]="patientForm.bloodGroup" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Emergency contact</mat-label>
+          <input matInput [(ngModel)]="patientForm.emergencyContact" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Address</mat-label>
+          <textarea matInput rows="2" [(ngModel)]="patientForm.address"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Clinical or registration notes</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="patientForm.notes"></textarea>
+        </mat-form-field>
+
+        <label class="toggle-box full-width">
+          <input type="checkbox" [(ngModel)]="patientForm.isActive" />
+          <span>Patient record is active</span>
+        </label>
+      </div>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="goToDetails(patient.patientId)">Cancel</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSaving || patient.isMerged" (click)="savePatient()">
+          Save patient details
+        </button>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-container *ngIf="isDetailsView">
+    <section class="details-panel" *ngIf="selectedPatient as patient; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Details page</span>
+          <h2>Patient details</h2>
+        </div>
+      </div>
+
+      <div class="details-hero">
+        <span class="hero-kicker">Registration profile</span>
+        <h3>{{ patient.fullName }}</h3>
+        <p>{{ patient.medicalRecordNumber }} | {{ categoryLabel(patient) }}</p>
+        <div class="hero-badges">
+          <span class="status-pill" [class.inactive]="!patient.isActive">{{ patient.isActive ? 'Active' : 'Inactive' }}</span>
+          <span class="status-pill merged" *ngIf="patient.isMerged">Merged record</span>
+          <span class="status-pill warning" *ngIf="!patient.isMerged && patient.duplicateGroupSize > 1">Duplicate group</span>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <article>
+          <span>Appointments</span>
+          <strong>{{ patient.appointmentCount }}</strong>
+        </article>
+        <article>
+          <span>Active admissions</span>
+          <strong>{{ patient.activeAdmissions }}</strong>
+        </article>
+        <article>
+          <span>Duplicate size</span>
+          <strong>{{ patient.duplicateGroupSize }}</strong>
+        </article>
+      </div>
+
+      <div class="detail-grid">
+        <div><span>Full name</span><strong>{{ patient.fullName }}</strong></div>
+        <div><span>Email</span><strong>{{ patient.email }}</strong></div>
+        <div><span>Phone</span><strong>{{ patient.phone || 'Not recorded' }}</strong></div>
+        <div><span>Gender</span><strong>{{ patient.gender || 'Not recorded' }}</strong></div>
+        <div><span>Date of birth</span><strong>{{ patient.dateOfBirth ? (patient.dateOfBirth | date:'mediumDate') : 'Not recorded' }}</strong></div>
+        <div><span>Blood group</span><strong>{{ patient.bloodGroup || 'Not recorded' }}</strong></div>
+        <div><span>Emergency contact</span><strong>{{ patient.emergencyContact || 'Not recorded' }}</strong></div>
+        <div><span>Merged into</span><strong>{{ patient.mergedIntoPatientId || 'Primary record' }}</strong></div>
+        <div class="full-width"><span>Address</span><strong>{{ patient.address || 'No address recorded' }}</strong></div>
+        <div class="full-width"><span>Notes</span><strong>{{ patient.notes || 'No notes recorded' }}</strong></div>
+      </div>
+
+      <section class="merge-panel" *ngIf="duplicateCandidates.length > 0 && !patient.isMerged">
+        <div class="section-head">
+          <div>
+            <h3>Merge duplicate registration</h3>
+            <p>Use the current record as the primary chart and merge duplicate appointments, invoices, and admissions into it.</p>
+          </div>
+        </div>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Duplicate source record</mat-label>
+          <mat-select [(ngModel)]="mergeSourceId">
+            <mat-option *ngFor="let duplicate of duplicateCandidates" [value]="duplicate.patientId">
+              {{ duplicate.fullName }} | {{ duplicate.medicalRecordNumber }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Merge note</mat-label>
+          <textarea matInput rows="2" [(ngModel)]="mergeNotes" placeholder="Why this record is being merged"></textarea>
+        </mat-form-field>
+
+        <button mat-stroked-button type="button" class="danger-button" [disabled]="isSaving || !mergeSourceId" (click)="mergeDuplicate()">
+          Merge duplicate into current record
+        </button>
+      </section>
+
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Back</button>
+        <button
+          mat-raised-button
+          color="primary"
+          type="button"
+          *ngIf="canEditSelectedPatient && patient.patientId"
+          (click)="goToEdit(patient.patientId)">
+          Edit patient
+        </button>
+      </div>
+    </section>
+  </ng-container>
+</section>
+
+<ng-template #missingRecord>
+  <section class="details-panel">
+    <div class="empty-state">The selected patient record could not be found.</div>
+  </section>
+</ng-template>
+
+<ng-template #noPatients>
+  <div class="empty-state">No patients match the current filters.</div>
+</ng-template>
+
+<ng-template #loadingState>
+  <section class="phase-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading patient registry...</span>
+    </div>
+  </section>
+</ng-template>

@@ -54,12 +54,20 @@ public sealed class DatabaseInitializer
         await EnsureDepartmentsAsync(cancellationToken);
         await EnsurePatientCategoriesAsync(cancellationToken);
         await EnsurePatientCategoryAssignmentsAsync(cancellationToken);
+        await EnsurePatientProfilesAsync(cancellationToken);
         await EnsureSeedServicesAsync(cancellationToken);
         await EnsureDoctorsAsync(cancellationToken);
+        await EnsureDoctorSchedulesAsync(cancellationToken);
         await EnsureStaffAsync(cancellationToken);
         await EnsureWardsAndBedsAsync(cancellationToken);
+        await EnsureTokenSettingsAsync(cancellationToken);
         await EnsureAppointmentsAsync(cancellationToken);
+        await EnsureAdmissionsAsync(cancellationToken);
         await EnsureInventoryAsync(cancellationToken);
+        await EnsureBillingChargeDefinitionsAsync(cancellationToken);
+        await EnsureBillingPaymentMethodsAsync(cancellationToken);
+        await EnsureBillingPartnersAsync(cancellationToken);
+        await EnsureBillingRulesAsync(cancellationToken);
         await EnsureBillingAsync(cancellationToken);
 
         _logger.LogInformation("Database schema verified and initial seed data applied.");
@@ -154,6 +162,7 @@ public sealed class DatabaseInitializer
         await EnsureUserAsync("Nexus Admin", "admin@nexus.local", "Admin@123", "Admin", false, cancellationToken);
         await EnsureUserAsync("Nexus User", "user@nexus.local", "User@123", "User", true, cancellationToken);
         await EnsureUserAsync("Mira Adhikari", "mira.patient@nexus.local", "User@123", "User", true, cancellationToken);
+        await EnsureUserAsync("Mira Adhikari", "mira.duplicate@nexus.local", "User@123", "User", true, cancellationToken);
         await EnsureUserAsync("Sudeep Khadka", "sudeep.patient@nexus.local", "User@123", "User", true, cancellationToken);
         await EnsureUserAsync("Anisha Shrestha", "anisha.patient@nexus.local", "User@123", "User", true, cancellationToken);
         await EnsureUserAsync("Rohan Gautam", "rohan.patient@nexus.local", "User@123", "User", true, cancellationToken);
@@ -317,6 +326,210 @@ public sealed class DatabaseInitializer
         }
     }
 
+    private async Task EnsurePatientProfilesAsync(CancellationToken cancellationToken)
+    {
+        await EnsurePatientProfileAsync(
+            "user@nexus.local",
+            "+977-9801000001",
+            "Female",
+            new DateTime(1992, 8, 14),
+            "Baneshwor, Kathmandu",
+            "A+",
+            "+977-9812000001",
+            "Portal patient with recurring wellness visits.",
+            cancellationToken);
+
+        await EnsurePatientProfileAsync(
+            "mira.patient@nexus.local",
+            "+977-9801000002",
+            "Female",
+            new DateTime(1988, 5, 9),
+            "Lazimpat, Kathmandu",
+            "B+",
+            "+977-9812000002",
+            "Emergency intake case with cardiac follow-up.",
+            cancellationToken);
+
+        await EnsurePatientProfileAsync(
+            "mira.duplicate@nexus.local",
+            "+977-9801000099",
+            "Female",
+            new DateTime(1988, 5, 9),
+            "Lazimpat, Kathmandu",
+            "B+",
+            "+977-9812000002",
+            "Intentional duplicate registration seeded for merge testing.",
+            cancellationToken);
+
+        await EnsurePatientProfileAsync(
+            "sudeep.patient@nexus.local",
+            "+977-9801000003",
+            "Male",
+            new DateTime(1985, 11, 2),
+            "Bhaisepati, Lalitpur",
+            "O+",
+            "+977-9812000003",
+            "Corporate patient with neurology consult and inpatient monitoring.",
+            cancellationToken);
+
+        await EnsurePatientProfileAsync(
+            "anisha.patient@nexus.local",
+            "+977-9801000004",
+            "Female",
+            new DateTime(1996, 2, 28),
+            "Sallaghari, Bhaktapur",
+            "AB-",
+            "+977-9812000004",
+            "Insurance-backed therapy follow-up and billing review.",
+            cancellationToken);
+
+        await EnsurePatientProfileAsync(
+            "rohan.patient@nexus.local",
+            "+977-9801000005",
+            "Male",
+            new DateTime(1990, 7, 19),
+            "Tokha, Kathmandu",
+            "O-",
+            "+977-9812000005",
+            "VIP patient with scheduled admission oversight.",
+            cancellationToken);
+    }
+
+    private async Task EnsurePatientProfileAsync(
+        string email,
+        string phone,
+        string gender,
+        DateTime dateOfBirth,
+        string address,
+        string bloodGroup,
+        string emergencyContact,
+        string notes,
+        CancellationToken cancellationToken)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
+        if (user is null)
+        {
+            return;
+        }
+
+        var patient = await _db.Patients.FirstOrDefaultAsync(x => x.UserId == user.UserId, cancellationToken);
+        if (patient is null)
+        {
+            return;
+        }
+
+        user.Phone = phone;
+        user.IsActive = true;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        patient.MedicalRecordNumber ??= $"MRN-{patient.PatientId:D5}";
+        patient.Gender = gender;
+        patient.DateOfBirth = dateOfBirth.Date;
+        patient.Address = address;
+        patient.BloodGroup = bloodGroup;
+        patient.EmergencyContact = emergencyContact;
+        patient.Notes = notes;
+        patient.IsActive = true;
+        patient.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureDoctorSchedulesAsync(CancellationToken cancellationToken)
+    {
+        var doctors = await _db.Doctors.Where(x => x.IsActive).ToListAsync(cancellationToken);
+        foreach (var doctor in doctors)
+        {
+            if (string.IsNullOrWhiteSpace(doctor.OpdDays) || !doctor.OpdStartTime.HasValue || !doctor.OpdEndTime.HasValue)
+            {
+                continue;
+            }
+
+            var tokens = doctor.OpdDays
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(x => x.ToLowerInvariant())
+                .Distinct()
+                .ToList();
+
+            foreach (var token in tokens)
+            {
+                var dayOfWeek = token switch
+                {
+                    "sun" => (byte)1,
+                    "mon" => (byte)2,
+                    "tue" => (byte)3,
+                    "wed" => (byte)4,
+                    "thu" => (byte)5,
+                    "fri" => (byte)6,
+                    _ => (byte)7
+                };
+
+                var schedule = await _db.DoctorSchedules.FirstOrDefaultAsync(
+                    x => x.DoctorId == doctor.DoctorId && x.DayOfWeek == dayOfWeek,
+                    cancellationToken);
+
+                if (schedule is null)
+                {
+                    _db.DoctorSchedules.Add(new DoctorSchedule
+                    {
+                        DoctorId = doctor.DoctorId,
+                        DayOfWeek = dayOfWeek,
+                        StartTime = doctor.OpdStartTime.Value,
+                        EndTime = doctor.OpdEndTime.Value,
+                        SlotDurationMinutes = 30,
+                        MaxPatientsPerSlot = 1,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    schedule.StartTime = doctor.OpdStartTime.Value;
+                    schedule.EndTime = doctor.OpdEndTime.Value;
+                    schedule.SlotDurationMinutes = 30;
+                    schedule.MaxPatientsPerSlot = 1;
+                    schedule.IsActive = true;
+                    schedule.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureTokenSettingsAsync(CancellationToken cancellationToken)
+    {
+        var settings = await _db.AppointmentTokenSettings
+            .OrderBy(x => x.AppointmentTokenSettingId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (settings is null)
+        {
+            _db.AppointmentTokenSettings.Add(new AppointmentTokenSetting
+            {
+                Prefix = "OPD",
+                StartingNumber = 1,
+                NumberPadding = 3,
+                ResetDaily = true,
+                UpdatedAt = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.Prefix))
+        {
+            settings.Prefix = "OPD";
+        }
+
+        settings.StartingNumber = Math.Max(settings.StartingNumber, 1);
+        settings.NumberPadding = Math.Clamp(settings.NumberPadding, 3, 6);
+        settings.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task EnsureDoctorsAsync(CancellationToken cancellationToken)
     {
         var branches = await _db.Branches.OrderBy(x => x.BranchId).ToListAsync(cancellationToken);
@@ -476,23 +689,33 @@ public sealed class DatabaseInitializer
         await EnsureBedAsync(ktmIcuWard.WardId, branchMap["KTM"], departmentMap[$"{branchMap["KTM"]}:ICU"], "ICU-02", 9000m, false, cancellationToken);
         await EnsureBedAsync(ltpOtWard.WardId, branchMap["LTP"], departmentMap[$"{branchMap["LTP"]}:OT"], "REC-01", 6500m, false, cancellationToken);
         await EnsureBedAsync(bktIpdWard.WardId, branchMap["BKT"], departmentMap[$"{branchMap["BKT"]}:IPD"], "GEN-12", 3200m, true, cancellationToken);
+        await RefreshBranchOccupancyAsync(cancellationToken);
     }
 
     private async Task EnsureAppointmentsAsync(CancellationToken cancellationToken)
     {
+        var settings = await _db.AppointmentTokenSettings
+            .OrderBy(x => x.AppointmentTokenSettingId)
+            .FirstAsync(cancellationToken);
+
         if (await _db.Appointments.AnyAsync(cancellationToken))
         {
+            await EnsureAppointmentTokensAsync(settings, cancellationToken);
             return;
         }
 
-        var patients = await _db.Patients.OrderBy(x => x.PatientId).ToListAsync(cancellationToken);
+        var patients = await _db.Patients
+            .Where(x => x.IsActive && !x.MergedIntoPatientId.HasValue)
+            .OrderBy(x => x.PatientId)
+            .ToListAsync(cancellationToken);
         var patientUsers = await _db.Users
             .Where(x => patients.Select(p => p.UserId).Contains(x.UserId))
             .ToDictionaryAsync(x => x.UserId, cancellationToken);
         var doctors = await _db.Doctors.OrderBy(x => x.DoctorId).ToListAsync(cancellationToken);
         var services = await _db.Services.OrderBy(x => x.Id).ToListAsync(cancellationToken);
+        var schedules = await _db.DoctorSchedules.Where(x => x.IsActive).ToListAsync(cancellationToken);
 
-        if (patients.Count < 3 || doctors.Count < 3 || services.Count < 3)
+        if (patients.Count < 5 || doctors.Count < 3 || services.Count < 3)
         {
             return;
         }
@@ -504,6 +727,7 @@ public sealed class DatabaseInitializer
             {
                 PatientId = patients[0].PatientId,
                 DoctorId = doctors[0].DoctorId,
+                ScheduleId = ResolveScheduleId(schedules, doctors[0].DoctorId, today),
                 ServiceId = services[0].Id,
                 AppointmentDate = today,
                 SlotStartTime = new TimeSpan(9, 0, 0),
@@ -517,11 +741,13 @@ public sealed class DatabaseInitializer
             {
                 PatientId = patients[1].PatientId,
                 DoctorId = doctors[1].DoctorId,
+                ScheduleId = ResolveScheduleId(schedules, doctors[1].DoctorId, today),
                 ServiceId = services[2].Id,
                 AppointmentDate = today,
                 SlotStartTime = new TimeSpan(11, 0, 0),
                 SlotEndTime = new TimeSpan(12, 0, 0),
                 Status = AppointmentStatus.Approved,
+                TokenNumber = FormatToken(settings.Prefix, today, settings.StartingNumber, settings.NumberPadding),
                 Reason = "Migraine review",
                 CreatedByUserId = patientUsers[patients[1].UserId].UserId,
                 CreatedAt = DateTime.UtcNow
@@ -530,32 +756,165 @@ public sealed class DatabaseInitializer
             {
                 PatientId = patients[2].PatientId,
                 DoctorId = doctors[2].DoctorId,
+                ScheduleId = ResolveScheduleId(schedules, doctors[2].DoctorId, today.AddDays(1)),
                 ServiceId = services[1].Id,
                 AppointmentDate = today.AddDays(1),
                 SlotStartTime = new TimeSpan(14, 0, 0),
                 SlotEndTime = new TimeSpan(15, 0, 0),
-                Status = AppointmentStatus.Completed,
+                Status = AppointmentStatus.Rescheduled,
+                TokenNumber = FormatToken(settings.Prefix, today.AddDays(1), settings.StartingNumber, settings.NumberPadding),
                 Reason = "Post therapy evaluation",
+                AdminRemarks = "Rescheduled from morning slot due to doctor availability.",
                 CreatedByUserId = patientUsers[patients[2].UserId].UserId,
                 CreatedAt = DateTime.UtcNow
             },
             new Appointment
             {
                 PatientId = patients[3].PatientId,
+                DoctorId = doctors[0].DoctorId,
+                ScheduleId = ResolveScheduleId(schedules, doctors[0].DoctorId, today.AddDays(-1)),
+                ServiceId = services[3].Id,
+                AppointmentDate = today.AddDays(-1),
+                SlotStartTime = new TimeSpan(10, 0, 0),
+                SlotEndTime = new TimeSpan(11, 0, 0),
+                Status = AppointmentStatus.Completed,
+                TokenNumber = FormatToken(settings.Prefix, today.AddDays(-1), settings.StartingNumber, settings.NumberPadding),
+                Reason = "Follow-up consultation completed successfully",
+                AdminRemarks = "Discharge planning completed after review.",
+                CreatedByUserId = patientUsers[patients[3].UserId].UserId,
+                CreatedAt = DateTime.UtcNow
+            },
+            new Appointment
+            {
+                PatientId = patients[4].PatientId,
                 DoctorId = doctors[2].DoctorId,
+                ScheduleId = ResolveScheduleId(schedules, doctors[2].DoctorId, today.AddDays(2)),
                 ServiceId = services[3].Id,
                 AppointmentDate = today.AddDays(2),
                 SlotStartTime = new TimeSpan(16, 0, 0),
                 SlotEndTime = new TimeSpan(17, 0, 0),
                 Status = AppointmentStatus.Cancelled,
                 Reason = "Cancelled by patient",
-                CreatedByUserId = patientUsers[patients[3].UserId].UserId,
+                AdminRemarks = "Cancelled after duplicate booking detected.",
+                CreatedByUserId = patientUsers[patients[4].UserId].UserId,
                 CreatedAt = DateTime.UtcNow
             }
         };
 
         _db.Appointments.AddRange(appointments);
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureAdmissionsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.PatientAdmissions.AnyAsync(cancellationToken))
+        {
+            await RefreshBranchOccupancyAsync(cancellationToken);
+            return;
+        }
+
+        var patients = await _db.Patients
+            .Where(x => x.IsActive && !x.MergedIntoPatientId.HasValue)
+            .OrderBy(x => x.PatientId)
+            .ToListAsync(cancellationToken);
+        var doctors = await _db.Doctors.OrderBy(x => x.DoctorId).ToListAsync(cancellationToken);
+        var appointments = await _db.Appointments.OrderBy(x => x.AppointmentId).ToListAsync(cancellationToken);
+        var beds = await _db.Beds
+            .Include(x => x.Ward)
+            .OrderBy(x => x.BedId)
+            .ToListAsync(cancellationToken);
+
+        var icuBed = beds.FirstOrDefault(x => x.BedNumber == "ICU-01");
+        var generalBed = beds.FirstOrDefault(x => x.BedNumber == "GEN-12");
+        var recoveryBed = beds.FirstOrDefault(x => x.BedNumber == "REC-01");
+
+        if (patients.Count < 4 || doctors.Count < 3 || icuBed?.Ward is null || generalBed?.Ward is null || recoveryBed?.Ward is null)
+        {
+            return;
+        }
+
+        _db.PatientAdmissions.AddRange(
+            new PatientAdmission
+            {
+                AdmissionNumber = $"ADM-{DateTime.Today:yyyyMMdd}-001",
+                PatientId = patients[1].PatientId,
+                AppointmentId = appointments.ElementAtOrDefault(1)?.AppointmentId,
+                DoctorId = doctors[1].DoctorId,
+                BranchId = icuBed.BranchId,
+                WardId = icuBed.WardId,
+                BedId = icuBed.BedId,
+                Status = AdmissionStatus.Active,
+                AdmissionDate = DateTime.Today.AddDays(-1).AddHours(8),
+                ExpectedDischargeDate = DateTime.Today.AddDays(2),
+                Reason = "Observation after acute neurology episode",
+                Notes = "High priority observation and vitals watch.",
+                CreatedAt = DateTime.UtcNow.AddDays(-1)
+            },
+            new PatientAdmission
+            {
+                AdmissionNumber = $"ADM-{DateTime.Today:yyyyMMdd}-002",
+                PatientId = patients[2].PatientId,
+                AppointmentId = appointments.ElementAtOrDefault(2)?.AppointmentId,
+                DoctorId = doctors[2].DoctorId,
+                BranchId = generalBed.BranchId,
+                WardId = generalBed.WardId,
+                BedId = generalBed.BedId,
+                Status = AdmissionStatus.Active,
+                AdmissionDate = DateTime.Today.AddHours(7),
+                ExpectedDischargeDate = DateTime.Today.AddDays(3),
+                Reason = "Post-therapy inpatient monitoring",
+                Notes = "Transferred from recovery bed after initial stabilization.",
+                CreatedAt = DateTime.UtcNow
+            },
+            new PatientAdmission
+            {
+                AdmissionNumber = $"ADM-{DateTime.Today.AddDays(-3):yyyyMMdd}-001",
+                PatientId = patients[3].PatientId,
+                AppointmentId = appointments.ElementAtOrDefault(3)?.AppointmentId,
+                DoctorId = doctors[0].DoctorId,
+                BranchId = recoveryBed.BranchId,
+                WardId = recoveryBed.WardId,
+                BedId = recoveryBed.BedId,
+                Status = AdmissionStatus.Discharged,
+                AdmissionDate = DateTime.Today.AddDays(-3).AddHours(9),
+                ExpectedDischargeDate = DateTime.Today.AddDays(-1),
+                DischargeDate = DateTime.Today.AddDays(-1).AddHours(11),
+                Reason = "Short stay surgical observation",
+                Notes = "Recovered well and discharged home.",
+                DischargeSummary = "Stable vitals, pain managed, continue medication for 5 days.",
+                DischargeApprovedAt = DateTime.UtcNow.AddDays(-1),
+                CreatedAt = DateTime.UtcNow.AddDays(-3),
+                UpdatedAt = DateTime.UtcNow.AddDays(-1)
+            });
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        var secondAdmission = await _db.PatientAdmissions
+            .OrderBy(x => x.PatientAdmissionId)
+            .Skip(1)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (secondAdmission is not null)
+        {
+            _db.AdmissionTransfers.Add(new AdmissionTransfer
+            {
+                PatientAdmissionId = secondAdmission.PatientAdmissionId,
+                FromWardId = recoveryBed.WardId,
+                FromBedId = recoveryBed.BedId,
+                ToWardId = generalBed.WardId,
+                ToBedId = generalBed.BedId,
+                TransferDate = DateTime.Today.AddHours(9),
+                Notes = "Transferred after recovery observation window.",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        recoveryBed.IsOccupied = false;
+        generalBed.IsOccupied = true;
+        icuBed.IsOccupied = true;
+        await _db.SaveChangesAsync(cancellationToken);
+        await RefreshBranchOccupancyAsync(cancellationToken);
     }
 
     private async Task EnsureInventoryAsync(CancellationToken cancellationToken)
@@ -637,85 +996,489 @@ public sealed class DatabaseInitializer
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task EnsureBillingAsync(CancellationToken cancellationToken)
+    private async Task EnsureBillingChargeDefinitionsAsync(CancellationToken cancellationToken)
     {
-        if (await _db.BillingInvoices.AnyAsync(cancellationToken))
+        if (await _db.BillingChargeDefinitions.AnyAsync(cancellationToken))
         {
             return;
         }
 
-        var appointments = await _db.Appointments.OrderBy(x => x.AppointmentId).ToListAsync(cancellationToken);
-        var patients = await _db.Patients.OrderBy(x => x.PatientId).ToListAsync(cancellationToken);
-        var branches = await _db.Branches.OrderBy(x => x.BranchId).ToListAsync(cancellationToken);
-        var today = DateTime.Today;
-
-        if (patients.Count == 0 || branches.Count == 0)
-        {
-            return;
-        }
-
-        _db.BillingInvoices.AddRange(
-            new BillingInvoice
+        _db.BillingChargeDefinitions.AddRange(
+            new BillingChargeDefinition
             {
-                InvoiceNumber = "NEX-5001",
-                PatientId = patients[0].PatientId,
-                AppointmentId = appointments.ElementAtOrDefault(0)?.AppointmentId,
-                BranchId = branches[0].BranchId,
-                TotalAmount = 7500m,
-                AmountPaid = 7500m,
-                Status = InvoiceStatus.Paid,
-                InvoiceDate = today,
-                LastPaymentDate = today,
-                DueDate = today,
-                Notes = "Paid at reception",
+                ChargeType = BillingChargeType.Consultation,
+                Name = "Specialist Consultation",
+                Code = "CONS-STD",
+                Description = "Standard doctor consultation charge.",
+                UnitLabel = "visit",
+                DefaultAmount = 2500m,
+                IsActive = true,
                 CreatedAt = DateTime.UtcNow
             },
-            new BillingInvoice
+            new BillingChargeDefinition
             {
-                InvoiceNumber = "NEX-5002",
-                PatientId = patients[1].PatientId,
-                AppointmentId = appointments.ElementAtOrDefault(1)?.AppointmentId,
-                BranchId = branches[1].BranchId,
-                TotalAmount = 4200m,
-                AmountPaid = 2000m,
-                Status = InvoiceStatus.Partial,
-                InvoiceDate = today,
-                LastPaymentDate = today,
-                DueDate = today.AddDays(5),
-                Notes = "Balance due after lab test",
+                ChargeType = BillingChargeType.Lab,
+                Name = "Diagnostic Lab Panel",
+                Code = "LAB-BASIC",
+                Description = "Routine laboratory diagnostics package.",
+                UnitLabel = "panel",
+                DefaultAmount = 1700m,
+                IsActive = true,
                 CreatedAt = DateTime.UtcNow
             },
-            new BillingInvoice
+            new BillingChargeDefinition
             {
-                InvoiceNumber = "NEX-5003",
-                PatientId = patients[2].PatientId,
-                AppointmentId = appointments.ElementAtOrDefault(2)?.AppointmentId,
-                BranchId = branches[0].BranchId,
-                TotalAmount = 9800m,
-                AmountPaid = 0m,
-                Status = InvoiceStatus.Pending,
-                InvoiceDate = today.AddDays(-1),
-                DueDate = today.AddDays(3),
-                Notes = "Pending insurance confirmation",
+                ChargeType = BillingChargeType.Procedure,
+                Name = "Minor Procedure Pack",
+                Code = "PROC-MINOR",
+                Description = "Standard minor procedure and theatre support charge.",
+                UnitLabel = "procedure",
+                DefaultAmount = 4800m,
+                IsActive = true,
                 CreatedAt = DateTime.UtcNow
             },
-            new BillingInvoice
+            new BillingChargeDefinition
             {
-                InvoiceNumber = "NEX-5004",
-                PatientId = patients[3].PatientId,
-                AppointmentId = appointments.ElementAtOrDefault(3)?.AppointmentId,
-                BranchId = branches[2].BranchId,
-                TotalAmount = 5600m,
-                AmountPaid = 5600m,
-                Status = InvoiceStatus.Paid,
-                InvoiceDate = today.AddDays(-2),
-                LastPaymentDate = today.AddDays(-2),
-                DueDate = today.AddDays(-2),
-                Notes = "Paid online",
+                ChargeType = BillingChargeType.Bed,
+                Name = "Bed Day Charge",
+                Code = "BED-DAY",
+                Description = "Per-day inpatient bed charge.",
+                UnitLabel = "day",
+                DefaultAmount = 1800m,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new BillingChargeDefinition
+            {
+                ChargeType = BillingChargeType.NursingService,
+                Name = "Nursing & Service Round",
+                Code = "NURS-ROUND",
+                Description = "Per-round nursing and bedside service charge.",
+                UnitLabel = "round",
+                DefaultAmount = 950m,
+                IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureBillingPaymentMethodsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.BillingPaymentMethods.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        _db.BillingPaymentMethods.AddRange(
+            new BillingPaymentMethod { Name = "Cash Counter", MethodType = PaymentMethodType.Cash, RequiresReference = false, SortOrder = 1, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new BillingPaymentMethod { Name = "POS Card", MethodType = PaymentMethodType.Card, ProviderName = "Nabil Bank POS", RequiresReference = true, SortOrder = 2, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new BillingPaymentMethod { Name = "Bank Transfer", MethodType = PaymentMethodType.Bank, ProviderName = "Global IME Bank", RequiresReference = true, SortOrder = 3, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new BillingPaymentMethod { Name = "eSewa Wallet", MethodType = PaymentMethodType.MobileWallet, ProviderName = "eSewa", RequiresReference = true, SortOrder = 4, IsActive = true, CreatedAt = DateTime.UtcNow },
+            new BillingPaymentMethod { Name = "Insurance Claim Settlement", MethodType = PaymentMethodType.InsuranceClaim, ProviderName = "Insurance Desk", RequiresReference = true, SortOrder = 5, IsActive = true, CreatedAt = DateTime.UtcNow });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureBillingPartnersAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.BillingPartners.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        _db.BillingPartners.AddRange(
+            new BillingPartner
+            {
+                Kind = BillingPartnerKind.InsuranceCompany,
+                Name = "NLG Insurance",
+                Code = "NLGI",
+                ContactPerson = "Claims Desk",
+                ContactEmail = "claims@nlgi.local",
+                ContactPhone = "+977-9803000001",
+                CreditLimit = 150000m,
+                ClaimSubmissionMode = "Portal Upload",
+                Notes = "General outpatient and inpatient claims partner.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new BillingPartner
+            {
+                Kind = BillingPartnerKind.InsuranceCompany,
+                Name = "Himalayan Health Cover",
+                Code = "HHC",
+                ContactPerson = "Partner Support",
+                ContactEmail = "partners@hhc.local",
+                ContactPhone = "+977-9803000002",
+                CreditLimit = 100000m,
+                ClaimSubmissionMode = "Email Submission",
+                Notes = "Therapy and chronic care insurance panel.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new BillingPartner
+            {
+                Kind = BillingPartnerKind.PanelOrganization,
+                Name = "Sunrise Manufacturing Ltd",
+                Code = "SUN-CORP",
+                ContactPerson = "HR Benefits Team",
+                ContactEmail = "benefits@sunrise.local",
+                ContactPhone = "+977-9803000101",
+                CreditLimit = 250000m,
+                ClaimSubmissionMode = "Monthly Statement",
+                Notes = "Corporate panel for staff and dependants.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new BillingPartner
+            {
+                Kind = BillingPartnerKind.PanelOrganization,
+                Name = "Orbit Tech Services",
+                Code = "ORB-TECH",
+                ContactPerson = "Finance Controller",
+                ContactEmail = "finance@orbit.local",
+                ContactPhone = "+977-9803000102",
+                CreditLimit = 180000m,
+                ClaimSubmissionMode = "API Export",
+                Notes = "Corporate wellness and emergency panel.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureBillingRulesAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.BillingRules.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var partners = await _db.BillingPartners.OrderBy(x => x.BillingPartnerId).ToListAsync(cancellationToken);
+        if (partners.Count == 0)
+        {
+            return;
+        }
+
+        var insurancePartner = partners.FirstOrDefault(x => x.Kind == BillingPartnerKind.InsuranceCompany);
+        var corporatePartner = partners.FirstOrDefault(x => x.Kind == BillingPartnerKind.PanelOrganization);
+
+        if (insurancePartner is not null)
+        {
+            _db.BillingRules.Add(new BillingRule
+            {
+                BillingPartnerId = insurancePartner.BillingPartnerId,
+                RuleName = "Standard Insurance Coverage",
+                PolicyName = "80/20 Plan",
+                DiscountPercentage = 12m,
+                CoPayPercentage = 20m,
+                CreditLimit = insurancePartner.CreditLimit,
+                ClaimSubmissionWindowDays = 7,
+                RequiresPreApproval = true,
+                Notes = "Standard inpatient and specialist claim rule.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        if (corporatePartner is not null)
+        {
+            _db.BillingRules.Add(new BillingRule
+            {
+                BillingPartnerId = corporatePartner.BillingPartnerId,
+                RuleName = "Corporate Employee Panel",
+                PolicyName = "Quarterly Settlement",
+                DiscountPercentage = 10m,
+                CoPayPercentage = 0m,
+                CreditLimit = corporatePartner.CreditLimit,
+                ClaimSubmissionWindowDays = 30,
+                RequiresPreApproval = false,
+                Notes = "Corporate billing rule for employer-sponsored care.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureBillingAsync(CancellationToken cancellationToken)
+    {
+        if (!await _db.BillingInvoices.AnyAsync(cancellationToken))
+        {
+            var appointments = await _db.Appointments.OrderBy(x => x.AppointmentId).ToListAsync(cancellationToken);
+            var patients = await _db.Patients.OrderBy(x => x.PatientId).ToListAsync(cancellationToken);
+            var branches = await _db.Branches.OrderBy(x => x.BranchId).ToListAsync(cancellationToken);
+            var partners = await _db.BillingPartners.OrderBy(x => x.BillingPartnerId).ToListAsync(cancellationToken);
+            var rules = await _db.BillingRules.OrderBy(x => x.BillingRuleId).ToListAsync(cancellationToken);
+            var today = DateTime.Today;
+
+            if (patients.Count == 0 || branches.Count == 0)
+            {
+                return;
+            }
+
+            var insurancePartner = partners.FirstOrDefault(x => x.Kind == BillingPartnerKind.InsuranceCompany);
+            var corporatePartner = partners.FirstOrDefault(x => x.Kind == BillingPartnerKind.PanelOrganization);
+            var insuranceRule = rules.FirstOrDefault(x => x.BillingPartnerId == insurancePartner?.BillingPartnerId);
+            var corporateRule = rules.FirstOrDefault(x => x.BillingPartnerId == corporatePartner?.BillingPartnerId);
+
+            _db.BillingInvoices.AddRange(
+                new BillingInvoice
+                {
+                    InvoiceNumber = "NEX-5001",
+                    PatientId = patients[0].PatientId,
+                    AppointmentId = appointments.ElementAtOrDefault(0)?.AppointmentId,
+                    BranchId = branches[0].BranchId,
+                    PayerType = InvoicePayerType.SelfPay,
+                    TotalAmount = 7500m,
+                    AmountPaid = 7500m,
+                    Status = InvoiceStatus.Paid,
+                    InvoiceDate = today,
+                    LastPaymentDate = today,
+                    DueDate = today,
+                    Notes = "Paid at reception",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new BillingInvoice
+                {
+                    InvoiceNumber = "NEX-5002",
+                    PatientId = patients[1].PatientId,
+                    AppointmentId = appointments.ElementAtOrDefault(1)?.AppointmentId,
+                    BranchId = branches[Math.Min(1, branches.Count - 1)].BranchId,
+                    PayerType = InvoicePayerType.Corporate,
+                    BillingPartnerId = corporatePartner?.BillingPartnerId,
+                    BillingRuleId = corporateRule?.BillingRuleId,
+                    RequestedDiscountAmount = 300m,
+                    ApprovedDiscountAmount = 200m,
+                    DiscountNotes = "Corporate courtesy adjustment approved.",
+                    TotalAmount = 4200m,
+                    AmountPaid = 2000m,
+                    Status = InvoiceStatus.Partial,
+                    InvoiceDate = today,
+                    LastPaymentDate = today,
+                    DueDate = today.AddDays(5),
+                    Notes = "Balance due after lab test",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new BillingInvoice
+                {
+                    InvoiceNumber = "NEX-5003",
+                    PatientId = patients[2].PatientId,
+                    AppointmentId = appointments.ElementAtOrDefault(2)?.AppointmentId,
+                    BranchId = branches[0].BranchId,
+                    PayerType = InvoicePayerType.Insurance,
+                    BillingPartnerId = insurancePartner?.BillingPartnerId,
+                    BillingRuleId = insuranceRule?.BillingRuleId,
+                    RequestedDiscountAmount = 1500m,
+                    ApprovedDiscountAmount = 1200m,
+                    ClaimStatus = BillingClaimStatus.Submitted,
+                    ClaimReferenceNumber = "CLM-2026-0043",
+                    ClaimSubmittedAt = DateTime.UtcNow.AddDays(-1),
+                    TotalAmount = 9800m,
+                    AmountPaid = 0m,
+                    Status = InvoiceStatus.Pending,
+                    InvoiceDate = today.AddDays(-1),
+                    DueDate = today.AddDays(3),
+                    Notes = "Pending insurance confirmation",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new BillingInvoice
+                {
+                    InvoiceNumber = "NEX-5004",
+                    PatientId = patients[3].PatientId,
+                    AppointmentId = appointments.ElementAtOrDefault(3)?.AppointmentId,
+                    BranchId = branches[Math.Min(2, branches.Count - 1)].BranchId,
+                    PayerType = InvoicePayerType.SelfPay,
+                    TotalAmount = 5600m,
+                    AmountPaid = 5600m,
+                    RefundedAmount = 400m,
+                    Status = InvoiceStatus.Paid,
+                    InvoiceDate = today.AddDays(-2),
+                    LastPaymentDate = today.AddDays(-2),
+                    DueDate = today.AddDays(-2),
+                    Notes = "Paid online and partially refunded after item correction.",
+                    CreatedAt = DateTime.UtcNow
+                });
+
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        await EnsureBillingInvoiceDetailsAsync(cancellationToken);
+    }
+
+    private async Task EnsureBillingInvoiceDetailsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.BillingInvoiceItems.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var invoices = await _db.BillingInvoices.OrderBy(x => x.InvoiceNumber).ToListAsync(cancellationToken);
+        if (invoices.Count == 0)
+        {
+            return;
+        }
+
+        var chargeMap = await _db.BillingChargeDefinitions.ToDictionaryAsync(x => x.Code, cancellationToken);
+        var paymentMethodMap = await _db.BillingPaymentMethods.ToDictionaryAsync(x => x.MethodType, cancellationToken);
+
+        if (!chargeMap.ContainsKey("CONS-STD") || !chargeMap.ContainsKey("LAB-BASIC") || !chargeMap.ContainsKey("PROC-MINOR") ||
+            !chargeMap.ContainsKey("BED-DAY") || !chargeMap.ContainsKey("NURS-ROUND"))
+        {
+            return;
+        }
+
+        var invoice1 = invoices.ElementAtOrDefault(0);
+        var invoice2 = invoices.ElementAtOrDefault(1);
+        var invoice3 = invoices.ElementAtOrDefault(2);
+        var invoice4 = invoices.ElementAtOrDefault(3);
+
+        if (invoice1 is not null)
+        {
+            _db.BillingInvoiceItems.AddRange(
+                BuildInvoiceItem(invoice1.BillingInvoiceId, chargeMap["CONS-STD"], "Neurology consultation", 1m, 2500m, 0m),
+                BuildInvoiceItem(invoice1.BillingInvoiceId, chargeMap["LAB-BASIC"], "Advanced lab diagnostics", 2m, 2500m, 0m));
+
+            if (paymentMethodMap.TryGetValue(PaymentMethodType.Cash, out var cashMethod))
+            {
+                _db.BillingInvoicePayments.Add(new BillingInvoicePayment
+                {
+                    BillingInvoiceId = invoice1.BillingInvoiceId,
+                    BillingPaymentMethodId = cashMethod.BillingPaymentMethodId,
+                    Amount = 7500m,
+                    PaymentDate = invoice1.InvoiceDate,
+                    ReferenceNumber = null,
+                    Notes = "Settled at billing counter.",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        if (invoice2 is not null)
+        {
+            _db.BillingInvoiceItems.AddRange(
+                BuildInvoiceItem(invoice2.BillingInvoiceId, chargeMap["CONS-STD"], "Therapy review consultation", 1m, 1800m, 0m),
+                BuildInvoiceItem(invoice2.BillingInvoiceId, chargeMap["LAB-BASIC"], "Follow-up lab package", 1m, 2400m, 0m));
+
+            if (paymentMethodMap.TryGetValue(PaymentMethodType.Card, out var cardMethod))
+            {
+                _db.BillingInvoicePayments.Add(new BillingInvoicePayment
+                {
+                    BillingInvoiceId = invoice2.BillingInvoiceId,
+                    BillingPaymentMethodId = cardMethod.BillingPaymentMethodId,
+                    Amount = 2000m,
+                    PaymentDate = invoice2.InvoiceDate,
+                    ReferenceNumber = "POS-220391",
+                    Notes = "Initial card payment collected.",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        if (invoice3 is not null)
+        {
+            _db.BillingInvoiceItems.AddRange(
+                BuildInvoiceItem(invoice3.BillingInvoiceId, chargeMap["PROC-MINOR"], "Day procedure support pack", 1m, 4800m, 0m),
+                BuildInvoiceItem(invoice3.BillingInvoiceId, chargeMap["LAB-BASIC"], "Insurance-covered diagnostics", 2m, 1700m, 0m),
+                BuildInvoiceItem(invoice3.BillingInvoiceId, chargeMap["NURS-ROUND"], "Special nursing rounds", 2m, 800m, 0m));
+        }
+
+        if (invoice4 is not null)
+        {
+            _db.BillingInvoiceItems.AddRange(
+                BuildInvoiceItem(invoice4.BillingInvoiceId, chargeMap["BED-DAY"], "Observation bed stay", 2m, 1800m, 0m),
+                BuildInvoiceItem(invoice4.BillingInvoiceId, chargeMap["NURS-ROUND"], "Bedside nursing service", 2m, 1000m, 0m));
+
+            if (paymentMethodMap.TryGetValue(PaymentMethodType.MobileWallet, out var walletMethod))
+            {
+                _db.BillingInvoicePayments.Add(new BillingInvoicePayment
+                {
+                    BillingInvoiceId = invoice4.BillingInvoiceId,
+                    BillingPaymentMethodId = walletMethod.BillingPaymentMethodId,
+                    Amount = 6000m,
+                    PaymentDate = invoice4.InvoiceDate,
+                    ReferenceNumber = "ESEWA-884391",
+                    Notes = "Paid through mobile wallet.",
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                _db.BillingRefunds.Add(new BillingRefund
+                {
+                    BillingInvoiceId = invoice4.BillingInvoiceId,
+                    BillingPaymentMethodId = walletMethod.BillingPaymentMethodId,
+                    Amount = 400m,
+                    Status = RefundStatus.Processed,
+                    Reason = "Duplicate nursing round reversed",
+                    Notes = "Refund issued after final bill audit.",
+                    RequestedAt = invoice4.InvoiceDate.AddHours(2),
+                    ProcessedAt = invoice4.InvoiceDate.AddHours(3),
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        foreach (var invoice in invoices)
+        {
+            await SyncInvoiceTotalsAsync(invoice, cancellationToken);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SyncInvoiceTotalsAsync(BillingInvoice invoice, CancellationToken cancellationToken)
+    {
+        var itemTotal = await _db.BillingInvoiceItems
+            .Where(x => x.BillingInvoiceId == invoice.BillingInvoiceId)
+            .SumAsync(x => (decimal?)x.TotalAmount, cancellationToken) ?? 0m;
+
+        var paymentTotal = await _db.BillingInvoicePayments
+            .Where(x => x.BillingInvoiceId == invoice.BillingInvoiceId)
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        var refundTotal = await _db.BillingRefunds
+            .Where(x => x.BillingInvoiceId == invoice.BillingInvoiceId && x.Status == RefundStatus.Processed)
+            .SumAsync(x => (decimal?)x.Amount, cancellationToken) ?? 0m;
+
+        var lastPayment = await _db.BillingInvoicePayments
+            .Where(x => x.BillingInvoiceId == invoice.BillingInvoiceId)
+            .OrderByDescending(x => x.PaymentDate)
+            .Select(x => (DateTime?)x.PaymentDate)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        invoice.TotalAmount = itemTotal;
+        invoice.AmountPaid = Math.Max(paymentTotal - refundTotal, 0m);
+        invoice.RefundedAmount = refundTotal;
+        invoice.LastPaymentDate = lastPayment;
+
+        if (invoice.Status != InvoiceStatus.Cancelled)
+        {
+            var dueAmount = Math.Max(invoice.TotalAmount - invoice.ApprovedDiscountAmount - invoice.AmountPaid, 0m);
+            invoice.Status = dueAmount <= 0m
+                ? InvoiceStatus.Paid
+                : invoice.AmountPaid > 0m
+                    ? InvoiceStatus.Partial
+                    : InvoiceStatus.Pending;
+        }
+    }
+
+    private static BillingInvoiceItem BuildInvoiceItem(long billingInvoiceId, BillingChargeDefinition definition, string description, decimal quantity, decimal unitPrice, decimal discountAmount)
+    {
+        return new BillingInvoiceItem
+        {
+            BillingInvoiceId = billingInvoiceId,
+            BillingChargeDefinitionId = definition.BillingChargeDefinitionId,
+            ChargeType = definition.ChargeType,
+            Description = description,
+            Quantity = quantity,
+            UnitPrice = unitPrice,
+            DiscountAmount = discountAmount,
+            TotalAmount = Math.Max(quantity * unitPrice - discountAmount, 0m),
+            CreatedAt = DateTime.UtcNow
+        };
     }
 
     private async Task EnsureDepartmentAsync(long branchId, string name, string code, string description, CancellationToken cancellationToken)
@@ -1078,6 +1841,91 @@ public sealed class DatabaseInitializer
 
         _db.Services.AddRange(GetSeedServices());
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureAppointmentTokensAsync(AppointmentTokenSetting settings, CancellationToken cancellationToken)
+    {
+        var appointments = await _db.Appointments
+            .Where(x =>
+                x.Status == AppointmentStatus.Approved ||
+                x.Status == AppointmentStatus.Rescheduled ||
+                x.Status == AppointmentStatus.Completed)
+            .OrderBy(x => x.DoctorId)
+            .ThenBy(x => x.AppointmentDate)
+            .ThenBy(x => x.SlotStartTime)
+            .ToListAsync(cancellationToken);
+
+        if (appointments.Count == 0)
+        {
+            return;
+        }
+
+        var hasChanges = false;
+        var groups = settings.ResetDaily
+            ? appointments.GroupBy(x => $"{x.DoctorId}:{x.AppointmentDate:yyyyMMdd}")
+            : appointments.GroupBy(x => x.DoctorId.ToString());
+
+        foreach (var group in groups)
+        {
+            var sequence = settings.StartingNumber;
+            foreach (var appointment in group)
+            {
+                var tokenNumber = FormatToken(settings.Prefix, appointment.AppointmentDate, sequence, settings.NumberPadding);
+                if (!string.Equals(appointment.TokenNumber, tokenNumber, StringComparison.Ordinal))
+                {
+                    appointment.TokenNumber = tokenNumber;
+                    appointment.UpdatedAt = DateTime.UtcNow;
+                    hasChanges = true;
+                }
+
+                sequence++;
+            }
+        }
+
+        if (hasChanges)
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private async Task RefreshBranchOccupancyAsync(CancellationToken cancellationToken)
+    {
+        var occupancyMap = await _db.Beds
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .GroupBy(x => x.BranchId)
+            .Select(group => new { BranchId = group.Key, OccupiedBeds = group.Count(x => x.IsOccupied) })
+            .ToDictionaryAsync(x => x.BranchId, x => x.OccupiedBeds, cancellationToken);
+
+        var branches = await _db.Branches.ToListAsync(cancellationToken);
+        foreach (var branch in branches)
+        {
+            branch.OccupiedBeds = occupancyMap.GetValueOrDefault(branch.BranchId);
+            branch.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static long? ResolveScheduleId(IEnumerable<DoctorSchedule> schedules, long doctorId, DateTime date)
+    {
+        var dayOfWeek = date.DayOfWeek switch
+        {
+            DayOfWeek.Sunday => (byte)1,
+            DayOfWeek.Monday => (byte)2,
+            DayOfWeek.Tuesday => (byte)3,
+            DayOfWeek.Wednesday => (byte)4,
+            DayOfWeek.Thursday => (byte)5,
+            DayOfWeek.Friday => (byte)6,
+            _ => (byte)7
+        };
+
+        return schedules.FirstOrDefault(x => x.DoctorId == doctorId && x.DayOfWeek == dayOfWeek)?.ScheduleId;
+    }
+
+    private static string FormatToken(string prefix, DateTime appointmentDate, int sequence, int numberPadding)
+    {
+        return $"{prefix}-{appointmentDate:yyyyMMdd}-{sequence.ToString($"D{numberPadding}")}";
     }
 
     private static IEnumerable<RolePermission> GetDefaultPermissions(long roleId, string roleName)
