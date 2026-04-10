@@ -9,14 +9,6 @@
     </div>
   </div>
 
-  <div class="user-profile" *ngIf="isExpanded">
-    <span class="avatar">{{ initials }}</span>
-    <div class="profile-copy">
-      <strong>{{ displayName }}</strong>
-      <span>{{ roleSubtitle }}</span>
-    </div>
-  </div>
-
   <nav class="sidebar-nav">
     <ul class="nav-list" *ngFor="let section of navigationSections">
       <li class="nav-label" *ngIf="isExpanded">{{ section.label }}</li>

@@ -46,27 +46,14 @@
   min-width: 0;
 }
 
-.brand-copy strong,
-.profile-copy strong {
+.brand-copy strong {
   color: var(--shell-text, #0f172a);
   font-size: 0.94rem;
 }
 
-.brand-copy span,
-.profile-copy span {
+.brand-copy span {
   color: var(--shell-muted, #64748b);
   font-size: 0.78rem;
-}
-
-.user-profile {
-  margin: 0 14px 14px;
-  padding: 14px;
-  border-radius: 20px;
-  background: var(--shell-accent-soft, #dbeafe);
-  border: 1px solid color-mix(in srgb, var(--shell-accent, #2563eb) 10%, white);
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
 .sidebar-nav {

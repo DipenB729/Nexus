@@ -91,15 +91,6 @@ export class NavbarComponent {
     return this.role === 'Admin' ? 'Control Center' : 'Member Space';
   }
 
-  get initials(): string {
-    return this.displayName
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('') || 'NX';
-  }
-
   toggle(): void {
     this.toggleEvent.emit();
   }
