@@ -49,9 +49,19 @@ export class NavbarComponent {
       ]
     },
     {
+      label: 'Billing',
+      items: [
+        { label: 'Bills', icon: 'receipt_long', route: '/admin/billing/bills' },
+        { label: 'Charges', icon: 'sell', route: '/admin/billing/charges' },
+        { label: 'Payment Methods', icon: 'payments', route: '/admin/billing/paymentMethods' },
+        { label: 'Insurance', icon: 'shield', route: '/admin/billing/insurance' },
+        { label: 'Corporate Panels', icon: 'apartment', route: '/admin/billing/panels' },
+        { label: 'Billing Rules', icon: 'rule', route: '/admin/billing/rules' }
+      ]
+    },
+    {
       label: 'Administration',
       items: [
-        { label: 'Billing & Finance', icon: 'account_balance_wallet', route: '/admin/billing/bills' },
         { label: 'Roles & Access', icon: 'admin_panel_settings', route: '/admin/roles' },
         { label: 'Hospital Settings', icon: 'settings', route: '/admin/settings' }
       ]

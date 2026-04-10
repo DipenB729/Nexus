@@ -30,12 +30,64 @@ import { Phase3ControlService } from '../../core/services/hms/phase3-control.ser
 import { Phase4BillingService } from '../../core/services/hms/phase4-billing.service';
 
 type FinanceSection = 'charges' | 'bills' | 'paymentMethods' | 'insurance' | 'panels' | 'rules';
+type StatusFilter = 'all' | 'active' | 'inactive' | 'open' | 'closed';
+type ViewMode = 'index' | 'details' | 'create' | 'edit';
 
 interface SectionOption {
   key: FinanceSection;
   label: string;
   icon: string;
   description: string;
+}
+
+interface FilterOption {
+  key: StatusFilter;
+  label: string;
+}
+
+interface ChargeFormState {
+  chargeType: BillingChargeType;
+  name: string;
+  code: string;
+  description: string;
+  unitLabel: string;
+  defaultAmount: number;
+  isActive: boolean;
+}
+
+interface PaymentMethodFormState {
+  name: string;
+  methodType: PaymentMethodType;
+  providerName: string;
+  requiresReference: boolean;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+interface PartnerFormState {
+  kind: BillingPartnerKind;
+  name: string;
+  code: string;
+  contactPerson: string;
+  contactEmail: string;
+  contactPhone: string;
+  creditLimit: number;
+  claimSubmissionMode: string;
+  notes: string;
+  isActive: boolean;
+}
+
+interface RuleFormState {
+  billingPartnerId: number;
+  ruleName: string;
+  policyName: string;
+  discountPercentage: number;
+  coPayPercentage: number;
+  creditLimit: number;
+  claimSubmissionWindowDays: number;
+  requiresPreApproval: boolean;
+  notes: string;
+  isActive: boolean;
 }
 
 interface InvoiceItemFormState {
@@ -48,112 +100,147 @@ interface InvoiceItemFormState {
   notes: string;
 }
 
-interface InvoiceFormState extends Omit<SaveBillingInvoicePayload, 'items'> {
+interface InvoiceFormState {
+  patientId: number | null;
+  appointmentId: number | null;
+  branchId: number | null;
+  payerType: BillingPayerType;
+  billingPartnerId: number | null;
+  billingRuleId: number | null;
+  invoiceDate: string;
+  dueDate: string;
+  claimStatus: BillingClaimStatus;
+  claimReferenceNumber: string;
+  requestedDiscountAmount: number;
+  discountNotes: string;
+  notes: string;
   items: InvoiceItemFormState[];
 }
 
 const SECTION_OPTIONS: ReadonlyArray<SectionOption> = [
-  { key: 'bills', label: 'Bills', icon: 'receipt_long', description: 'Invoices, dues, discounts, refunds, and claim follow-up.' },
+  { key: 'bills', label: 'Bills', icon: 'receipt_long', description: 'Invoices, payment tracking, refunds, discounts, and claim follow-up.' },
   { key: 'charges', label: 'Charges', icon: 'sell', description: 'Consultation, lab, procedure, bed, and nursing charge setup.' },
   { key: 'paymentMethods', label: 'Payment Methods', icon: 'payments', description: 'Cash, card, bank, wallet, and claim settlement methods.' },
-  { key: 'insurance', label: 'Insurance', icon: 'shield', description: 'Insurance company list and credit controls.' },
-  { key: 'panels', label: 'Corporate Panels', icon: 'apartment', description: 'Panel organizations and employer billing partners.' },
-  { key: 'rules', label: 'Billing Rules', icon: 'rule', description: 'Coverage rules, co-pay, claims, and credit limits.' }
+  { key: 'insurance', label: 'Insurance', icon: 'shield', description: 'Insurance company master with credit and claim submission controls.' },
+  { key: 'panels', label: 'Corporate Panels', icon: 'apartment', description: 'Corporate and panel organizations used for billed accounts.' },
+  { key: 'rules', label: 'Billing Rules', icon: 'rule', description: 'Coverage rules, co-pay, claims window, and pre-approval policies.' }
 ];
 
-const EMPTY_CHARGE_FORM: SaveBillingChargeDefinitionPayload = {
-  chargeType: 'Consultation',
-  name: '',
-  code: '',
-  description: '',
-  unitLabel: 'unit',
-  defaultAmount: 0,
-  isActive: true
-};
+function currentDateInput(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
-const EMPTY_PAYMENT_METHOD_FORM: SaveBillingPaymentMethodPayload = {
-  name: '',
-  methodType: 'Cash',
-  providerName: '',
-  requiresReference: false,
-  sortOrder: 1,
-  isActive: true
-};
+function createEmptyChargeForm(): ChargeFormState {
+  return {
+    chargeType: 'Consultation',
+    name: '',
+    code: '',
+    description: '',
+    unitLabel: 'unit',
+    defaultAmount: 0,
+    isActive: true
+  };
+}
 
-const EMPTY_PARTNER_FORM: SaveBillingPartnerPayload = {
-  kind: 'InsuranceCompany',
-  name: '',
-  code: '',
-  contactPerson: '',
-  contactEmail: '',
-  contactPhone: '',
-  creditLimit: 0,
-  claimSubmissionMode: 'Manual',
-  notes: '',
-  isActive: true
-};
+function createEmptyPaymentMethodForm(): PaymentMethodFormState {
+  return {
+    name: '',
+    methodType: 'Cash',
+    providerName: '',
+    requiresReference: false,
+    sortOrder: 1,
+    isActive: true
+  };
+}
 
-const EMPTY_RULE_FORM: SaveBillingRulePayload = {
-  billingPartnerId: 0,
-  ruleName: '',
-  policyName: '',
-  discountPercentage: 0,
-  coPayPercentage: 0,
-  creditLimit: 0,
-  claimSubmissionWindowDays: 0,
-  requiresPreApproval: false,
-  notes: '',
-  isActive: true
-};
+function createEmptyPartnerForm(kind: BillingPartnerKind): PartnerFormState {
+  return {
+    kind,
+    name: '',
+    code: '',
+    contactPerson: '',
+    contactEmail: '',
+    contactPhone: '',
+    creditLimit: 0,
+    claimSubmissionMode: 'Manual',
+    notes: '',
+    isActive: true
+  };
+}
 
-const EMPTY_INVOICE_ITEM: InvoiceItemFormState = {
-  billingChargeDefinitionId: null,
-  chargeType: 'Consultation',
-  description: '',
-  quantity: 1,
-  unitPrice: 0,
-  discountAmount: 0,
-  notes: ''
-};
+function createEmptyRuleForm(): RuleFormState {
+  return {
+    billingPartnerId: 0,
+    ruleName: '',
+    policyName: '',
+    discountPercentage: 0,
+    coPayPercentage: 0,
+    creditLimit: 0,
+    claimSubmissionWindowDays: 0,
+    requiresPreApproval: false,
+    notes: '',
+    isActive: true
+  };
+}
 
-const EMPTY_INVOICE_FORM: InvoiceFormState = {
-  patientId: null,
-  appointmentId: null,
-  branchId: null,
-  payerType: 'SelfPay',
-  billingPartnerId: null,
-  billingRuleId: null,
-  invoiceDate: new Date().toISOString().slice(0, 10),
-  dueDate: '',
-  claimStatus: 'None',
-  claimReferenceNumber: '',
-  requestedDiscountAmount: 0,
-  discountNotes: '',
-  notes: '',
-  items: [{ ...EMPTY_INVOICE_ITEM }]
-};
+function createEmptyInvoiceItem(): InvoiceItemFormState {
+  return {
+    billingChargeDefinitionId: null,
+    chargeType: 'Consultation',
+    description: '',
+    quantity: 1,
+    unitPrice: 0,
+    discountAmount: 0,
+    notes: ''
+  };
+}
 
-const EMPTY_DISCOUNT_FORM: ApproveBillingDiscountPayload = {
-  requestedDiscountAmount: 0,
-  approvedDiscountAmount: 0,
-  discountNotes: ''
-};
+function createEmptyInvoiceForm(): InvoiceFormState {
+  return {
+    patientId: null,
+    appointmentId: null,
+    branchId: null,
+    payerType: 'SelfPay',
+    billingPartnerId: null,
+    billingRuleId: null,
+    invoiceDate: currentDateInput(),
+    dueDate: '',
+    claimStatus: 'None',
+    claimReferenceNumber: '',
+    requestedDiscountAmount: 0,
+    discountNotes: '',
+    notes: '',
+    items: [createEmptyInvoiceItem()]
+  };
+}
 
-const EMPTY_PAYMENT_FORM: RecordBillingPaymentPayload = {
-  billingPaymentMethodId: 0,
-  amount: 0,
-  paymentDate: new Date().toISOString().slice(0, 10),
-  referenceNumber: '',
-  notes: ''
-};
+function createEmptyDiscountForm(): ApproveBillingDiscountPayload {
+  return {
+    requestedDiscountAmount: 0,
+    approvedDiscountAmount: 0,
+    discountNotes: ''
+  };
+}
 
-const EMPTY_REFUND_FORM: ProcessBillingRefundPayload = {
-  billingPaymentMethodId: null,
-  amount: 0,
-  status: 'Processed',
-  reason: '',
-  notes: ''
-};
+function createEmptyPaymentForm(): RecordBillingPaymentPayload {
+  return {
+    billingPaymentMethodId: 0,
+    amount: 0,
+    paymentDate: currentDateInput(),
+    referenceNumber: '',
+    notes: ''
+  };
+}
+
+function createEmptyRefundForm(): ProcessBillingRefundPayload {
+  return {
+    billingPaymentMethodId: null,
+    amount: 0,
+    status: 'Processed',
+    reason: '',
+    notes: ''
+  };
+}
 
 @Component({
   selector: 'app-billing-finance',
@@ -169,6 +256,9 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
   readonly refundStatusOptions: RefundStatus[] = ['Requested', 'Approved', 'Processed', 'Rejected'];
 
   activeSection: FinanceSection = 'bills';
+  viewMode: ViewMode = 'index';
+  selectedRecordId: number | null = null;
+  statusFilter: StatusFilter = 'all';
   searchTerm = '';
 
   charges: BillingChargeDefinition[] = [];
@@ -180,20 +270,14 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
   appointments: AppointmentAdminRecord[] = [];
   branches: BranchSettings[] = [];
 
-  selectedChargeId: number | null = null;
-  selectedInvoiceId: number | null = null;
-  selectedPaymentMethodId: number | null = null;
-  selectedPartnerId: number | null = null;
-  selectedRuleId: number | null = null;
-
-  chargeForm: SaveBillingChargeDefinitionPayload = { ...EMPTY_CHARGE_FORM };
-  paymentMethodForm: SaveBillingPaymentMethodPayload = { ...EMPTY_PAYMENT_METHOD_FORM };
-  partnerForm: SaveBillingPartnerPayload = { ...EMPTY_PARTNER_FORM };
-  ruleForm: SaveBillingRulePayload = { ...EMPTY_RULE_FORM };
-  invoiceForm: InvoiceFormState = { ...EMPTY_INVOICE_FORM, items: [{ ...EMPTY_INVOICE_ITEM }] };
-  discountForm: ApproveBillingDiscountPayload = { ...EMPTY_DISCOUNT_FORM };
-  paymentForm: RecordBillingPaymentPayload = { ...EMPTY_PAYMENT_FORM };
-  refundForm: ProcessBillingRefundPayload = { ...EMPTY_REFUND_FORM };
+  chargeForm: ChargeFormState = createEmptyChargeForm();
+  paymentMethodForm: PaymentMethodFormState = createEmptyPaymentMethodForm();
+  partnerForm: PartnerFormState = createEmptyPartnerForm('InsuranceCompany');
+  ruleForm: RuleFormState = createEmptyRuleForm();
+  invoiceForm: InvoiceFormState = createEmptyInvoiceForm();
+  discountForm: ApproveBillingDiscountPayload = createEmptyDiscountForm();
+  paymentForm: RecordBillingPaymentPayload = createEmptyPaymentForm();
+  refundForm: ProcessBillingRefundPayload = createEmptyRefundForm();
 
   isLoading = true;
   isSaving = false;
@@ -225,8 +309,79 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
     return this.sections.find((section) => section.key === this.activeSection) ?? this.sections[0];
   }
 
+  get currentRouteBase(): string[] {
+    return ['/admin/billing', this.activeSection];
+  }
+
+  get isIndexView(): boolean {
+    return this.viewMode === 'index';
+  }
+
+  get isDetailsView(): boolean {
+    return this.viewMode === 'details';
+  }
+
+  get isCreateView(): boolean {
+    return this.viewMode === 'create';
+  }
+
+  get isEditView(): boolean {
+    return this.viewMode === 'edit';
+  }
+
+  get isFormView(): boolean {
+    return this.isCreateView || this.isEditView;
+  }
+
+  get currentRecordLabel(): string {
+    const labels: Record<FinanceSection, string> = {
+      charges: 'Charge',
+      bills: 'Bill',
+      paymentMethods: 'Payment Method',
+      insurance: 'Insurance Company',
+      panels: 'Corporate Panel',
+      rules: 'Billing Rule'
+    };
+
+    return labels[this.activeSection];
+  }
+
+  get currentFilterOptions(): ReadonlyArray<FilterOption> {
+    return this.activeSection === 'bills'
+      ? [
+          { key: 'all', label: 'All' },
+          { key: 'open', label: 'Open' },
+          { key: 'closed', label: 'Closed' }
+        ]
+      : [
+          { key: 'all', label: 'All' },
+          { key: 'active', label: 'Active' },
+          { key: 'inactive', label: 'Inactive' }
+        ];
+  }
+
+  get selectedCharge(): BillingChargeDefinition | null {
+    return this.selectedRecordId ? this.charges.find((item) => item.billingChargeDefinitionId === this.selectedRecordId) ?? null : null;
+  }
+
   get selectedInvoice(): BillingInvoice | null {
-    return this.selectedInvoiceId ? this.invoices.find((invoice) => invoice.billingInvoiceId === this.selectedInvoiceId) ?? null : null;
+    return this.selectedRecordId ? this.invoices.find((item) => item.billingInvoiceId === this.selectedRecordId) ?? null : null;
+  }
+
+  get selectedPaymentMethod(): BillingPaymentMethod | null {
+    return this.selectedRecordId ? this.paymentMethods.find((item) => item.billingPaymentMethodId === this.selectedRecordId) ?? null : null;
+  }
+
+  get selectedPartner(): BillingPartner | null {
+    return this.selectedRecordId ? this.currentPartners.find((item) => item.billingPartnerId === this.selectedRecordId) ?? null : null;
+  }
+
+  get selectedRule(): BillingRule | null {
+    return this.selectedRecordId ? this.rules.find((item) => item.billingRuleId === this.selectedRecordId) ?? null : null;
+  }
+
+  get hasDetailsRecord(): boolean {
+    return !!(this.selectedCharge || this.selectedInvoice || this.selectedPaymentMethod || this.selectedPartner || this.selectedRule);
   }
 
   get insurancePartners(): BillingPartner[] {
@@ -242,11 +397,20 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
   }
 
   get availableInvoicePartners(): BillingPartner[] {
-    return this.invoiceForm.payerType === 'Insurance' ? this.insurancePartners : this.invoiceForm.payerType === 'Corporate' ? this.panelPartners : [];
+    if (this.invoiceForm.payerType === 'Insurance') {
+      return this.insurancePartners.filter((item) => item.isActive);
+    }
+
+    if (this.invoiceForm.payerType === 'Corporate') {
+      return this.panelPartners.filter((item) => item.isActive);
+    }
+
+    return [];
   }
 
   get availableInvoiceRules(): BillingRule[] {
-    return this.rules.filter((rule) => !this.invoiceForm.billingPartnerId || rule.billingPartnerId === this.invoiceForm.billingPartnerId);
+    return this.rules.filter((rule) =>
+      rule.isActive && (!this.invoiceForm.billingPartnerId || rule.billingPartnerId === this.invoiceForm.billingPartnerId));
   }
 
   get availableAppointments(): AppointmentAdminRecord[] {
@@ -254,97 +418,50 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
   }
 
   get filteredCharges(): BillingChargeDefinition[] {
-    return this.charges.filter((item) => this.matchesSearch(item.name, item.code, item.chargeType, item.description));
+    return this.charges.filter((item) =>
+      this.matchesActiveFilter(item.isActive) &&
+      this.matchesSearch(item.name, item.code, item.chargeType, item.description));
   }
 
   get filteredInvoices(): BillingInvoice[] {
-    return this.invoices.filter((item) => this.matchesSearch(item.invoiceNumber, item.patientName, item.billingPartnerName, item.status, item.claimStatus));
+    return this.invoices.filter((item) =>
+      this.matchesInvoiceFilter(item) &&
+      this.matchesSearch(item.invoiceNumber, item.patientName, item.billingPartnerName, item.status, item.claimStatus, item.branchName));
   }
 
   get filteredPaymentMethods(): BillingPaymentMethod[] {
-    return this.paymentMethods.filter((item) => this.matchesSearch(item.name, item.methodType, item.providerName));
+    return this.paymentMethods.filter((item) =>
+      this.matchesActiveFilter(item.isActive) &&
+      this.matchesSearch(item.name, item.methodType, item.providerName));
   }
 
   get filteredPartners(): BillingPartner[] {
-    return this.currentPartners.filter((item) => this.matchesSearch(item.name, item.code, item.contactPerson, item.contactEmail, item.claimSubmissionMode));
+    return this.currentPartners.filter((item) =>
+      this.matchesActiveFilter(item.isActive) &&
+      this.matchesSearch(item.name, item.code, item.contactPerson, item.contactEmail, item.contactPhone, item.claimSubmissionMode));
   }
 
   get filteredRules(): BillingRule[] {
-    return this.rules.filter((item) => this.matchesSearch(item.ruleName, item.policyName, item.billingPartnerName, item.billingPartnerKind));
+    return this.rules.filter((item) =>
+      this.matchesActiveFilter(item.isActive) &&
+      this.matchesSearch(item.ruleName, item.policyName, item.billingPartnerName, item.billingPartnerKind));
   }
 
-  get activeChargeCount(): number {
-    return this.charges.filter((item) => item.isActive).length;
-  }
-
-  get activePaymentMethodCount(): number {
-    return this.paymentMethods.filter((item) => item.isActive).length;
-  }
-
-  get referencePaymentMethodCount(): number {
-    return this.paymentMethods.filter((item) => item.requiresReference).length;
-  }
-
-  get activeInsurancePartnerCount(): number {
-    return this.insurancePartners.filter((item) => item.isActive).length;
-  }
-
-  get activePanelPartnerCount(): number {
-    return this.panelPartners.filter((item) => item.isActive).length;
-  }
-
-  get activeRuleCount(): number {
-    return this.rules.filter((item) => item.isActive).length;
-  }
-
-  get insuranceRuleCount(): number {
-    return this.rules.filter((item) => item.billingPartnerKind === 'InsuranceCompany').length;
-  }
-
-  get panelRuleCount(): number {
-    return this.rules.filter((item) => item.billingPartnerKind === 'PanelOrganization').length;
-  }
-
-  get preApprovalRuleCount(): number {
-    return this.rules.filter((item) => item.requiresPreApproval).length;
-  }
-
-  get totalDueAmount(): number {
-    return this.invoices.reduce((sum, invoice) => sum + invoice.dueAmount, 0);
-  }
-
-  get dueInvoiceCount(): number {
-    return this.invoices.filter((invoice) => invoice.dueAmount > 0).length;
-  }
-
-  get overdueInvoiceCount(): number {
-    const today = new Date().toISOString().slice(0, 10);
-    return this.invoices.filter((invoice) => invoice.dueAmount > 0 && !!invoice.dueDate && invoice.dueDate.slice(0, 10) < today).length;
-  }
-
-  get pendingClaimCount(): number {
-    return this.invoices.filter((invoice) => !['None', 'Settled', 'Rejected'].includes(invoice.claimStatus)).length;
-  }
-
-  get createActionLabel(): string {
+  get sectionRecordCount(): number {
     switch (this.activeSection) {
       case 'charges':
-        return 'New charge';
+        return this.filteredCharges.length;
       case 'paymentMethods':
-        return 'New payment method';
+        return this.filteredPaymentMethods.length;
       case 'insurance':
-        return 'New insurance company';
       case 'panels':
-        return 'New panel organization';
+        return this.filteredPartners.length;
       case 'rules':
-        return 'New billing rule';
+        return this.filteredRules.length;
+      case 'bills':
       default:
-        return 'New bill';
+        return this.filteredInvoices.length;
     }
-  }
-
-  get partnerSectionLabel(): string {
-    return this.activeSection === 'insurance' ? 'Insurance company' : 'Panel organization';
   }
 
   get selectedPaymentMethodRequiresReference(): boolean {
@@ -356,116 +473,47 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
     this.router.navigate(['/admin/billing', section]);
   }
 
+  setStatusFilter(filter: StatusFilter): void {
+    this.statusFilter = filter;
+  }
+
+  goToCreate(): void {
+    this.router.navigate([...this.currentRouteBase, 'create']);
+  }
+
+  backToIndex(): void {
+    this.router.navigate(this.currentRouteBase);
+  }
+
+  goToDetails(recordId: number): void {
+    this.router.navigate([...this.currentRouteBase, recordId]);
+  }
+
+  goToEdit(recordId: number): void {
+    this.router.navigate([...this.currentRouteBase, recordId, 'edit']);
+  }
+
   refresh(): void {
     this.loadData();
   }
 
-  resetActiveForm(): void {
-    this.errorMessage = '';
-    this.successMessage = '';
-
-    switch (this.activeSection) {
-      case 'charges':
-        this.selectedChargeId = null;
-        this.chargeForm = { ...EMPTY_CHARGE_FORM };
-        break;
-      case 'bills':
-        this.selectedInvoiceId = null;
-        this.invoiceForm = { ...EMPTY_INVOICE_FORM, items: [{ ...EMPTY_INVOICE_ITEM }] };
-        this.discountForm = { ...EMPTY_DISCOUNT_FORM };
-        this.paymentForm = { ...EMPTY_PAYMENT_FORM };
-        this.refundForm = { ...EMPTY_REFUND_FORM };
-        break;
-      case 'paymentMethods':
-        this.selectedPaymentMethodId = null;
-        this.paymentMethodForm = { ...EMPTY_PAYMENT_METHOD_FORM };
-        break;
-      case 'insurance':
-      case 'panels':
-        this.selectedPartnerId = null;
-        this.partnerForm = { ...EMPTY_PARTNER_FORM, kind: this.activeSection === 'insurance' ? 'InsuranceCompany' : 'PanelOrganization' };
-        break;
-      case 'rules':
-        this.selectedRuleId = null;
-        this.ruleForm = { ...EMPTY_RULE_FORM };
-        break;
+  resetCurrentForm(): void {
+    if (this.isEditView && this.selectedRecordId) {
+      this.loadSelectedRecordIntoForm();
+      return;
     }
-  }
 
-  selectCharge(item: BillingChargeDefinition): void {
-    this.selectedChargeId = item.billingChargeDefinitionId;
-    this.chargeForm = { ...item };
-  }
-
-  selectPaymentMethod(item: BillingPaymentMethod): void {
-    this.selectedPaymentMethodId = item.billingPaymentMethodId;
-    this.paymentMethodForm = { ...item };
-  }
-
-  selectPartner(item: BillingPartner): void {
-    this.selectedPartnerId = item.billingPartnerId;
-    this.partnerForm = { ...item };
-  }
-
-  selectRule(item: BillingRule): void {
-    this.selectedRuleId = item.billingRuleId;
-    this.ruleForm = {
-      billingPartnerId: item.billingPartnerId,
-      ruleName: item.ruleName,
-      policyName: item.policyName ?? '',
-      discountPercentage: item.discountPercentage,
-      coPayPercentage: item.coPayPercentage,
-      creditLimit: item.creditLimit,
-      claimSubmissionWindowDays: item.claimSubmissionWindowDays,
-      requiresPreApproval: item.requiresPreApproval,
-      notes: item.notes ?? '',
-      isActive: item.isActive
-    };
-  }
-
-  selectInvoice(item: BillingInvoice): void {
-    this.selectedInvoiceId = item.billingInvoiceId;
-    this.invoiceForm = {
-      patientId: item.patientId ?? null,
-      appointmentId: item.appointmentId ?? null,
-      branchId: item.branchId ?? null,
-      payerType: item.payerType,
-      billingPartnerId: item.billingPartnerId ?? null,
-      billingRuleId: item.billingRuleId ?? null,
-      invoiceDate: item.invoiceDate.slice(0, 10),
-      dueDate: item.dueDate ? item.dueDate.slice(0, 10) : '',
-      claimStatus: item.claimStatus,
-      claimReferenceNumber: item.claimReferenceNumber ?? '',
-      requestedDiscountAmount: item.requestedDiscountAmount,
-      discountNotes: item.discountNotes ?? '',
-      notes: item.notes ?? '',
-      items: item.items.map((line) => ({
-        billingChargeDefinitionId: line.billingChargeDefinitionId ?? null,
-        chargeType: line.chargeType,
-        description: line.description,
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountAmount: line.discountAmount,
-        notes: line.notes ?? ''
-      }))
-    };
-    this.discountForm = {
-      requestedDiscountAmount: item.requestedDiscountAmount,
-      approvedDiscountAmount: item.approvedDiscountAmount,
-      discountNotes: item.discountNotes ?? ''
-    };
-    this.paymentForm = { ...EMPTY_PAYMENT_FORM };
-    this.refundForm = { ...EMPTY_REFUND_FORM };
+    this.resetFormForSection(this.activeSection);
   }
 
   addInvoiceItem(): void {
-    this.invoiceForm.items = [...this.invoiceForm.items, { ...EMPTY_INVOICE_ITEM }];
+    this.invoiceForm.items = [...this.invoiceForm.items, createEmptyInvoiceItem()];
   }
 
   removeInvoiceItem(index: number): void {
     this.invoiceForm.items = this.invoiceForm.items.filter((_, currentIndex) => currentIndex !== index);
     if (this.invoiceForm.items.length === 0) {
-      this.addInvoiceItem();
+      this.invoiceForm.items = [createEmptyInvoiceItem()];
     }
   }
 
@@ -496,6 +544,7 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
     if (this.invoiceForm.claimStatus === 'None') {
       this.invoiceForm.claimStatus = 'Draft';
     }
+
     this.invoiceForm.billingPartnerId = null;
     this.invoiceForm.billingRuleId = null;
   }
@@ -524,15 +573,18 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const payload = this.buildChargePayload(this.chargeForm);
+    const request = this.selectedRecordId
+      ? this.phase4.updateChargeDefinition(this.selectedRecordId, payload)
+      : this.phase4.createChargeDefinition(payload);
+
     this.runSave(
-      this.selectedChargeId
-        ? this.phase4.updateChargeDefinition(this.selectedChargeId, { ...this.chargeForm, name: this.chargeForm.name.trim(), code: this.chargeForm.code.trim() })
-        : this.phase4.createChargeDefinition({ ...this.chargeForm, name: this.chargeForm.name.trim(), code: this.chargeForm.code.trim() }),
+      request,
       (item) => {
         this.charges = this.sortCharges(this.replaceOrAppend(this.charges, item, 'billingChargeDefinitionId'));
-        this.selectCharge(item);
+        this.goToDetails(item.billingChargeDefinitionId);
       },
-      this.selectedChargeId ? 'Charge definition updated.' : 'Charge definition created.'
+      this.selectedRecordId ? 'Charge updated successfully.' : 'Charge created successfully.'
     );
   }
 
@@ -542,15 +594,18 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const payload = this.buildPaymentMethodPayload(this.paymentMethodForm);
+    const request = this.selectedRecordId
+      ? this.phase4.updatePaymentMethod(this.selectedRecordId, payload)
+      : this.phase4.createPaymentMethod(payload);
+
     this.runSave(
-      this.selectedPaymentMethodId
-        ? this.phase4.updatePaymentMethod(this.selectedPaymentMethodId, { ...this.paymentMethodForm, name: this.paymentMethodForm.name.trim() })
-        : this.phase4.createPaymentMethod({ ...this.paymentMethodForm, name: this.paymentMethodForm.name.trim() }),
+      request,
       (item) => {
         this.paymentMethods = this.sortPaymentMethods(this.replaceOrAppend(this.paymentMethods, item, 'billingPaymentMethodId'));
-        this.selectPaymentMethod(item);
+        this.goToDetails(item.billingPaymentMethodId);
       },
-      this.selectedPaymentMethodId ? 'Payment method updated.' : 'Payment method created.'
+      this.selectedRecordId ? 'Payment method updated successfully.' : 'Payment method created successfully.'
     );
   }
 
@@ -560,20 +615,18 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const payload: SaveBillingPartnerPayload = {
-      ...this.partnerForm,
-      kind: this.activeSection === 'insurance' ? 'InsuranceCompany' : 'PanelOrganization',
-      name: this.partnerForm.name.trim(),
-      code: this.partnerForm.code.trim()
-    };
+    const payload = this.buildPartnerPayload(this.partnerForm);
+    const request = this.selectedRecordId
+      ? this.phase4.updatePartner(this.selectedRecordId, payload)
+      : this.phase4.createPartner(payload);
 
     this.runSave(
-      this.selectedPartnerId ? this.phase4.updatePartner(this.selectedPartnerId, payload) : this.phase4.createPartner(payload),
+      request,
       (item) => {
         this.partners = this.sortPartners(this.replaceOrAppend(this.partners, item, 'billingPartnerId'));
-        this.selectPartner(item);
+        this.goToDetails(item.billingPartnerId);
       },
-      this.selectedPartnerId ? 'Billing partner updated.' : 'Billing partner created.'
+      this.selectedRecordId ? `${this.currentRecordLabel} updated successfully.` : `${this.currentRecordLabel} created successfully.`
     );
   }
 
@@ -583,15 +636,18 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const payload = this.buildRulePayload(this.ruleForm);
+    const request = this.selectedRecordId
+      ? this.phase4.updateBillingRule(this.selectedRecordId, payload)
+      : this.phase4.createBillingRule(payload);
+
     this.runSave(
-      this.selectedRuleId
-        ? this.phase4.updateBillingRule(this.selectedRuleId, { ...this.ruleForm, ruleName: this.ruleForm.ruleName.trim() })
-        : this.phase4.createBillingRule({ ...this.ruleForm, ruleName: this.ruleForm.ruleName.trim() }),
+      request,
       (item) => {
         this.rules = this.sortRules(this.replaceOrAppend(this.rules, item, 'billingRuleId'));
-        this.selectRule(item);
+        this.goToDetails(item.billingRuleId);
       },
-      this.selectedRuleId ? 'Billing rule updated.' : 'Billing rule created.'
+      this.selectedRecordId ? 'Billing rule updated successfully.' : 'Billing rule created successfully.'
     );
   }
 
@@ -612,82 +668,175 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const payload: SaveBillingInvoicePayload = {
-      ...this.invoiceForm,
-      items: validItems.map((item): SaveBillingInvoiceItemPayload => ({
-        billingChargeDefinitionId: item.billingChargeDefinitionId,
-        chargeType: item.chargeType,
-        description: item.description.trim(),
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discountAmount: item.discountAmount,
-        notes: item.notes?.trim() || null
-      })),
-      dueDate: this.invoiceForm.dueDate || null,
-      claimReferenceNumber: this.invoiceForm.claimReferenceNumber?.trim() || null,
-      discountNotes: this.invoiceForm.discountNotes?.trim() || null,
-      notes: this.invoiceForm.notes?.trim() || null
-    };
+    const payload = this.buildInvoicePayload(validItems);
+    const request = this.selectedRecordId
+      ? this.phase4.updateInvoice(this.selectedRecordId, payload)
+      : this.phase4.createInvoice(payload);
 
     this.runSave(
-      this.selectedInvoiceId ? this.phase4.updateInvoice(this.selectedInvoiceId, payload) : this.phase4.createInvoice(payload),
+      request,
       (item) => {
         this.invoices = this.sortInvoices(this.replaceOrAppend(this.invoices, item, 'billingInvoiceId'));
-        this.selectInvoice(item);
+        this.goToDetails(item.billingInvoiceId);
       },
-      this.selectedInvoiceId ? 'Bill updated.' : 'Bill created.'
+      this.selectedRecordId ? 'Bill updated successfully.' : 'Bill created successfully.'
     );
   }
 
   approveDiscount(): void {
-    if (!this.selectedInvoiceId) {
+    if (!this.selectedInvoice) {
       return;
     }
 
     this.runSave(
-      this.phase4.approveDiscount(this.selectedInvoiceId, this.discountForm),
+      this.phase4.approveDiscount(this.selectedInvoice.billingInvoiceId, {
+        requestedDiscountAmount: this.discountForm.requestedDiscountAmount,
+        approvedDiscountAmount: this.discountForm.approvedDiscountAmount,
+        discountNotes: this.normalizeOptional(this.discountForm.discountNotes ?? '')
+      }),
       (item) => {
         this.invoices = this.sortInvoices(this.replaceOrAppend(this.invoices, item, 'billingInvoiceId'));
-        this.selectInvoice(item);
+        this.populateInvoiceForm(item);
       },
-      'Discount approval saved.'
+      'Discount approval saved successfully.'
     );
   }
 
   recordPayment(): void {
-    if (!this.selectedInvoiceId || !this.paymentForm.billingPaymentMethodId || this.paymentForm.amount <= 0) {
+    if (!this.selectedInvoice || !this.paymentForm.billingPaymentMethodId || this.paymentForm.amount <= 0) {
       this.errorMessage = 'Payment method and amount are required.';
       return;
     }
 
     this.runSave(
-      this.phase4.recordPayment(this.selectedInvoiceId, this.paymentForm),
+      this.phase4.recordPayment(this.selectedInvoice.billingInvoiceId, {
+        billingPaymentMethodId: this.paymentForm.billingPaymentMethodId,
+        amount: this.paymentForm.amount,
+        paymentDate: this.paymentForm.paymentDate,
+        referenceNumber: this.normalizeOptional(this.paymentForm.referenceNumber ?? ''),
+        notes: this.normalizeOptional(this.paymentForm.notes ?? '')
+      }),
       (item) => {
         this.invoices = this.sortInvoices(this.replaceOrAppend(this.invoices, item, 'billingInvoiceId'));
-        this.selectInvoice(item);
+        this.populateInvoiceForm(item);
       },
-      'Payment recorded.'
+      'Payment recorded successfully.'
     );
   }
 
   processRefund(): void {
-    if (!this.selectedInvoiceId || this.refundForm.amount <= 0 || !this.refundForm.reason.trim()) {
+    if (!this.selectedInvoice || this.refundForm.amount <= 0 || !(this.refundForm.reason ?? '').trim()) {
       this.errorMessage = 'Refund amount and reason are required.';
       return;
     }
 
     this.runSave(
-      this.phase4.processRefund(this.selectedInvoiceId, { ...this.refundForm, reason: this.refundForm.reason.trim() }),
+      this.phase4.processRefund(this.selectedInvoice.billingInvoiceId, {
+        billingPaymentMethodId: this.refundForm.billingPaymentMethodId ?? null,
+        amount: this.refundForm.amount,
+        status: this.refundForm.status,
+        reason: (this.refundForm.reason ?? '').trim(),
+        notes: this.normalizeOptional(this.refundForm.notes ?? '')
+      }),
       (item) => {
         this.invoices = this.sortInvoices(this.replaceOrAppend(this.invoices, item, 'billingInvoiceId'));
-        this.selectInvoice(item);
+        this.populateInvoiceForm(item);
       },
-      'Refund recorded.'
+      'Refund recorded successfully.'
     );
   }
 
-  trackById(_: number, item: { billingChargeDefinitionId?: number | null; billingInvoiceId?: number; billingPaymentMethodId?: number; billingPartnerId?: number; billingRuleId?: number }): number | null | undefined {
-    return item.billingChargeDefinitionId ?? item.billingInvoiceId ?? item.billingPaymentMethodId ?? item.billingPartnerId ?? item.billingRuleId;
+  updateChargeStatus(item: BillingChargeDefinition): void {
+    this.runSave(
+      this.phase4.updateChargeDefinition(item.billingChargeDefinitionId, this.buildChargePayload({
+        chargeType: item.chargeType,
+        name: item.name,
+        code: item.code,
+        description: item.description ?? '',
+        unitLabel: item.unitLabel,
+        defaultAmount: item.defaultAmount,
+        isActive: !item.isActive
+      })),
+      (updated) => {
+        this.charges = this.sortCharges(this.replaceOrAppend(this.charges, updated, 'billingChargeDefinitionId'));
+        if (this.selectedRecordId === updated.billingChargeDefinitionId && this.isEditView) {
+          this.populateChargeForm(updated);
+        }
+      },
+      `Charge ${item.isActive ? 'deactivated' : 'activated'} successfully.`,
+      'Unable to update charge status.'
+    );
+  }
+
+  updatePaymentMethodStatus(item: BillingPaymentMethod): void {
+    this.runSave(
+      this.phase4.updatePaymentMethod(item.billingPaymentMethodId, this.buildPaymentMethodPayload({
+        name: item.name,
+        methodType: item.methodType,
+        providerName: item.providerName ?? '',
+        requiresReference: item.requiresReference,
+        sortOrder: item.sortOrder,
+        isActive: !item.isActive
+      })),
+      (updated) => {
+        this.paymentMethods = this.sortPaymentMethods(this.replaceOrAppend(this.paymentMethods, updated, 'billingPaymentMethodId'));
+        if (this.selectedRecordId === updated.billingPaymentMethodId && this.isEditView) {
+          this.populatePaymentMethodForm(updated);
+        }
+      },
+      `Payment method ${item.isActive ? 'deactivated' : 'activated'} successfully.`,
+      'Unable to update payment method status.'
+    );
+  }
+
+  updatePartnerStatus(item: BillingPartner): void {
+    this.runSave(
+      this.phase4.updatePartner(item.billingPartnerId, this.buildPartnerPayload({
+        kind: item.kind,
+        name: item.name,
+        code: item.code,
+        contactPerson: item.contactPerson ?? '',
+        contactEmail: item.contactEmail ?? '',
+        contactPhone: item.contactPhone ?? '',
+        creditLimit: item.creditLimit,
+        claimSubmissionMode: item.claimSubmissionMode,
+        notes: item.notes ?? '',
+        isActive: !item.isActive
+      })),
+      (updated) => {
+        this.partners = this.sortPartners(this.replaceOrAppend(this.partners, updated, 'billingPartnerId'));
+        if (this.selectedRecordId === updated.billingPartnerId && this.isEditView) {
+          this.populatePartnerForm(updated);
+        }
+      },
+      `${this.currentRecordLabel} ${item.isActive ? 'deactivated' : 'activated'} successfully.`,
+      'Unable to update partner status.'
+    );
+  }
+
+  updateRuleStatus(item: BillingRule): void {
+    this.runSave(
+      this.phase4.updateBillingRule(item.billingRuleId, this.buildRulePayload({
+        billingPartnerId: item.billingPartnerId,
+        ruleName: item.ruleName,
+        policyName: item.policyName ?? '',
+        discountPercentage: item.discountPercentage,
+        coPayPercentage: item.coPayPercentage,
+        creditLimit: item.creditLimit,
+        claimSubmissionWindowDays: item.claimSubmissionWindowDays,
+        requiresPreApproval: item.requiresPreApproval,
+        notes: item.notes ?? '',
+        isActive: !item.isActive
+      })),
+      (updated) => {
+        this.rules = this.sortRules(this.replaceOrAppend(this.rules, updated, 'billingRuleId'));
+        if (this.selectedRecordId === updated.billingRuleId && this.isEditView) {
+          this.populateRuleForm(updated);
+        }
+      },
+      `Billing rule ${item.isActive ? 'deactivated' : 'activated'} successfully.`,
+      'Unable to update billing rule status.'
+    );
   }
 
   invoiceItemTotal(item: InvoiceItemFormState): number {
@@ -721,11 +870,32 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
   }
 
   private syncRoute(url: string): void {
-    const section = this.toSection(url.split('?')[0].split('/').filter(Boolean)[2] ?? null);
-    if (this.activeSection !== section) {
-      this.activeSection = section;
+    const parts = url.split('?')[0].split('/').filter(Boolean);
+    const nextSection = this.toSection(parts[2] ?? null);
+    const nextId = this.parseId(parts[3] ?? null);
+    const previousSection = this.activeSection;
+
+    this.activeSection = nextSection;
+    this.selectedRecordId = nextId;
+
+    if (parts[3] === 'create') {
+      this.viewMode = 'create';
+      this.selectedRecordId = null;
+      this.resetFormForSection(this.activeSection);
+    } else if (nextId && parts[4] === 'edit') {
+      this.viewMode = 'edit';
+      this.loadSelectedRecordIntoForm();
+    } else if (nextId) {
+      this.viewMode = 'details';
+    } else {
+      this.viewMode = 'index';
+    }
+
+    if (previousSection !== nextSection) {
       this.searchTerm = '';
-      this.resetActiveForm();
+      this.statusFilter = 'all';
+      this.errorMessage = '';
+      this.successMessage = '';
     }
   }
 
@@ -752,69 +922,297 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
         this.paymentMethods = this.sortPaymentMethods(paymentMethods);
         this.partners = this.sortPartners(partners);
         this.rules = this.sortRules(rules);
-        this.restoreSelectionState();
+        this.loadSelectedRecordIntoForm();
         this.isLoading = false;
       },
       error: () => {
         this.isLoading = false;
-        this.errorMessage = 'Unable to load billing and finance data right now.';
+        this.errorMessage = 'Unable to load billing data right now.';
       }
     });
   }
 
-  private restoreSelectionState(): void {
-    if (this.selectedChargeId) {
-      const item = this.charges.find((entry) => entry.billingChargeDefinitionId === this.selectedChargeId);
-      if (item) {
-        this.chargeForm = { ...item };
-      }
-    }
+  private resetFormForSection(section: FinanceSection): void {
+    this.errorMessage = '';
+    this.successMessage = '';
 
-    if (this.selectedPaymentMethodId) {
-      const item = this.paymentMethods.find((entry) => entry.billingPaymentMethodId === this.selectedPaymentMethodId);
-      if (item) {
-        this.paymentMethodForm = { ...item };
-      }
-    }
-
-    if (this.selectedPartnerId) {
-      const item = this.partners.find((entry) => entry.billingPartnerId === this.selectedPartnerId);
-      if (item) {
-        this.partnerForm = { ...item };
-      }
-    }
-
-    if (this.selectedRuleId) {
-      const item = this.rules.find((entry) => entry.billingRuleId === this.selectedRuleId);
-      if (item) {
-        this.selectRule(item);
-      }
-    }
-
-    if (this.selectedInvoiceId) {
-      const item = this.invoices.find((entry) => entry.billingInvoiceId === this.selectedInvoiceId);
-      if (item) {
-        this.selectInvoice(item);
-      }
+    switch (section) {
+      case 'charges':
+        this.chargeForm = createEmptyChargeForm();
+        break;
+      case 'paymentMethods':
+        this.paymentMethodForm = createEmptyPaymentMethodForm();
+        break;
+      case 'insurance':
+        this.partnerForm = createEmptyPartnerForm('InsuranceCompany');
+        break;
+      case 'panels':
+        this.partnerForm = createEmptyPartnerForm('PanelOrganization');
+        break;
+      case 'rules':
+        this.ruleForm = createEmptyRuleForm();
+        break;
+      case 'bills':
+      default:
+        this.populateInvoiceForm();
+        break;
     }
   }
 
-  private runSave<T>(request: Observable<T>, onSuccess: (value: T) => void, successMessage: string): void {
+  private loadSelectedRecordIntoForm(): void {
+    if (!this.isEditView) {
+      return;
+    }
+
+    switch (this.activeSection) {
+      case 'charges':
+        this.populateChargeForm(this.selectedCharge ?? undefined);
+        break;
+      case 'paymentMethods':
+        this.populatePaymentMethodForm(this.selectedPaymentMethod ?? undefined);
+        break;
+      case 'insurance':
+      case 'panels':
+        this.populatePartnerForm(this.selectedPartner ?? undefined);
+        break;
+      case 'rules':
+        this.populateRuleForm(this.selectedRule ?? undefined);
+        break;
+      case 'bills':
+      default:
+        this.populateInvoiceForm(this.selectedInvoice ?? undefined);
+        break;
+    }
+  }
+
+  private populateChargeForm(item?: BillingChargeDefinition): void {
+    this.chargeForm = item
+      ? {
+          chargeType: item.chargeType,
+          name: item.name,
+          code: item.code,
+          description: item.description ?? '',
+          unitLabel: item.unitLabel,
+          defaultAmount: item.defaultAmount,
+          isActive: item.isActive
+        }
+      : createEmptyChargeForm();
+  }
+
+  private populatePaymentMethodForm(item?: BillingPaymentMethod): void {
+    this.paymentMethodForm = item
+      ? {
+          name: item.name,
+          methodType: item.methodType,
+          providerName: item.providerName ?? '',
+          requiresReference: item.requiresReference,
+          sortOrder: item.sortOrder,
+          isActive: item.isActive
+        }
+      : createEmptyPaymentMethodForm();
+  }
+
+  private populatePartnerForm(item?: BillingPartner): void {
+    this.partnerForm = item
+      ? {
+          kind: item.kind,
+          name: item.name,
+          code: item.code,
+          contactPerson: item.contactPerson ?? '',
+          contactEmail: item.contactEmail ?? '',
+          contactPhone: item.contactPhone ?? '',
+          creditLimit: item.creditLimit,
+          claimSubmissionMode: item.claimSubmissionMode,
+          notes: item.notes ?? '',
+          isActive: item.isActive
+        }
+      : createEmptyPartnerForm(this.activeSection === 'insurance' ? 'InsuranceCompany' : 'PanelOrganization');
+  }
+
+  private populateRuleForm(item?: BillingRule): void {
+    this.ruleForm = item
+      ? {
+          billingPartnerId: item.billingPartnerId,
+          ruleName: item.ruleName,
+          policyName: item.policyName ?? '',
+          discountPercentage: item.discountPercentage,
+          coPayPercentage: item.coPayPercentage,
+          creditLimit: item.creditLimit,
+          claimSubmissionWindowDays: item.claimSubmissionWindowDays,
+          requiresPreApproval: item.requiresPreApproval,
+          notes: item.notes ?? '',
+          isActive: item.isActive
+        }
+      : createEmptyRuleForm();
+  }
+
+  private populateInvoiceForm(item?: BillingInvoice): void {
+    this.invoiceForm = item
+      ? {
+          patientId: item.patientId ?? null,
+          appointmentId: item.appointmentId ?? null,
+          branchId: item.branchId ?? null,
+          payerType: item.payerType,
+          billingPartnerId: item.billingPartnerId ?? null,
+          billingRuleId: item.billingRuleId ?? null,
+          invoiceDate: item.invoiceDate.slice(0, 10),
+          dueDate: item.dueDate ? item.dueDate.slice(0, 10) : '',
+          claimStatus: item.claimStatus,
+          claimReferenceNumber: item.claimReferenceNumber ?? '',
+          requestedDiscountAmount: item.requestedDiscountAmount,
+          discountNotes: item.discountNotes ?? '',
+          notes: item.notes ?? '',
+          items: item.items.length
+            ? item.items.map((line) => ({
+                billingChargeDefinitionId: line.billingChargeDefinitionId ?? null,
+                chargeType: line.chargeType,
+                description: line.description,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+                discountAmount: line.discountAmount,
+                notes: line.notes ?? ''
+              }))
+            : [createEmptyInvoiceItem()]
+        }
+      : createEmptyInvoiceForm();
+
+    this.discountForm = item
+      ? {
+          requestedDiscountAmount: item.requestedDiscountAmount,
+          approvedDiscountAmount: item.approvedDiscountAmount,
+          discountNotes: item.discountNotes ?? ''
+        }
+      : createEmptyDiscountForm();
+
+    this.paymentForm = createEmptyPaymentForm();
+    this.refundForm = createEmptyRefundForm();
+  }
+
+  private buildChargePayload(form: ChargeFormState): SaveBillingChargeDefinitionPayload {
+    return {
+      chargeType: form.chargeType,
+      name: form.name.trim(),
+      code: form.code.trim(),
+      description: this.normalizeOptional(form.description),
+      unitLabel: form.unitLabel.trim() || 'unit',
+      defaultAmount: form.defaultAmount,
+      isActive: form.isActive
+    };
+  }
+
+  private buildPaymentMethodPayload(form: PaymentMethodFormState): SaveBillingPaymentMethodPayload {
+    return {
+      name: form.name.trim(),
+      methodType: form.methodType,
+      providerName: this.normalizeOptional(form.providerName),
+      requiresReference: form.requiresReference,
+      sortOrder: form.sortOrder,
+      isActive: form.isActive
+    };
+  }
+
+  private buildPartnerPayload(form: PartnerFormState): SaveBillingPartnerPayload {
+    return {
+      kind: form.kind,
+      name: form.name.trim(),
+      code: form.code.trim(),
+      contactPerson: this.normalizeOptional(form.contactPerson),
+      contactEmail: this.normalizeOptional(form.contactEmail),
+      contactPhone: this.normalizeOptional(form.contactPhone),
+      creditLimit: form.creditLimit,
+      claimSubmissionMode: form.claimSubmissionMode.trim() || 'Manual',
+      notes: this.normalizeOptional(form.notes),
+      isActive: form.isActive
+    };
+  }
+
+  private buildRulePayload(form: RuleFormState): SaveBillingRulePayload {
+    return {
+      billingPartnerId: form.billingPartnerId,
+      ruleName: form.ruleName.trim(),
+      policyName: this.normalizeOptional(form.policyName),
+      discountPercentage: form.discountPercentage,
+      coPayPercentage: form.coPayPercentage,
+      creditLimit: form.creditLimit,
+      claimSubmissionWindowDays: form.claimSubmissionWindowDays,
+      requiresPreApproval: form.requiresPreApproval,
+      notes: this.normalizeOptional(form.notes),
+      isActive: form.isActive
+    };
+  }
+
+  private buildInvoicePayload(items: InvoiceItemFormState[]): SaveBillingInvoicePayload {
+    return {
+      patientId: this.invoiceForm.patientId,
+      appointmentId: this.invoiceForm.appointmentId,
+      branchId: this.invoiceForm.branchId,
+      payerType: this.invoiceForm.payerType,
+      billingPartnerId: this.invoiceForm.payerType === 'SelfPay' ? null : this.invoiceForm.billingPartnerId,
+      billingRuleId: this.invoiceForm.billingRuleId,
+      invoiceDate: this.invoiceForm.invoiceDate,
+      dueDate: this.invoiceForm.dueDate || null,
+      claimStatus: this.invoiceForm.claimStatus,
+      claimReferenceNumber: this.normalizeOptional(this.invoiceForm.claimReferenceNumber),
+      requestedDiscountAmount: this.invoiceForm.requestedDiscountAmount,
+      discountNotes: this.normalizeOptional(this.invoiceForm.discountNotes),
+      notes: this.normalizeOptional(this.invoiceForm.notes),
+      items: items.map((item): SaveBillingInvoiceItemPayload => ({
+        billingChargeDefinitionId: item.billingChargeDefinitionId,
+        chargeType: item.chargeType,
+        description: item.description.trim(),
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discountAmount: item.discountAmount,
+        notes: this.normalizeOptional(item.notes)
+      }))
+    };
+  }
+
+  private runSave<T>(
+    request: Observable<T>,
+    onSuccess: (value: T) => void,
+    successMessage: string,
+    fallbackError = 'Unable to save billing changes.'
+  ): void {
     this.isSaving = true;
     this.errorMessage = '';
     this.successMessage = '';
 
     request.subscribe({
-      next: (value: T) => {
+      next: (value) => {
         onSuccess(value);
         this.isSaving = false;
         this.successMessage = successMessage;
       },
       error: (error: { error?: { message?: string } }) => {
         this.isSaving = false;
-        this.errorMessage = error?.error?.message || 'Unable to save billing and finance changes.';
+        this.errorMessage = error?.error?.message || fallbackError;
       }
     });
+  }
+
+  private matchesActiveFilter(isActive: boolean): boolean {
+    if (this.statusFilter === 'active') {
+      return isActive;
+    }
+
+    if (this.statusFilter === 'inactive') {
+      return !isActive;
+    }
+
+    return true;
+  }
+
+  private matchesInvoiceFilter(invoice: BillingInvoice): boolean {
+    if (this.statusFilter === 'open') {
+      return invoice.dueAmount > 0 || !['Paid', 'Cancelled'].includes(invoice.status);
+    }
+
+    if (this.statusFilter === 'closed') {
+      return invoice.dueAmount <= 0 && ['Paid', 'Cancelled'].includes(invoice.status);
+    }
+
+    return true;
   }
 
   private matchesSearch(...values: Array<string | number | null | undefined>): boolean {
@@ -824,6 +1222,20 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
     }
 
     return values.some((value) => String(value ?? '').toLowerCase().includes(term));
+  }
+
+  private normalizeOptional(value: string): string | null {
+    const normalized = value.trim();
+    return normalized ? normalized : null;
+  }
+
+  private parseId(value: string | null): number | null {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 
   private toSection(value: string | null): FinanceSection {
@@ -852,7 +1264,7 @@ export class BillingFinanceComponent implements OnInit, OnDestroy {
   }
 
   private sortRules(items: BillingRule[]): BillingRule[] {
-    return [...items].sort((a, b) => a.ruleName.localeCompare(b.ruleName));
+    return [...items].sort((a, b) => `${a.billingPartnerName} ${a.ruleName}`.localeCompare(`${b.billingPartnerName} ${b.ruleName}`));
   }
 
   private sortInvoices(items: BillingInvoice[]): BillingInvoice[] {

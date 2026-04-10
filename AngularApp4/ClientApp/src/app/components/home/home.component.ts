@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { BranchOccupancy, DashboardSummary, PendingPayment, StockAlert } from '../../core/models/hms/admin-ops.model';
 import { AdminOpsService } from '../../core/services/hms/admin-ops.service';
 
@@ -20,7 +21,10 @@ export class HomeComponent implements OnInit {
   isLoading = true;
   errorMessage = '';
 
-  constructor(private readonly adminOps: AdminOpsService) {}
+  constructor(
+    private readonly adminOps: AdminOpsService,
+    private readonly router: Router
+  ) {}
 
   ngOnInit(): void {
     this.loadDashboard();
@@ -68,6 +72,10 @@ export class HomeComponent implements OnInit {
     }
 
     return metric.value.toLocaleString();
+  }
+
+  openPendingPayment(item: PendingPayment): void {
+    this.router.navigate(['/admin/billing/bills', item.invoiceId]);
   }
 
   private loadDashboard(): void {

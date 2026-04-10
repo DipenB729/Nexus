@@ -204,6 +204,30 @@
   }
 }
 
+.clickable-row {
+  cursor: pointer;
+
+  &:hover {
+    background: #f8fafc;
+  }
+}
+
+.inline-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #0f766e;
+  }
+}
+
 .secondary .list-row {
   grid-template-columns: 0.8fr 1fr 0.8fr 0.9fr 0.8fr;
 }

@@ -102,8 +102,10 @@
           <span>Amount due</span>
         </div>
 
-        <div class="list-row" *ngFor="let item of pendingPayments">
-          <span>{{ item.invoiceNumber }}</span>
+        <div class="list-row clickable-row" *ngFor="let item of pendingPayments" (click)="openPendingPayment(item)">
+          <span>
+            <button type="button" class="inline-link">{{ item.invoiceNumber }}</button>
+          </span>
           <span>{{ item.patientName }}</span>
           <span><b>{{ item.status }}</b></span>
           <span>{{ item.dueDate ? (item.dueDate | date:'mediumDate') : 'Not set' }}</span>

@@ -10,484 +10,461 @@
         <mat-icon>refresh</mat-icon>
         Refresh
       </button>
-      <button mat-raised-button color="primary" type="button" (click)="resetActiveForm()">
+      <button mat-stroked-button type="button" *ngIf="!isIndexView" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to list
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isIndexView" (click)="goToCreate()">
         <mat-icon>add</mat-icon>
-        {{ createActionLabel }}
+        Create {{ currentRecordLabel }}
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        *ngIf="isDetailsView && selectedRecordId"
+        (click)="goToEdit(selectedRecordId)">
+        <mat-icon>edit</mat-icon>
+        Edit {{ currentRecordLabel }}
       </button>
     </div>
   </div>
 
-  <div class="section-nav">
-    <button
-      type="button"
-      class="nav-chip"
-      *ngFor="let section of sections"
-      [class.active]="section.key === activeSection"
-      (click)="setSection(section.key)">
-      <mat-icon>{{ section.icon }}</mat-icon>
-      <span>{{ section.label }}</span>
-      <small>{{ section.description }}</small>
-    </button>
-  </div>
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success-box" *ngIf="successMessage">{{ successMessage }}</p>
 
-  <p class="status-message error" *ngIf="errorMessage">{{ errorMessage }}</p>
-  <p class="status-message success" *ngIf="successMessage">{{ successMessage }}</p>
+  <ng-container *ngIf="isIndexView">
+    <div class="table-actions">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search {{ currentSection.label.toLowerCase() }}</mat-label>
+        <input matInput [(ngModel)]="searchTerm" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
 
-  <div class="table-actions">
-    <mat-form-field appearance="outline" class="search-field">
-      <mat-label>Search {{ currentSection.label.toLowerCase() }}</mat-label>
-      <input matInput [(ngModel)]="searchTerm" />
-      <mat-icon matSuffix>search</mat-icon>
-    </mat-form-field>
-  </div>
+      <div class="status-filter">
+        <button
+          type="button"
+          *ngFor="let option of currentFilterOptions"
+          [class.active]="statusFilter === option.key"
+          (click)="setStatusFilter(option.key)">
+          {{ option.label }}
+        </button>
+      </div>
+    </div>
 
-  <div [ngSwitch]="activeSection">
-    <ng-container *ngSwitchCase="'charges'">
-      <div class="stats-grid compact">
-        <article>
-          <span>Charge definitions</span>
-          <strong>{{ charges.length }}</strong>
-          <small>Consultation, lab, procedure, bed, and nursing service charge masters.</small>
-        </article>
-        <article>
-          <span>Active charges</span>
-          <strong>{{ activeChargeCount }}</strong>
-          <small>Available for invoice item defaults and operational billing use.</small>
-        </article>
-        <article>
-          <span>Charge families</span>
-          <strong>{{ chargeTypeOptions.length }}</strong>
-          <small>Standardized billing buckets for finance and service setup.</small>
-        </article>
+    <div class="table-card">
+      <div class="table-shell" [ngSwitch]="activeSection">
+        <table class="master-table" *ngSwitchCase="'charges'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Charge</th>
+              <th>Type</th>
+              <th>Unit</th>
+              <th>Default amount</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredCharges; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.billingChargeDefinitionId)">{{ item.name }}</button>
+                <small>{{ item.code }}{{ item.description ? ' | ' + item.description : '' }}</small>
+              </td>
+              <td>{{ formatEnum(item.chargeType) }}</td>
+              <td>{{ item.unitLabel }}</td>
+              <td>NPR {{ item.defaultAmount | number:'1.0-0' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="goToEdit(item.billingChargeDefinitionId)">Edit</button>
+                <button mat-button type="button" (click)="updateChargeStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'paymentMethods'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Method</th>
+              <th>Type</th>
+              <th>Provider</th>
+              <th>Reference</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredPaymentMethods; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.billingPaymentMethodId)">{{ item.name }}</button>
+                <small>Sort order {{ item.sortOrder }}</small>
+              </td>
+              <td>{{ formatEnum(item.methodType) }}</td>
+              <td>{{ item.providerName || 'Internal' }}</td>
+              <td>{{ item.requiresReference ? 'Required' : 'Optional' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="goToEdit(item.billingPaymentMethodId)">Edit</button>
+                <button mat-button type="button" (click)="updatePaymentMethodStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'insurance'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Insurance Company</th>
+              <th>Code</th>
+              <th>Contact</th>
+              <th>Credit limit</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredPartners; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.billingPartnerId)">{{ item.name }}</button>
+                <small>{{ item.claimSubmissionMode }} submission</small>
+              </td>
+              <td>{{ item.code }}</td>
+              <td>{{ item.contactPerson || 'Not set' }}</td>
+              <td>NPR {{ item.creditLimit | number:'1.0-0' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="goToEdit(item.billingPartnerId)">Edit</button>
+                <button mat-button type="button" (click)="updatePartnerStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'panels'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Corporate Panel</th>
+              <th>Code</th>
+              <th>Contact</th>
+              <th>Credit limit</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredPartners; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.billingPartnerId)">{{ item.name }}</button>
+                <small>{{ item.claimSubmissionMode }} submission</small>
+              </td>
+              <td>{{ item.code }}</td>
+              <td>{{ item.contactPerson || 'Not set' }}</td>
+              <td>NPR {{ item.creditLimit | number:'1.0-0' }}</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="goToEdit(item.billingPartnerId)">Edit</button>
+                <button mat-button type="button" (click)="updatePartnerStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchCase="'rules'">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Rule</th>
+              <th>Partner</th>
+              <th>Discount / Co-pay</th>
+              <th>Claim window</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredRules; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.billingRuleId)">{{ item.ruleName }}</button>
+                <small>{{ item.policyName || 'No policy name' }}</small>
+              </td>
+              <td>{{ item.billingPartnerName }}</td>
+              <td>{{ item.discountPercentage | number:'1.0-0' }}% / {{ item.coPayPercentage | number:'1.0-0' }}%</td>
+              <td>{{ item.claimSubmissionWindowDays }} day(s)</td>
+              <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="goToEdit(item.billingRuleId)">Edit</button>
+                <button mat-button type="button" (click)="updateRuleStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="master-table" *ngSwitchDefault>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Invoice</th>
+              <th>Patient</th>
+              <th>Payer</th>
+              <th>Total</th>
+              <th>Due</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredInvoices; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="name-link" (click)="goToDetails(item.billingInvoiceId)">{{ item.invoiceNumber }}</button>
+                <small>{{ item.invoiceDate | date:'mediumDate' }}</small>
+              </td>
+              <td>
+                {{ item.patientName }}
+                <small>{{ item.medicalRecordNumber || 'No MRN' }}</small>
+              </td>
+              <td>
+                {{ formatEnum(item.payerType) }}
+                <small>{{ item.billingPartnerName || 'Self pay account' }}</small>
+              </td>
+              <td>NPR {{ item.totalAmount | number:'1.0-0' }}</td>
+              <td>NPR {{ item.dueAmount | number:'1.0-0' }}</td>
+              <td>
+                <div class="pill-stack">
+                  <span class="status-pill" [ngClass]="getStatusTone(item.status)">{{ formatEnum(item.status) }}</span>
+                  <span class="status-pill" [ngClass]="getStatusTone(item.claimStatus)">{{ formatEnum(item.claimStatus) }}</span>
+                </div>
+              </td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="goToEdit(item.billingInvoiceId)">Edit</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <div class="workspace-grid">
-        <section class="table-card">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">Charge list</span>
-              <h3>Configured service charges</h3>
-            </div>
-          </div>
-
-          <table class="phase-table" *ngIf="filteredCharges.length; else emptyCharges">
-            <thead>
-              <tr>
-                <th>Charge</th>
-                <th>Type</th>
-                <th>Unit</th>
-                <th>Default amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                *ngFor="let item of filteredCharges"
-                [class.is-selected]="selectedChargeId === item.billingChargeDefinitionId">
-                <td>
-                  <button type="button" class="name-link" (click)="selectCharge(item)">{{ item.name }}</button>
-                  <small>{{ item.code }}{{ item.description ? ' | ' + item.description : '' }}</small>
-                </td>
-                <td>{{ formatEnum(item.chargeType) }}</td>
-                <td>{{ item.unitLabel }}</td>
-                <td>NPR {{ item.defaultAmount | number:'1.0-0' }}</td>
-                <td>
-                  <span class="status-pill" [ngClass]="item.isActive ? 'success' : 'danger'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section class="editor-panel">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">{{ selectedChargeId ? 'Edit charge' : 'New charge' }}</span>
-              <h3>{{ selectedChargeId ? 'Charge definition editor' : 'Create charge definition' }}</h3>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Charge type</mat-label>
-              <mat-select [(ngModel)]="chargeForm.chargeType">
-                <mat-option *ngFor="let option of chargeTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Charge code</mat-label>
-              <input matInput [(ngModel)]="chargeForm.code" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Charge name</mat-label>
-              <input matInput [(ngModel)]="chargeForm.name" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Unit label</mat-label>
-              <input matInput [(ngModel)]="chargeForm.unitLabel" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Default amount</mat-label>
-              <input matInput type="number" [(ngModel)]="chargeForm.defaultAmount" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Description</mat-label>
-              <textarea matInput rows="3" [(ngModel)]="chargeForm.description"></textarea>
-            </mat-form-field>
-            <label class="toggle-box full-width">
-              <input type="checkbox" [(ngModel)]="chargeForm.isActive" />
-              <span>Charge definition active</span>
-            </label>
-          </div>
-
-          <div class="actions-row">
-            <button mat-stroked-button type="button" (click)="resetActiveForm()">Reset</button>
-            <button mat-raised-button color="primary" type="button" (click)="saveCharge()" [disabled]="isSaving">Save charge</button>
-          </div>
-        </section>
+      <div class="empty-state" *ngIf="sectionRecordCount === 0">
+        No {{ currentSection.label.toLowerCase() }} found for the current filter.
       </div>
-    </ng-container>
+    </div>
+  </ng-container>
 
-    <ng-container *ngSwitchCase="'paymentMethods'">
-      <div class="stats-grid compact">
-        <article>
-          <span>Payment methods</span>
-          <strong>{{ paymentMethods.length }}</strong>
-          <small>Configured settlement channels for cashiering, claims, and bank collections.</small>
-        </article>
-        <article>
-          <span>Active methods</span>
-          <strong>{{ activePaymentMethodCount }}</strong>
-          <small>Available to billing teams for payments and refunds.</small>
-        </article>
-        <article>
-          <span>Reference required</span>
-          <strong>{{ referencePaymentMethodCount }}</strong>
-          <small>Methods that require transaction reference capture.</small>
-        </article>
+  <ng-container *ngIf="isFormView">
+    <section class="editor-panel">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span>
+          <h2>{{ isCreateView ? ('Create ' + currentRecordLabel) : ('Edit ' + currentRecordLabel) }}</h2>
+        </div>
       </div>
 
-      <div class="workspace-grid">
-        <section class="table-card">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">Method list</span>
-              <h3>Configured payment methods</h3>
-            </div>
-          </div>
+      <div [ngSwitch]="activeSection">
+        <div class="form-grid" *ngSwitchCase="'charges'">
+          <mat-form-field appearance="outline">
+            <mat-label>Charge type</mat-label>
+            <mat-select [(ngModel)]="chargeForm.chargeType">
+              <mat-option *ngFor="let option of chargeTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Charge code</mat-label>
+            <input matInput [(ngModel)]="chargeForm.code" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Charge name</mat-label>
+            <input matInput [(ngModel)]="chargeForm.name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Unit label</mat-label>
+            <input matInput [(ngModel)]="chargeForm.unitLabel" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Default amount</mat-label>
+            <input matInput type="number" [(ngModel)]="chargeForm.defaultAmount" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="chargeForm.description"></textarea>
+          </mat-form-field>
+          <label class="toggle-box full-width">
+            <input type="checkbox" [(ngModel)]="chargeForm.isActive" />
+            <span>Charge active</span>
+          </label>
+        </div>
 
-          <table class="phase-table" *ngIf="filteredPaymentMethods.length; else emptyPaymentMethods">
-            <thead>
-              <tr>
-                <th>Method</th>
-                <th>Type</th>
-                <th>Provider</th>
-                <th>Reference</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                *ngFor="let item of filteredPaymentMethods"
-                [class.is-selected]="selectedPaymentMethodId === item.billingPaymentMethodId">
-                <td>
-                  <button type="button" class="name-link" (click)="selectPaymentMethod(item)">{{ item.name }}</button>
-                  <small>Sort order {{ item.sortOrder }}</small>
-                </td>
-                <td>{{ formatEnum(item.methodType) }}</td>
-                <td>{{ item.providerName || 'Internal' }}</td>
-                <td>{{ item.requiresReference ? 'Required' : 'Optional' }}</td>
-                <td>
-                  <span class="status-pill" [ngClass]="item.isActive ? 'success' : 'danger'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        <div class="form-grid" *ngSwitchCase="'paymentMethods'">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Method name</mat-label>
+            <input matInput [(ngModel)]="paymentMethodForm.name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Method type</mat-label>
+            <mat-select [(ngModel)]="paymentMethodForm.methodType">
+              <mat-option *ngFor="let option of paymentMethodTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Provider name</mat-label>
+            <input matInput [(ngModel)]="paymentMethodForm.providerName" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Sort order</mat-label>
+            <input matInput type="number" [(ngModel)]="paymentMethodForm.sortOrder" />
+          </mat-form-field>
+          <label class="toggle-box">
+            <input type="checkbox" [(ngModel)]="paymentMethodForm.requiresReference" />
+            <span>Reference required</span>
+          </label>
+          <label class="toggle-box full-width">
+            <input type="checkbox" [(ngModel)]="paymentMethodForm.isActive" />
+            <span>Payment method active</span>
+          </label>
+        </div>
 
-        <section class="editor-panel">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">{{ selectedPaymentMethodId ? 'Edit method' : 'New method' }}</span>
-              <h3>{{ selectedPaymentMethodId ? 'Payment method editor' : 'Create payment method' }}</h3>
-            </div>
-          </div>
+        <div class="form-grid" *ngSwitchCase="'insurance'">
+          <mat-form-field appearance="outline">
+            <mat-label>Insurance company name</mat-label>
+            <input matInput [(ngModel)]="partnerForm.name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Insurance code</mat-label>
+            <input matInput [(ngModel)]="partnerForm.code" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Contact person</mat-label>
+            <input matInput [(ngModel)]="partnerForm.contactPerson" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Contact phone</mat-label>
+            <input matInput [(ngModel)]="partnerForm.contactPhone" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Contact email</mat-label>
+            <input matInput [(ngModel)]="partnerForm.contactEmail" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Credit limit</mat-label>
+            <input matInput type="number" [(ngModel)]="partnerForm.creditLimit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Claim submission mode</mat-label>
+            <input matInput [(ngModel)]="partnerForm.claimSubmissionMode" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Notes</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="partnerForm.notes"></textarea>
+          </mat-form-field>
+          <label class="toggle-box full-width">
+            <input type="checkbox" [(ngModel)]="partnerForm.isActive" />
+            <span>Insurance company active</span>
+          </label>
+        </div>
 
-          <div class="form-grid">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Method name</mat-label>
-              <input matInput [(ngModel)]="paymentMethodForm.name" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Method type</mat-label>
-              <mat-select [(ngModel)]="paymentMethodForm.methodType">
-                <mat-option *ngFor="let option of paymentMethodTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Provider name</mat-label>
-              <input matInput [(ngModel)]="paymentMethodForm.providerName" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Sort order</mat-label>
-              <input matInput type="number" [(ngModel)]="paymentMethodForm.sortOrder" />
-            </mat-form-field>
-            <label class="toggle-box">
-              <input type="checkbox" [(ngModel)]="paymentMethodForm.requiresReference" />
-              <span>Reference number required</span>
-            </label>
-            <label class="toggle-box">
-              <input type="checkbox" [(ngModel)]="paymentMethodForm.isActive" />
-              <span>Payment method active</span>
-            </label>
-          </div>
+        <div class="form-grid" *ngSwitchCase="'panels'">
+          <mat-form-field appearance="outline">
+            <mat-label>Corporate panel name</mat-label>
+            <input matInput [(ngModel)]="partnerForm.name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Panel code</mat-label>
+            <input matInput [(ngModel)]="partnerForm.code" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Contact person</mat-label>
+            <input matInput [(ngModel)]="partnerForm.contactPerson" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Contact phone</mat-label>
+            <input matInput [(ngModel)]="partnerForm.contactPhone" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Contact email</mat-label>
+            <input matInput [(ngModel)]="partnerForm.contactEmail" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Credit limit</mat-label>
+            <input matInput type="number" [(ngModel)]="partnerForm.creditLimit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Claim submission mode</mat-label>
+            <input matInput [(ngModel)]="partnerForm.claimSubmissionMode" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Notes</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="partnerForm.notes"></textarea>
+          </mat-form-field>
+          <label class="toggle-box full-width">
+            <input type="checkbox" [(ngModel)]="partnerForm.isActive" />
+            <span>Corporate panel active</span>
+          </label>
+        </div>
 
-          <div class="actions-row">
-            <button mat-stroked-button type="button" (click)="resetActiveForm()">Reset</button>
-            <button mat-raised-button color="primary" type="button" (click)="savePaymentMethod()" [disabled]="isSaving">Save method</button>
-          </div>
-        </section>
-      </div>
-    </ng-container>
-    
-    <ng-container *ngSwitchCase="'insurance'">
-      <ng-container *ngTemplateOutlet="partnerSectionTemplate"></ng-container>
-    </ng-container>
+        <div class="form-grid" *ngSwitchCase="'rules'">
+          <mat-form-field appearance="outline">
+            <mat-label>Billing partner</mat-label>
+            <mat-select [(ngModel)]="ruleForm.billingPartnerId">
+              <mat-option [value]="0">Select partner</mat-option>
+              <mat-option *ngFor="let partner of partners" [value]="partner.billingPartnerId">
+                {{ partner.name }} ({{ formatEnum(partner.kind) }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Rule name</mat-label>
+            <input matInput [(ngModel)]="ruleForm.ruleName" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Policy name</mat-label>
+            <input matInput [(ngModel)]="ruleForm.policyName" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Discount percentage</mat-label>
+            <input matInput type="number" [(ngModel)]="ruleForm.discountPercentage" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Co-pay percentage</mat-label>
+            <input matInput type="number" [(ngModel)]="ruleForm.coPayPercentage" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Credit limit</mat-label>
+            <input matInput type="number" [(ngModel)]="ruleForm.creditLimit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Claim submission window (days)</mat-label>
+            <input matInput type="number" [(ngModel)]="ruleForm.claimSubmissionWindowDays" />
+          </mat-form-field>
+          <label class="toggle-box">
+            <input type="checkbox" [(ngModel)]="ruleForm.requiresPreApproval" />
+            <span>Pre-approval required</span>
+          </label>
+          <label class="toggle-box">
+            <input type="checkbox" [(ngModel)]="ruleForm.isActive" />
+            <span>Billing rule active</span>
+          </label>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Rule notes</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="ruleForm.notes"></textarea>
+          </mat-form-field>
+        </div>
 
-    <ng-container *ngSwitchCase="'panels'">
-      <ng-container *ngTemplateOutlet="partnerSectionTemplate"></ng-container>
-    </ng-container>
-
-    <ng-container *ngSwitchCase="'rules'">
-      <div class="stats-grid compact">
-        <article>
-          <span>Billing rules</span>
-          <strong>{{ rules.length }}</strong>
-          <small>Coverage rules that define claims, co-pay, discounts, and credit ceilings.</small>
-        </article>
-        <article>
-          <span>Active rules</span>
-          <strong>{{ activeRuleCount }}</strong>
-          <small>Available for insurance and corporate invoice assignment.</small>
-        </article>
-        <article>
-          <span>Pre-approval rules</span>
-          <strong>{{ preApprovalRuleCount }}</strong>
-          <small>Policies that require authorization workflow before claim execution.</small>
-        </article>
-      </div>
-
-      <div class="workspace-grid">
-        <section class="table-card">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">Rule list</span>
-              <h3>Insurance and corporate billing rules</h3>
-            </div>
-          </div>
-
-          <table class="phase-table" *ngIf="filteredRules.length; else emptyRules">
-            <thead>
-              <tr>
-                <th>Rule</th>
-                <th>Partner</th>
-                <th>Discount / Co-pay</th>
-                <th>Claim window</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                *ngFor="let item of filteredRules"
-                [class.is-selected]="selectedRuleId === item.billingRuleId">
-                <td>
-                  <button type="button" class="name-link" (click)="selectRule(item)">{{ item.ruleName }}</button>
-                  <small>{{ item.policyName || 'No policy name' }}</small>
-                </td>
-                <td>
-                  {{ item.billingPartnerName }}
-                  <small>{{ formatEnum(item.billingPartnerKind) }}</small>
-                </td>
-                <td>{{ item.discountPercentage | number:'1.0-0' }}% / {{ item.coPayPercentage | number:'1.0-0' }}%</td>
-                <td>{{ item.claimSubmissionWindowDays }} day(s)</td>
-                <td>
-                  <span class="status-pill" [ngClass]="item.isActive ? 'success' : 'danger'">
-                    {{ item.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section class="editor-panel">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">{{ selectedRuleId ? 'Edit rule' : 'New rule' }}</span>
-              <h3>{{ selectedRuleId ? 'Billing rule editor' : 'Create billing rule' }}</h3>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Billing partner</mat-label>
-              <mat-select [(ngModel)]="ruleForm.billingPartnerId">
-                <mat-option [value]="0">Select partner</mat-option>
-                <mat-option *ngFor="let partner of partners" [value]="partner.billingPartnerId">
-                  {{ partner.name }} ({{ formatEnum(partner.kind) }})
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Rule name</mat-label>
-              <input matInput [(ngModel)]="ruleForm.ruleName" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Policy name</mat-label>
-              <input matInput [(ngModel)]="ruleForm.policyName" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Discount percentage</mat-label>
-              <input matInput type="number" [(ngModel)]="ruleForm.discountPercentage" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Co-pay percentage</mat-label>
-              <input matInput type="number" [(ngModel)]="ruleForm.coPayPercentage" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Credit limit</mat-label>
-              <input matInput type="number" [(ngModel)]="ruleForm.creditLimit" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Claim submission window (days)</mat-label>
-              <input matInput type="number" [(ngModel)]="ruleForm.claimSubmissionWindowDays" />
-            </mat-form-field>
-            <label class="toggle-box">
-              <input type="checkbox" [(ngModel)]="ruleForm.requiresPreApproval" />
-              <span>Pre-approval required</span>
-            </label>
-            <label class="toggle-box">
-              <input type="checkbox" [(ngModel)]="ruleForm.isActive" />
-              <span>Billing rule active</span>
-            </label>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Rule notes</mat-label>
-              <textarea matInput rows="3" [(ngModel)]="ruleForm.notes"></textarea>
-            </mat-form-field>
-          </div>
-
-          <div class="actions-row">
-            <button mat-stroked-button type="button" (click)="resetActiveForm()">Reset</button>
-            <button mat-raised-button color="primary" type="button" (click)="saveRule()" [disabled]="isSaving">Save rule</button>
-          </div>
-        </section>
-      </div>
-    </ng-container>
-
-    <ng-container *ngSwitchDefault>
-      <div class="stats-grid compact">
-        <article>
-          <span>Total bills</span>
-          <strong>{{ invoices.length }}</strong>
-          <small>Invoices available for billing, due tracking, collection, and reconciliation.</small>
-        </article>
-        <article>
-          <span>Open dues</span>
-          <strong>NPR {{ totalDueAmount | number:'1.0-0' }}</strong>
-          <small>{{ dueInvoiceCount }} invoice(s) with remaining balance.</small>
-        </article>
-        <article>
-          <span>Overdue accounts</span>
-          <strong>{{ overdueInvoiceCount }}</strong>
-          <small>Invoices past their due date with outstanding balance.</small>
-        </article>
-        <article>
-          <span>Claims in motion</span>
-          <strong>{{ pendingClaimCount }}</strong>
-          <small>Insurance or corporate claims not yet rejected or settled.</small>
-        </article>
-      </div>
-
-      <div class="workspace-grid bills-grid">
-        <section class="table-card">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">Bill list</span>
-              <h3>All invoices and due tracking</h3>
-            </div>
-          </div>
-
-          <table class="phase-table" *ngIf="filteredInvoices.length; else emptyInvoices">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Patient</th>
-                <th>Payer</th>
-                <th>Due</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                *ngFor="let item of filteredInvoices"
-                [class.is-selected]="selectedInvoiceId === item.billingInvoiceId">
-                <td>
-                  <button type="button" class="name-link" (click)="selectInvoice(item)">{{ item.invoiceNumber }}</button>
-                  <small>{{ item.invoiceDate | date:'mediumDate' }}</small>
-                </td>
-                <td>
-                  {{ item.patientName }}
-                  <small>{{ item.medicalRecordNumber || 'No MRN' }}</small>
-                </td>
-                <td>
-                  {{ formatEnum(item.payerType) }}
-                  <small>{{ item.billingPartnerName || 'Self pay account' }}</small>
-                </td>
-                <td>
-                  NPR {{ item.dueAmount | number:'1.0-0' }}
-                  <small>{{ item.dueDate ? ('Due ' + (item.dueDate | date:'mediumDate')) : 'No due date' }}</small>
-                </td>
-                <td>
-                  <div class="pill-stack">
-                    <span class="status-pill" [ngClass]="getStatusTone(item.status)">{{ formatEnum(item.status) }}</span>
-                    <span class="status-pill" [ngClass]="getStatusTone(item.claimStatus)">{{ formatEnum(item.claimStatus) }}</span>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section class="editor-panel">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">{{ selectedInvoice ? 'Edit bill' : 'New bill' }}</span>
-              <h3>{{ selectedInvoice ? (selectedInvoice.invoiceNumber + ' billing workspace') : 'Create bill' }}</h3>
-            </div>
-          </div>
-
-          <div class="hero-strip" *ngIf="selectedInvoice as invoice">
-            <div>
-              <strong>{{ invoice.patientName }}</strong>
-              <p>{{ invoice.branchName }} | {{ formatEnum(invoice.payerType) }} | {{ invoice.items.length }} item(s)</p>
-            </div>
-            <div class="pill-stack">
-              <span class="status-pill" [ngClass]="getStatusTone(invoice.status)">{{ formatEnum(invoice.status) }}</span>
-              <span class="status-pill" [ngClass]="getStatusTone(invoice.claimStatus)">{{ formatEnum(invoice.claimStatus) }}</span>
-            </div>
-          </div>
-
+        <ng-container *ngSwitchDefault>
           <div class="form-grid">
             <mat-form-field appearance="outline">
               <mat-label>Patient</mat-label>
               <mat-select [(ngModel)]="invoiceForm.patientId">
                 <mat-option [value]="null">Select patient</mat-option>
                 <mat-option *ngFor="let patient of patients" [value]="patient.patientId">
-                  {{ patient.fullName }} ({{ patient.medicalRecordNumber }})
+                  {{ patient.fullName }} ({{ patient.medicalRecordNumber || 'No MRN' }})
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -496,7 +473,7 @@
               <mat-select [(ngModel)]="invoiceForm.appointmentId">
                 <mat-option [value]="null">No appointment</mat-option>
                 <mat-option *ngFor="let appointment of availableAppointments" [value]="appointment.appointmentId">
-                  {{ appointment.patientName }} | {{ appointment.serviceName }} | {{ appointment.appointmentDate | date:'mediumDate' }}
+                  {{ appointment.doctorName }} | {{ appointment.appointmentDate | date:'mediumDate' }}
                 </mat-option>
               </mat-select>
             </mat-form-field>
@@ -539,475 +516,507 @@
               <mat-label>Due date</mat-label>
               <input matInput type="date" [(ngModel)]="invoiceForm.dueDate" />
             </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="invoiceForm.payerType !== 'SelfPay'">
+            <mat-form-field appearance="outline">
               <mat-label>Claim status</mat-label>
               <mat-select [(ngModel)]="invoiceForm.claimStatus">
                 <mat-option *ngFor="let option of claimStatusOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
               </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="invoiceForm.payerType !== 'SelfPay'">
-              <mat-label>Claim reference</mat-label>
-              <input matInput [(ngModel)]="invoiceForm.claimReferenceNumber" />
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Requested discount</mat-label>
               <input matInput type="number" [(ngModel)]="invoiceForm.requestedDiscountAmount" />
             </mat-form-field>
             <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Claim reference</mat-label>
+              <input matInput [(ngModel)]="invoiceForm.claimReferenceNumber" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
               <mat-label>Discount notes</mat-label>
               <textarea matInput rows="2" [(ngModel)]="invoiceForm.discountNotes"></textarea>
             </mat-form-field>
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Internal notes</mat-label>
+              <mat-label>Bill notes</mat-label>
               <textarea matInput rows="3" [(ngModel)]="invoiceForm.notes"></textarea>
             </mat-form-field>
           </div>
 
-          <div class="panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Bill items</span>
-                <h3>Charge lines and item editing</h3>
+          <div class="item-stack">
+            <article class="line-item" *ngFor="let item of invoiceForm.items; let i = index">
+              <div class="line-item-head">
+                <div>
+                  <strong>Bill item {{ i + 1 }}</strong>
+                  <small>{{ item.description || formatEnum(item.chargeType) }}</small>
+                </div>
+                <button mat-button type="button" (click)="removeInvoiceItem(i)">Remove</button>
               </div>
-              <button mat-stroked-button type="button" (click)="addInvoiceItem()">
-                <mat-icon>add</mat-icon>
-                Add item
-              </button>
-            </div>
-
-            <div class="item-stack">
-              <article class="line-item" *ngFor="let item of invoiceForm.items; let i = index">
-                <div class="line-item-head">
-                  <div>
-                    <strong>Item {{ i + 1 }}</strong>
-                    <small>{{ formatEnum(item.chargeType) }}</small>
-                  </div>
-                  <button mat-button type="button" (click)="removeInvoiceItem(i)">Remove</button>
+              <div class="form-grid compact-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Charge definition</mat-label>
+                  <mat-select [(ngModel)]="item.billingChargeDefinitionId" (selectionChange)="onInvoiceItemChargeChange(item)">
+                    <mat-option [value]="null">Custom item</mat-option>
+                    <mat-option *ngFor="let charge of charges" [value]="charge.billingChargeDefinitionId">{{ charge.name }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Charge type</mat-label>
+                  <mat-select [(ngModel)]="item.chargeType">
+                    <mat-option *ngFor="let option of chargeTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Description</mat-label>
+                  <input matInput [(ngModel)]="item.description" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Quantity</mat-label>
+                  <input matInput type="number" [(ngModel)]="item.quantity" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Unit price</mat-label>
+                  <input matInput type="number" [(ngModel)]="item.unitPrice" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Discount amount</mat-label>
+                  <input matInput type="number" [(ngModel)]="item.discountAmount" />
+                </mat-form-field>
+                <div class="line-total-card">
+                  <span>Line total</span>
+                  <strong>NPR {{ invoiceItemTotal(item) | number:'1.0-0' }}</strong>
                 </div>
-
-                <div class="form-grid compact-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Charge definition</mat-label>
-                    <mat-select [(ngModel)]="item.billingChargeDefinitionId" (selectionChange)="onInvoiceItemChargeChange(item)">
-                      <mat-option [value]="null">Custom item</mat-option>
-                      <mat-option *ngFor="let charge of charges" [value]="charge.billingChargeDefinitionId">
-                        {{ charge.name }}
-                      </mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Charge type</mat-label>
-                    <mat-select [(ngModel)]="item.chargeType">
-                      <mat-option *ngFor="let option of chargeTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Description</mat-label>
-                    <input matInput [(ngModel)]="item.description" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Quantity</mat-label>
-                    <input matInput type="number" [(ngModel)]="item.quantity" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Unit price</mat-label>
-                    <input matInput type="number" [(ngModel)]="item.unitPrice" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Discount amount</mat-label>
-                    <input matInput type="number" [(ngModel)]="item.discountAmount" />
-                  </mat-form-field>
-                  <div class="line-total-card">
-                    <span>Line total</span>
-                    <strong>NPR {{ invoiceItemTotal(item) | number:'1.0-0' }}</strong>
-                  </div>
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Line notes</mat-label>
-                    <textarea matInput rows="2" [(ngModel)]="item.notes"></textarea>
-                  </mat-form-field>
-                </div>
-              </article>
-            </div>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Line notes</mat-label>
+                  <textarea matInput rows="2" [(ngModel)]="item.notes"></textarea>
+                </mat-form-field>
+              </div>
+            </article>
           </div>
 
-          <div class="actions-row">
-            <button mat-stroked-button type="button" (click)="resetActiveForm()">Reset</button>
-            <button mat-raised-button color="primary" type="button" (click)="saveInvoice()" [disabled]="isSaving">
-              {{ selectedInvoice ? 'Update bill' : 'Create bill' }}
+          <div class="actions-row add-row">
+            <button mat-stroked-button type="button" (click)="addInvoiceItem()">
+              <mat-icon>add</mat-icon>
+              Add bill item
             </button>
           </div>
+        </ng-container>
+      </div>
 
-          <ng-container *ngIf="selectedInvoice as invoice">
-            <div class="support-grid billing-support">
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <span class="eyebrow">Account summary</span>
-                    <h3>Due and claim snapshot</h3>
-                  </div>
-                </div>
+      <ng-container *ngIf="activeSection === 'bills'">
+        <div class="support-grid" *ngIf="selectedInvoice as invoice">
+          <section class="support-panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Discount</span>
+              <h3>Approve bill discount</h3>
+            </div>
+          </div>
+          <div class="form-grid compact-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Requested discount</mat-label>
+              <input matInput type="number" [(ngModel)]="discountForm.requestedDiscountAmount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Approved discount</mat-label>
+              <input matInput type="number" [(ngModel)]="discountForm.approvedDiscountAmount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Approval notes</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="discountForm.discountNotes"></textarea>
+            </mat-form-field>
+          </div>
+          <div class="actions-row">
+            <button mat-raised-button color="primary" type="button" (click)="approveDiscount()" [disabled]="isSaving">Save discount</button>
+          </div>
+        </section>
 
-                <div class="summary-grid">
-                  <article>
-                    <span>Total amount</span>
-                    <strong>NPR {{ invoice.totalAmount | number:'1.0-0' }}</strong>
-                  </article>
-                  <article>
-                    <span>Approved discount</span>
-                    <strong>NPR {{ invoice.approvedDiscountAmount | number:'1.0-0' }}</strong>
-                  </article>
-                  <article>
-                    <span>Amount paid</span>
-                    <strong>NPR {{ invoice.amountPaid | number:'1.0-0' }}</strong>
-                  </article>
-                  <article>
-                    <span>Refunded</span>
-                    <strong>NPR {{ invoice.refundedAmount | number:'1.0-0' }}</strong>
-                  </article>
-                  <article>
-                    <span>Due amount</span>
-                    <strong>NPR {{ invoice.dueAmount | number:'1.0-0' }}</strong>
-                  </article>
-                  <article>
-                    <span>Claim reference</span>
-                    <strong>{{ invoice.claimReferenceNumber || 'Not set' }}</strong>
-                  </article>
-                  <article>
-                    <span>Due date</span>
-                    <strong>{{ invoice.dueDate ? (invoice.dueDate | date:'mediumDate') : 'Not set' }}</strong>
-                  </article>
-                  <article>
-                    <span>Last payment</span>
-                    <strong>{{ invoice.lastPaymentDate ? (invoice.lastPaymentDate | date:'mediumDate') : 'Not recorded' }}</strong>
-                  </article>
-                </div>
-              </section>
+        <section class="support-panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Payments</span>
+              <h3>Record payment</h3>
+            </div>
+          </div>
+          <div class="form-grid compact-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Payment method</mat-label>
+              <mat-select [(ngModel)]="paymentForm.billingPaymentMethodId">
+                <mat-option [value]="0">Select method</mat-option>
+                <mat-option *ngFor="let method of paymentMethods" [value]="method.billingPaymentMethodId">{{ method.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Amount</mat-label>
+              <input matInput type="number" [(ngModel)]="paymentForm.amount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Payment date</mat-label>
+              <input matInput type="date" [(ngModel)]="paymentForm.paymentDate" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Reference number</mat-label>
+              <input matInput [(ngModel)]="paymentForm.referenceNumber" />
+            </mat-form-field>
+            <p class="hint-text full-width" *ngIf="selectedPaymentMethodRequiresReference">
+              The selected payment method requires a transaction reference.
+            </p>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Payment notes</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="paymentForm.notes"></textarea>
+            </mat-form-field>
+          </div>
+          <div class="actions-row">
+            <button mat-raised-button color="primary" type="button" (click)="recordPayment()" [disabled]="isSaving">Record payment</button>
+          </div>
+        </section>
 
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <span class="eyebrow">Discount approval</span>
-                    <h3>Approve requested discount</h3>
-                  </div>
-                </div>
+        <section class="support-panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Refunds</span>
+              <h3>Process refund</h3>
+            </div>
+          </div>
+          <div class="form-grid compact-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Refund method</mat-label>
+              <mat-select [(ngModel)]="refundForm.billingPaymentMethodId">
+                <mat-option [value]="null">No method</mat-option>
+                <mat-option *ngFor="let method of paymentMethods" [value]="method.billingPaymentMethodId">{{ method.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Refund amount</mat-label>
+              <input matInput type="number" [(ngModel)]="refundForm.amount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select [(ngModel)]="refundForm.status">
+                <mat-option *ngFor="let option of refundStatusOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Reason</mat-label>
+              <input matInput [(ngModel)]="refundForm.reason" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Refund notes</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="refundForm.notes"></textarea>
+            </mat-form-field>
+          </div>
+          <div class="actions-row">
+            <button mat-raised-button color="primary" type="button" (click)="processRefund()" [disabled]="isSaving">Save refund</button>
+          </div>
+        </section>
 
-                <div class="form-grid compact-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Requested discount</mat-label>
-                    <input matInput type="number" [(ngModel)]="discountForm.requestedDiscountAmount" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Approved discount</mat-label>
-                    <input matInput type="number" [(ngModel)]="discountForm.approvedDiscountAmount" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Approval notes</mat-label>
-                    <textarea matInput rows="2" [(ngModel)]="discountForm.discountNotes"></textarea>
-                  </mat-form-field>
-                </div>
+          <section class="support-panel summary-panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Snapshot</span>
+              <h3>Current account summary</h3>
+            </div>
+          </div>
+          <div class="detail-grid compact-detail-grid">
+            <div><span>Total amount</span><strong>NPR {{ invoice.totalAmount | number:'1.0-0' }}</strong></div>
+            <div><span>Amount paid</span><strong>NPR {{ invoice.amountPaid | number:'1.0-0' }}</strong></div>
+            <div><span>Due amount</span><strong>NPR {{ invoice.dueAmount | number:'1.0-0' }}</strong></div>
+            <div><span>Refunded</span><strong>NPR {{ invoice.refundedAmount | number:'1.0-0' }}</strong></div>
+          </div>
+          </section>
+        </div>
+      </ng-container>
 
-                <div class="actions-row">
-                  <button mat-raised-button color="primary" type="button" (click)="approveDiscount()" [disabled]="isSaving">
-                    Save discount
-                  </button>
-                </div>
-              </section>
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Cancel</button>
+        <button mat-stroked-button type="button" (click)="resetCurrentForm()">Reset</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'charges'" (click)="saveCharge()" [disabled]="isSaving">Save charge</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'paymentMethods'" (click)="savePaymentMethod()" [disabled]="isSaving">Save method</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'insurance' || activeSection === 'panels'" (click)="savePartner()" [disabled]="isSaving">Save {{ currentRecordLabel.toLowerCase() }}</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'rules'" (click)="saveRule()" [disabled]="isSaving">Save rule</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'bills'" (click)="saveInvoice()" [disabled]="isSaving">Save bill</button>
+      </div>
+    </section>
+  </ng-container>
 
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <span class="eyebrow">Payment capture</span>
-                    <h3>Record collection</h3>
-                  </div>
-                </div>
+  <ng-container *ngIf="isDetailsView">
+    <section class="details-panel" *ngIf="hasDetailsRecord; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Details page</span>
+          <h2>{{ currentRecordLabel }} details</h2>
+        </div>
+      </div>
 
-                <div class="form-grid compact-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Payment method</mat-label>
-                    <mat-select [(ngModel)]="paymentForm.billingPaymentMethodId">
-                      <mat-option [value]="0">Select method</mat-option>
-                      <mat-option *ngFor="let method of paymentMethods" [value]="method.billingPaymentMethodId">
-                        {{ method.name }}
-                      </mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Amount</mat-label>
-                    <input matInput type="number" [(ngModel)]="paymentForm.amount" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Payment date</mat-label>
-                    <input matInput type="date" [(ngModel)]="paymentForm.paymentDate" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Reference number</mat-label>
-                    <input matInput [(ngModel)]="paymentForm.referenceNumber" />
-                  </mat-form-field>
-                  <p class="hint-text full-width" *ngIf="selectedPaymentMethodRequiresReference">
-                    The selected payment method requires a transaction reference.
-                  </p>
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Payment notes</mat-label>
-                    <textarea matInput rows="2" [(ngModel)]="paymentForm.notes"></textarea>
-                  </mat-form-field>
-                </div>
+      <div [ngSwitch]="activeSection">
+        <div class="details-showcase" *ngSwitchCase="'charges'">
+          <ng-container *ngIf="selectedCharge as item">
+            <div class="details-hero amber">
+              <span class="hero-kicker">Charge profile</span>
+              <h3>{{ item.name }}</h3>
+              <p>{{ item.description || 'Operational billing charge definition used for invoice defaults and service pricing.' }}</p>
+              <div class="hero-badges">
+                <span class="hero-badge">{{ item.code }}</span>
+                <span class="hero-badge">{{ formatEnum(item.chargeType) }}</span>
+                <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <div><span>Charge name</span><strong>{{ item.name }}</strong></div>
+              <div><span>Charge code</span><strong>{{ item.code }}</strong></div>
+              <div><span>Charge type</span><strong>{{ formatEnum(item.chargeType) }}</strong></div>
+              <div><span>Unit label</span><strong>{{ item.unitLabel }}</strong></div>
+              <div><span>Default amount</span><strong>NPR {{ item.defaultAmount | number:'1.0-0' }}</strong></div>
+              <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+              <div class="full-width"><span>Description</span><strong>{{ item.description || 'No additional description provided.' }}</strong></div>
+            </div>
+          </ng-container>
+        </div>
 
-                <div class="actions-row">
-                  <button mat-raised-button color="primary" type="button" (click)="recordPayment()" [disabled]="isSaving">
-                    Record payment
-                  </button>
-                </div>
-              </section>
+        <div class="details-showcase" *ngSwitchCase="'paymentMethods'">
+          <ng-container *ngIf="selectedPaymentMethod as item">
+            <div class="details-hero teal">
+              <span class="hero-kicker">Payment method</span>
+              <h3>{{ item.name }}</h3>
+              <p>{{ formatEnum(item.methodType) }} settlement option{{ item.providerName ? (' routed through ' + item.providerName) : '' }}.</p>
+              <div class="hero-badges">
+                <span class="hero-badge">Sort order {{ item.sortOrder }}</span>
+                <span class="hero-badge">{{ item.requiresReference ? 'Reference required' : 'Reference optional' }}</span>
+                <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <div><span>Method name</span><strong>{{ item.name }}</strong></div>
+              <div><span>Method type</span><strong>{{ formatEnum(item.methodType) }}</strong></div>
+              <div><span>Provider</span><strong>{{ item.providerName || 'Internal' }}</strong></div>
+              <div><span>Sort order</span><strong>{{ item.sortOrder }}</strong></div>
+              <div><span>Reference requirement</span><strong>{{ item.requiresReference ? 'Required' : 'Optional' }}</strong></div>
+              <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+            </div>
+          </ng-container>
+        </div>
 
-              <section class="panel">
-                <div class="section-head">
-                  <div>
-                    <span class="eyebrow">Refund handling</span>
-                    <h3>Approve and process refunds</h3>
-                  </div>
-                </div>
+        <div class="details-showcase" *ngSwitchCase="'insurance'">
+          <ng-container *ngIf="selectedPartner as item">
+            <div class="details-hero violet">
+              <span class="hero-kicker">Insurance company</span>
+              <h3>{{ item.name }}</h3>
+              <p>{{ item.claimSubmissionMode }} submission workflow with credit ceiling of NPR {{ item.creditLimit | number:'1.0-0' }}.</p>
+              <div class="hero-badges">
+                <span class="hero-badge">{{ item.code }}</span>
+                <span class="hero-badge">{{ item.contactPerson || 'No contact person' }}</span>
+                <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <div><span>Name</span><strong>{{ item.name }}</strong></div>
+              <div><span>Code</span><strong>{{ item.code }}</strong></div>
+              <div><span>Contact person</span><strong>{{ item.contactPerson || 'Not set' }}</strong></div>
+              <div><span>Contact phone</span><strong>{{ item.contactPhone || 'Not set' }}</strong></div>
+              <div><span>Contact email</span><strong>{{ item.contactEmail || 'Not set' }}</strong></div>
+              <div><span>Claim mode</span><strong>{{ item.claimSubmissionMode }}</strong></div>
+              <div><span>Credit limit</span><strong>NPR {{ item.creditLimit | number:'1.0-0' }}</strong></div>
+              <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+              <div class="full-width"><span>Notes</span><strong>{{ item.notes || 'No notes added.' }}</strong></div>
+            </div>
+          </ng-container>
+        </div>
 
-                <div class="form-grid compact-grid">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Refund method</mat-label>
-                    <mat-select [(ngModel)]="refundForm.billingPaymentMethodId">
-                      <mat-option [value]="null">No method</mat-option>
-                      <mat-option *ngFor="let method of paymentMethods" [value]="method.billingPaymentMethodId">
-                        {{ method.name }}
-                      </mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Refund amount</mat-label>
-                    <input matInput type="number" [(ngModel)]="refundForm.amount" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Status</mat-label>
-                    <mat-select [(ngModel)]="refundForm.status">
-                      <mat-option *ngFor="let option of refundStatusOptions" [value]="option">{{ formatEnum(option) }}</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>Reason</mat-label>
-                    <input matInput [(ngModel)]="refundForm.reason" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Refund notes</mat-label>
-                    <textarea matInput rows="2" [(ngModel)]="refundForm.notes"></textarea>
-                  </mat-form-field>
-                </div>
+        <div class="details-showcase" *ngSwitchCase="'panels'">
+          <ng-container *ngIf="selectedPartner as item">
+            <div class="details-hero rose">
+              <span class="hero-kicker">Corporate panel</span>
+              <h3>{{ item.name }}</h3>
+              <p>{{ item.claimSubmissionMode }} corporate billing flow with credit ceiling of NPR {{ item.creditLimit | number:'1.0-0' }}.</p>
+              <div class="hero-badges">
+                <span class="hero-badge">{{ item.code }}</span>
+                <span class="hero-badge">{{ item.contactPerson || 'No contact person' }}</span>
+                <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <div><span>Name</span><strong>{{ item.name }}</strong></div>
+              <div><span>Code</span><strong>{{ item.code }}</strong></div>
+              <div><span>Contact person</span><strong>{{ item.contactPerson || 'Not set' }}</strong></div>
+              <div><span>Contact phone</span><strong>{{ item.contactPhone || 'Not set' }}</strong></div>
+              <div><span>Contact email</span><strong>{{ item.contactEmail || 'Not set' }}</strong></div>
+              <div><span>Claim mode</span><strong>{{ item.claimSubmissionMode }}</strong></div>
+              <div><span>Credit limit</span><strong>NPR {{ item.creditLimit | number:'1.0-0' }}</strong></div>
+              <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+              <div class="full-width"><span>Notes</span><strong>{{ item.notes || 'No notes added.' }}</strong></div>
+            </div>
+          </ng-container>
+        </div>
 
-                <div class="actions-row">
-                  <button mat-raised-button color="primary" type="button" (click)="processRefund()" [disabled]="isSaving">
-                    Save refund
-                  </button>
-                </div>
-              </section>
+        <div class="details-showcase" *ngSwitchCase="'rules'">
+          <ng-container *ngIf="selectedRule as item">
+            <div class="details-hero slate">
+              <span class="hero-kicker">Billing rule</span>
+              <h3>{{ item.ruleName }}</h3>
+              <p>{{ item.billingPartnerName }} rule with {{ item.discountPercentage | number:'1.0-0' }}% discount and {{ item.coPayPercentage | number:'1.0-0' }}% co-pay.</p>
+              <div class="hero-badges">
+                <span class="hero-badge">{{ item.billingPartnerName }}</span>
+                <span class="hero-badge">{{ item.claimSubmissionWindowDays }} day claim window</span>
+                <span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <div><span>Rule name</span><strong>{{ item.ruleName }}</strong></div>
+              <div><span>Policy name</span><strong>{{ item.policyName || 'Not set' }}</strong></div>
+              <div><span>Billing partner</span><strong>{{ item.billingPartnerName }}</strong></div>
+              <div><span>Partner type</span><strong>{{ formatEnum(item.billingPartnerKind) }}</strong></div>
+              <div><span>Discount</span><strong>{{ item.discountPercentage | number:'1.0-0' }}%</strong></div>
+              <div><span>Co-pay</span><strong>{{ item.coPayPercentage | number:'1.0-0' }}%</strong></div>
+              <div><span>Credit limit</span><strong>NPR {{ item.creditLimit | number:'1.0-0' }}</strong></div>
+              <div><span>Claim window</span><strong>{{ item.claimSubmissionWindowDays }} day(s)</strong></div>
+              <div><span>Pre-approval</span><strong>{{ item.requiresPreApproval ? 'Required' : 'Not required' }}</strong></div>
+              <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
+              <div class="full-width"><span>Notes</span><strong>{{ item.notes || 'No notes added.' }}</strong></div>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="details-showcase" *ngSwitchDefault>
+          <ng-container *ngIf="selectedInvoice as item">
+            <div class="details-hero blue">
+              <span class="hero-kicker">Bill summary</span>
+              <h3>{{ item.invoiceNumber }}</h3>
+              <p>{{ item.patientName }} bill with total amount NPR {{ item.totalAmount | number:'1.0-0' }} and due amount NPR {{ item.dueAmount | number:'1.0-0' }}.</p>
+              <div class="hero-badges">
+                <span class="hero-badge">{{ item.branchName || 'No branch' }}</span>
+                <span class="hero-badge">{{ formatEnum(item.payerType) }}</span>
+                <span class="status-pill" [ngClass]="getStatusTone(item.status)">{{ formatEnum(item.status) }}</span>
+                <span class="status-pill" [ngClass]="getStatusTone(item.claimStatus)">{{ formatEnum(item.claimStatus) }}</span>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <div><span>Patient</span><strong>{{ item.patientName }}</strong></div>
+              <div><span>MRN</span><strong>{{ item.medicalRecordNumber || 'Not set' }}</strong></div>
+              <div><span>Branch</span><strong>{{ item.branchName || 'Not set' }}</strong></div>
+              <div><span>Payer type</span><strong>{{ formatEnum(item.payerType) }}</strong></div>
+              <div><span>Billing partner</span><strong>{{ item.billingPartnerName || 'Self pay account' }}</strong></div>
+              <div><span>Billing rule</span><strong>{{ item.billingRuleName || 'Not assigned' }}</strong></div>
+              <div><span>Invoice date</span><strong>{{ item.invoiceDate | date:'mediumDate' }}</strong></div>
+              <div><span>Due date</span><strong>{{ item.dueDate ? (item.dueDate | date:'mediumDate') : 'Not set' }}</strong></div>
+              <div><span>Total amount</span><strong>NPR {{ item.totalAmount | number:'1.0-0' }}</strong></div>
+              <div><span>Amount paid</span><strong>NPR {{ item.amountPaid | number:'1.0-0' }}</strong></div>
+              <div><span>Approved discount</span><strong>NPR {{ item.approvedDiscountAmount | number:'1.0-0' }}</strong></div>
+              <div><span>Refunded amount</span><strong>NPR {{ item.refundedAmount | number:'1.0-0' }}</strong></div>
+              <div><span>Due amount</span><strong>NPR {{ item.dueAmount | number:'1.0-0' }}</strong></div>
+              <div><span>Claim reference</span><strong>{{ item.claimReferenceNumber || 'Not set' }}</strong></div>
+              <div class="full-width"><span>Discount notes</span><strong>{{ item.discountNotes || 'No discount notes.' }}</strong></div>
+              <div class="full-width"><span>Bill notes</span><strong>{{ item.notes || 'No bill notes.' }}</strong></div>
             </div>
 
-            <div class="history-grid">
-              <section class="panel inner-panel">
-                <div class="section-head">
-                  <div>
-                    <span class="eyebrow">Payment history</span>
-                    <h3>Recorded payments</h3>
-                  </div>
+            <section class="table-card inner-panel">
+              <div class="panel-head">
+                <div>
+                  <span class="eyebrow">Bill items</span>
+                  <h3>Line items</h3>
                 </div>
-
-                <table class="phase-table compact-table" *ngIf="invoice.payments.length; else emptyPayments">
+              </div>
+              <div class="table-shell">
+                <table class="master-table compact-table" *ngIf="item.items.length; else emptyItems">
                   <thead>
                     <tr>
-                      <th>Date</th>
-                      <th>Method</th>
-                      <th>Amount</th>
-                      <th>Reference</th>
+                      <th>Description</th>
+                      <th>Type</th>
+                      <th>Quantity</th>
+                      <th>Unit price</th>
+                      <th>Discount</th>
+                      <th>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr *ngFor="let payment of invoice.payments">
-                      <td>{{ payment.paymentDate | date:'mediumDate' }}</td>
-                      <td>{{ payment.paymentMethodName }}</td>
-                      <td>NPR {{ payment.amount | number:'1.0-0' }}</td>
-                      <td>{{ payment.referenceNumber || 'Not set' }}</td>
+                    <tr *ngFor="let line of item.items">
+                      <td>{{ line.description }}</td>
+                      <td>{{ formatEnum(line.chargeType) }}</td>
+                      <td>{{ line.quantity }}</td>
+                      <td>NPR {{ line.unitPrice | number:'1.0-0' }}</td>
+                      <td>NPR {{ line.discountAmount | number:'1.0-0' }}</td>
+                      <td>NPR {{ line.totalAmount | number:'1.0-0' }}</td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </section>
+
+            <div class="support-grid">
+              <section class="table-card inner-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="eyebrow">Payments</span>
+                    <h3>Payment history</h3>
+                  </div>
+                </div>
+                <div class="table-shell">
+                  <table class="master-table compact-table" *ngIf="item.payments.length; else emptyPayments">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Method</th>
+                        <th>Amount</th>
+                        <th>Reference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let payment of item.payments">
+                        <td>{{ payment.paymentDate | date:'mediumDate' }}</td>
+                        <td>{{ payment.paymentMethodName }}</td>
+                        <td>NPR {{ payment.amount | number:'1.0-0' }}</td>
+                        <td>{{ payment.referenceNumber || 'Not set' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </section>
 
-              <section class="panel inner-panel">
-                <div class="section-head">
+              <section class="table-card inner-panel">
+                <div class="panel-head">
                   <div>
-                    <span class="eyebrow">Refund history</span>
-                    <h3>Refund approvals and processing</h3>
+                    <span class="eyebrow">Refunds</span>
+                    <h3>Refund history</h3>
                   </div>
                 </div>
-
-                <table class="phase-table compact-table" *ngIf="invoice.refunds.length; else emptyRefunds">
-                  <thead>
-                    <tr>
-                      <th>Requested</th>
-                      <th>Method</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let refund of invoice.refunds">
-                      <td>{{ refund.requestedAt | date:'mediumDate' }}</td>
-                      <td>{{ refund.paymentMethodName || 'Not set' }}</td>
-                      <td>NPR {{ refund.amount | number:'1.0-0' }}</td>
-                      <td>
-                        <span class="status-pill" [ngClass]="getStatusTone(refund.status)">{{ formatEnum(refund.status) }}</span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div class="table-shell">
+                  <table class="master-table compact-table" *ngIf="item.refunds.length; else emptyRefunds">
+                    <thead>
+                      <tr>
+                        <th>Requested</th>
+                        <th>Method</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let refund of item.refunds">
+                        <td>{{ refund.requestedAt | date:'mediumDate' }}</td>
+                        <td>{{ refund.paymentMethodName || 'Not set' }}</td>
+                        <td>NPR {{ refund.amount | number:'1.0-0' }}</td>
+                        <td><span class="status-pill" [ngClass]="getStatusTone(refund.status)">{{ formatEnum(refund.status) }}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </section>
             </div>
           </ng-container>
-        </section>
-      </div>
-    </ng-container>
-  </div>
-</section>
-
-<ng-template #partnerSectionTemplate>
-  <div class="stats-grid compact">
-    <article>
-      <span>{{ partnerSectionLabel }}s</span>
-      <strong>{{ currentPartners.length }}</strong>
-      <small>Maintained for credit billing, payer mapping, and corporate or insurance workflows.</small>
-    </article>
-    <article>
-      <span>Active {{ partnerSectionLabel }}s</span>
-      <strong>{{ activeSection === 'insurance' ? activeInsurancePartnerCount : activePanelPartnerCount }}</strong>
-      <small>Available for live invoice assignment and claims setup.</small>
-    </article>
-    <article>
-      <span>Linked rules</span>
-      <strong>{{ activeSection === 'insurance' ? insuranceRuleCount : panelRuleCount }}</strong>
-      <small>Billing policies already defined for this partner type.</small>
-    </article>
-  </div>
-
-  <div class="workspace-grid">
-    <section class="table-card">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Partner list</span>
-          <h3>{{ partnerSectionLabel }} master</h3>
         </div>
-      </div>
-
-      <table class="phase-table" *ngIf="filteredPartners.length; else emptyPartners">
-        <thead>
-          <tr>
-            <th>{{ partnerSectionLabel }}</th>
-            <th>Code</th>
-            <th>Contact</th>
-            <th>Credit limit</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            *ngFor="let item of filteredPartners"
-            [class.is-selected]="selectedPartnerId === item.billingPartnerId">
-            <td>
-              <button type="button" class="name-link" (click)="selectPartner(item)">{{ item.name }}</button>
-              <small>{{ item.claimSubmissionMode }} submission</small>
-            </td>
-            <td>{{ item.code }}</td>
-            <td>
-              {{ item.contactPerson || 'Not set' }}
-              <small>{{ item.contactEmail || item.contactPhone || 'No contact details' }}</small>
-            </td>
-            <td>NPR {{ item.creditLimit | number:'1.0-0' }}</td>
-            <td>
-              <span class="status-pill" [ngClass]="item.isActive ? 'success' : 'danger'">
-                {{ item.isActive ? 'Active' : 'Inactive' }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section class="editor-panel">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">{{ selectedPartnerId ? 'Edit partner' : 'New partner' }}</span>
-          <h3>{{ selectedPartnerId ? (partnerSectionLabel + ' editor') : ('Create ' + partnerSectionLabel) }}</h3>
-        </div>
-      </div>
-
-      <div class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>{{ partnerSectionLabel }} name</mat-label>
-          <input matInput [(ngModel)]="partnerForm.name" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>{{ partnerSectionLabel }} code</mat-label>
-          <input matInput [(ngModel)]="partnerForm.code" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Contact person</mat-label>
-          <input matInput [(ngModel)]="partnerForm.contactPerson" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Contact phone</mat-label>
-          <input matInput [(ngModel)]="partnerForm.contactPhone" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Contact email</mat-label>
-          <input matInput [(ngModel)]="partnerForm.contactEmail" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Credit limit</mat-label>
-          <input matInput type="number" [(ngModel)]="partnerForm.creditLimit" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Claim submission mode</mat-label>
-          <input matInput [(ngModel)]="partnerForm.claimSubmissionMode" />
-        </mat-form-field>
-        <label class="toggle-box">
-          <input type="checkbox" [(ngModel)]="partnerForm.isActive" />
-          <span>{{ formatEnum(partnerForm.kind) }} active</span>
-        </label>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Notes</mat-label>
-          <textarea matInput rows="3" [(ngModel)]="partnerForm.notes"></textarea>
-        </mat-form-field>
       </div>
 
       <div class="actions-row">
-        <button mat-stroked-button type="button" (click)="resetActiveForm()">Reset</button>
-        <button mat-raised-button color="primary" type="button" (click)="savePartner()" [disabled]="isSaving">
-          Save {{ partnerSectionLabel }}
-        </button>
+        <button mat-stroked-button type="button" (click)="backToIndex()">Back</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="selectedRecordId" (click)="goToEdit(selectedRecordId)">Edit</button>
       </div>
     </section>
-  </div>
+  </ng-container>
+</section>
+
+<ng-template #missingRecord>
+  <section class="details-panel">
+    <div class="empty-state">The selected {{ currentRecordLabel.toLowerCase() }} could not be found.</div>
+  </section>
 </ng-template>
 
-<ng-template #emptyCharges>
-  <div class="empty-state compact-empty">No charge definitions match the current search.</div>
-</ng-template>
-
-<ng-template #emptyPaymentMethods>
-  <div class="empty-state compact-empty">No payment methods match the current search.</div>
-</ng-template>
-
-<ng-template #emptyPartners>
-  <div class="empty-state compact-empty">No partners match the current search.</div>
-</ng-template>
-
-<ng-template #emptyRules>
-  <div class="empty-state compact-empty">No billing rules match the current search.</div>
-</ng-template>
-
-<ng-template #emptyInvoices>
-  <div class="empty-state compact-empty">No invoices match the current search.</div>
+<ng-template #emptyItems>
+  <div class="empty-state compact-empty">No bill items are recorded for this invoice.</div>
 </ng-template>
 
 <ng-template #emptyPayments>
@@ -1022,7 +1031,7 @@
   <section class="billing-page">
     <div class="loading-card">
       <mat-icon>hourglass_top</mat-icon>
-      <span>Loading billing and finance workspace...</span>
+      <span>Loading billing workspace...</span>
     </div>
   </section>
 </ng-template>
