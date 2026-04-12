@@ -43,6 +43,8 @@ import { PatientRegistryComponent } from './components/patient-registry/patient-
 import { AppointmentControlComponent } from './components/appointment-control/appointment-control.component';
 import { AdmissionControlComponent } from './components/admission-control/admission-control.component';
 import { BillingFinanceComponent } from './components/billing-finance/billing-finance.component';
+import { InventoryAdminComponent } from './components/inventory-admin/inventory-admin.component';
+import { LabServiceAdminComponent } from './components/lab-service-admin/lab-service-admin.component';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { AuthInterceptor } from './core/services/hms/auth.interceptor';
@@ -65,7 +67,9 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     PatientRegistryComponent,
     AppointmentControlComponent,
     AdmissionControlComponent,
-    BillingFinanceComponent
+    BillingFinanceComponent,
+    InventoryAdminComponent,
+    LabServiceAdminComponent
   ],
   imports: [
     BrowserModule,
@@ -97,6 +101,16 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'admin/billing/:section/:id/edit', component: BillingFinanceComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/billing/:section/:id', component: BillingFinanceComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/billing/:section', component: BillingFinanceComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/inventory', pathMatch: 'full', redirectTo: 'admin/inventory/dashboard' },
+      { path: 'admin/inventory/:section/create', component: InventoryAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/inventory/:section/:id/edit', component: InventoryAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/inventory/:section/:id', component: InventoryAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/inventory/:section', component: InventoryAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/laboratory', pathMatch: 'full', redirectTo: 'admin/laboratory/labTests' },
+      { path: 'admin/laboratory/:section/create', component: LabServiceAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/laboratory/:section/:id/edit', component: LabServiceAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/laboratory/:section/:id', component: LabServiceAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/laboratory/:section', component: LabServiceAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/roles', component: UsersDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/users', pathMatch: 'full', redirectTo: 'admin/roles' },
       { path: 'admin/masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
@@ -113,6 +127,8 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'services', pathMatch: 'full', redirectTo: 'admin/services' },
       { path: 'admissions', pathMatch: 'full', redirectTo: 'admin/admissions' },
       { path: 'billing', pathMatch: 'full', redirectTo: 'admin/billing/bills' },
+      { path: 'inventory', pathMatch: 'full', redirectTo: 'admin/inventory' },
+      { path: 'laboratory', pathMatch: 'full', redirectTo: 'admin/laboratory' },
       { path: 'settings', pathMatch: 'full', redirectTo: 'admin/settings' },
       { path: 'masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
       { path: 'users', pathMatch: 'full', redirectTo: 'admin/roles' },

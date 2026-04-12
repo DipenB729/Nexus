@@ -121,6 +121,60 @@ public class HospitalService
     public DateTime? UpdatedAt { get; set; }
 }
 
+public class LabTestMaster
+{
+    [Key] public long LabTestMasterId { get; set; }
+    [Required, MaxLength(150)] public string TestName { get; set; } = string.Empty;
+    [Required, MaxLength(120)] public string DepartmentName { get; set; } = string.Empty;
+    [Column(TypeName = "decimal(10,2)")] public decimal Price { get; set; }
+    [Required, MaxLength(80)] public string SampleType { get; set; } = string.Empty;
+    [Required, MaxLength(120)] public string ReportFormat { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public enum ServicePackageKind
+{
+    HealthPackage,
+    SurgeryPackage,
+    CorporatePackage,
+    DiscountedBundle
+}
+
+public class ServicePackage
+{
+    [Key] public long ServicePackageId { get; set; }
+    public ServicePackageKind Kind { get; set; } = ServicePackageKind.HealthPackage;
+    [Required, MaxLength(150)] public string PackageName { get; set; } = string.Empty;
+    [MaxLength(120)] public string? DepartmentName { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal Price { get; set; }
+    [Column(TypeName = "decimal(10,2)")] public decimal DiscountAmount { get; set; }
+    [MaxLength(500)] public string? Description { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class AuditLogEntry
+{
+    [Key] public long AuditLogEntryId { get; set; }
+    [Required, MaxLength(80)] public string Category { get; set; } = string.Empty;
+    [Required, MaxLength(80)] public string Action { get; set; } = string.Empty;
+    [MaxLength(120)] public string? EntityName { get; set; }
+    public long? EntityId { get; set; }
+    [MaxLength(180)] public string? TargetDisplayName { get; set; }
+    [MaxLength(500)] public string Summary { get; set; } = string.Empty;
+    [MaxLength(4000)] public string? MetadataJson { get; set; }
+    public long? PerformedByUserId { get; set; }
+    [MaxLength(150)] public string? PerformedByName { get; set; }
+    [MaxLength(80)] public string? PerformedByRole { get; set; }
+    [MaxLength(150)] public string? ActorEmail { get; set; }
+    [MaxLength(64)] public string? IpAddress { get; set; }
+    [MaxLength(250)] public string? UserAgent { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class RolePermission
 {
     [Key] public long RolePermissionId { get; set; }

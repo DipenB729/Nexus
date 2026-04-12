@@ -64,6 +64,10 @@ public sealed class DatabaseInitializer
         await EnsureAppointmentsAsync(cancellationToken);
         await EnsureAdmissionsAsync(cancellationToken);
         await EnsureInventoryAsync(cancellationToken);
+        await EnsurePhase5InventoryInfrastructureAsync(cancellationToken);
+        await EnsurePhase5InventorySeedAsync(cancellationToken);
+        await EnsureLabTestsAsync(cancellationToken);
+        await EnsureServicePackagesAsync(cancellationToken);
         await EnsureBillingChargeDefinitionsAsync(cancellationToken);
         await EnsureBillingPaymentMethodsAsync(cancellationToken);
         await EnsureBillingPartnersAsync(cancellationToken);
@@ -930,11 +934,15 @@ public sealed class DatabaseInitializer
             return;
         }
 
+        var primaryBranchId = branches[0].BranchId;
+        var secondaryBranchId = branches.ElementAtOrDefault(1)?.BranchId ?? primaryBranchId;
+        var tertiaryBranchId = branches.ElementAtOrDefault(2)?.BranchId ?? secondaryBranchId;
+
         var today = DateTime.Today;
         _db.MedicineInventoryItems.AddRange(
             new MedicineInventoryItem
             {
-                BranchId = branches[0].BranchId,
+                BranchId = primaryBranchId,
                 Name = "Amoxicillin 500mg",
                 Category = "Antibiotic",
                 BatchNumber = "AMX-2401",
@@ -946,7 +954,7 @@ public sealed class DatabaseInitializer
             },
             new MedicineInventoryItem
             {
-                BranchId = branches[0].BranchId,
+                BranchId = primaryBranchId,
                 Name = "Insulin Pen",
                 Category = "Diabetes Care",
                 BatchNumber = "INS-2402",
@@ -958,7 +966,7 @@ public sealed class DatabaseInitializer
             },
             new MedicineInventoryItem
             {
-                BranchId = branches[1].BranchId,
+                BranchId = secondaryBranchId,
                 Name = "Vitamin D Syrup",
                 Category = "Supplements",
                 BatchNumber = "VDS-2311",
@@ -970,7 +978,7 @@ public sealed class DatabaseInitializer
             },
             new MedicineInventoryItem
             {
-                BranchId = branches[2].BranchId,
+                BranchId = tertiaryBranchId,
                 Name = "Cefixime 200mg",
                 Category = "Antibiotic",
                 BatchNumber = "CFX-2308",
@@ -982,7 +990,7 @@ public sealed class DatabaseInitializer
             },
             new MedicineInventoryItem
             {
-                BranchId = branches[1].BranchId,
+                BranchId = secondaryBranchId,
                 Name = "Paracetamol 500mg",
                 Category = "Analgesic",
                 BatchNumber = "PCM-2405",
@@ -990,6 +998,480 @@ public sealed class DatabaseInitializer
                 ReorderLevel = 30,
                 ExpiryDate = today.AddMonths(10),
                 UnitPrice = 6m,
+                CreatedAt = DateTime.UtcNow
+            });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsurePhase5InventoryInfrastructureAsync(CancellationToken cancellationToken)
+    {
+        var scriptPath = Path.Combine(AppContext.BaseDirectory, "Data", "Sql", "Phase5InventoryInfrastructure.sql");
+        if (!File.Exists(scriptPath))
+        {
+            _logger.LogWarning("Phase 5 inventory infrastructure script not found at {ScriptPath}", scriptPath);
+            return;
+        }
+
+        var script = await File.ReadAllTextAsync(scriptPath, cancellationToken);
+        foreach (var batch in SplitSqlBatches(script))
+        {
+            if (string.IsNullOrWhiteSpace(batch))
+            {
+                continue;
+            }
+
+            await _db.Database.ExecuteSqlRawAsync(batch, cancellationToken);
+        }
+    }
+
+    private async Task EnsurePhase5InventorySeedAsync(CancellationToken cancellationToken)
+    {
+        var branches = await _db.Branches
+            .AsNoTracking()
+            .OrderBy(x => x.BranchId)
+            .ToListAsync(cancellationToken);
+
+        if (branches.Count == 0)
+        {
+            return;
+        }
+
+        var primaryBranchId = branches[0].BranchId;
+        var secondaryBranchId = branches.ElementAtOrDefault(1)?.BranchId ?? primaryBranchId;
+        var tertiaryBranchId = branches.ElementAtOrDefault(2)?.BranchId ?? secondaryBranchId;
+
+        if (!await _db.InventoryUnits.AnyAsync(cancellationToken))
+        {
+            _db.InventoryUnits.AddRange(
+                new InventoryUnit { Name = "Box", ShortName = "box", Description = "Box packaging unit", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryUnit { Name = "Piece", ShortName = "pc", Description = "Individual countable piece", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryUnit { Name = "Vial", ShortName = "vial", Description = "Small medicine vial", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryUnit { Name = "Strip", ShortName = "strip", Description = "Tablet strip unit", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryUnit { Name = "Bottle", ShortName = "bottle", Description = "Bottle unit", IsActive = true, CreatedAt = DateTime.UtcNow });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.InventoryCategories.AnyAsync(cancellationToken))
+        {
+            _db.InventoryCategories.AddRange(
+                new InventoryCategory { CategoryType = InventoryCategoryType.Medicine, Name = "Antibiotic", Description = "Antibiotic medicines", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryCategory { CategoryType = InventoryCategoryType.Medicine, Name = "Analgesic", Description = "Pain relief medicines", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryCategory { CategoryType = InventoryCategoryType.Medicine, Name = "Diabetes Care", Description = "Diabetes management medicines", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryCategory { CategoryType = InventoryCategoryType.Item, Name = "Consumables", Description = "Routine consumable store items", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryCategory { CategoryType = InventoryCategoryType.Item, Name = "Surgical Supplies", Description = "Surgery support items", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryCategory { CategoryType = InventoryCategoryType.Item, Name = "Lab Reagents", Description = "Laboratory reagent items", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryCategory { CategoryType = InventoryCategoryType.Item, Name = "Non-medical Supplies", Description = "General support items", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new InventoryCategory { CategoryType = InventoryCategoryType.Item, Name = "Spare Parts", Description = "Equipment spare inventory", IsActive = true, CreatedAt = DateTime.UtcNow });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        var unitMap = await _db.InventoryUnits
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Name, x => x.InventoryUnitId, cancellationToken);
+
+        var categoryMap = await _db.InventoryCategories
+            .AsNoTracking()
+            .ToDictionaryAsync(x => $"{x.CategoryType}:{x.Name}", x => x.InventoryCategoryId, cancellationToken);
+
+        if (!await _db.MedicineMasters.AnyAsync(cancellationToken))
+        {
+            _db.MedicineMasters.AddRange(
+                new MedicineMaster
+                {
+                    MedicineName = "Amoxicillin 500mg",
+                    GenericName = "Amoxicillin",
+                    Brand = "Moxilin",
+                    InventoryUnitId = unitMap["Strip"],
+                    InventoryCategoryId = categoryMap[$"{InventoryCategoryType.Medicine}:Antibiotic"],
+                    Strength = "500mg",
+                    BatchRequired = true,
+                    MinimumStock = 30,
+                    MaximumStock = 200,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new MedicineMaster
+                {
+                    MedicineName = "Paracetamol 500mg",
+                    GenericName = "Paracetamol",
+                    Brand = "Pacimol",
+                    InventoryUnitId = unitMap["Strip"],
+                    InventoryCategoryId = categoryMap[$"{InventoryCategoryType.Medicine}:Analgesic"],
+                    Strength = "500mg",
+                    BatchRequired = true,
+                    MinimumStock = 50,
+                    MaximumStock = 500,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new MedicineMaster
+                {
+                    MedicineName = "Insulin Pen",
+                    GenericName = "Insulin",
+                    Brand = "Humapen",
+                    InventoryUnitId = unitMap["Piece"],
+                    InventoryCategoryId = categoryMap[$"{InventoryCategoryType.Medicine}:Diabetes Care"],
+                    Strength = "100 IU",
+                    BatchRequired = true,
+                    MinimumStock = 10,
+                    MaximumStock = 80,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.StockItemMasters.AnyAsync(cancellationToken))
+        {
+            _db.StockItemMasters.AddRange(
+                new StockItemMaster
+                {
+                    ItemType = InventoryItemType.Consumable,
+                    ItemName = "Surgical Gloves",
+                    Specification = "Latex powder-free",
+                    InventoryUnitId = unitMap["Box"],
+                    InventoryCategoryId = categoryMap[$"{InventoryCategoryType.Item}:Consumables"],
+                    MinimumStock = 20,
+                    MaximumStock = 150,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new StockItemMaster
+                {
+                    ItemType = InventoryItemType.LabReagent,
+                    ItemName = "CBC Reagent Kit",
+                    Specification = "Automated hematology analyzer reagent",
+                    InventoryUnitId = unitMap["Bottle"],
+                    InventoryCategoryId = categoryMap[$"{InventoryCategoryType.Item}:Lab Reagents"],
+                    MinimumStock = 8,
+                    MaximumStock = 40,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new StockItemMaster
+                {
+                    ItemType = InventoryItemType.EquipmentSpare,
+                    ItemName = "ECG Thermal Paper Roll",
+                    Specification = "Standard ECG machine compatible",
+                    InventoryUnitId = unitMap["Piece"],
+                    InventoryCategoryId = categoryMap[$"{InventoryCategoryType.Item}:Spare Parts"],
+                    MinimumStock = 6,
+                    MaximumStock = 50,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.Suppliers.AnyAsync(cancellationToken))
+        {
+            _db.Suppliers.AddRange(
+                new Supplier
+                {
+                    SupplierName = "Himalayan Meditech",
+                    SupplierCode = "SUP-HIM-01",
+                    ContactPerson = "Sanjay Karki",
+                    ContactPhone = "+977-9801001001",
+                    ContactEmail = "orders@himalayanmeditech.local",
+                    Address = "Teku, Kathmandu",
+                    PaymentTermsDays = 30,
+                    Notes = "Primary medicine supplier for central branch.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new Supplier
+                {
+                    SupplierName = "BioLab Supply Nepal",
+                    SupplierCode = "SUP-BIO-02",
+                    ContactPerson = "Richa Tiwari",
+                    ContactPhone = "+977-9801002002",
+                    ContactEmail = "procurement@biolabsupply.local",
+                    Address = "Kupondole, Lalitpur",
+                    PaymentTermsDays = 21,
+                    Notes = "Lab reagent and analyzer consumables partner.",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.StockLocations.AnyAsync(cancellationToken))
+        {
+            _db.StockLocations.AddRange(
+                new StockLocation { BranchId = primaryBranchId, Name = "Main Store", Code = "MAIN-STORE", LocationType = StockLocationType.MainStore, Description = "Primary central stock room", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new StockLocation { BranchId = primaryBranchId, Name = "Pharmacy Store", Code = "PHARM-STORE", LocationType = StockLocationType.PharmacyStore, Description = "Outpatient pharmacy dispensing store", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new StockLocation { BranchId = secondaryBranchId, Name = "Lab Store", Code = "LAB-STORE", LocationType = StockLocationType.LabStore, Description = "Laboratory reagent store", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new StockLocation { BranchId = primaryBranchId, Name = "OT Store", Code = "OT-STORE", LocationType = StockLocationType.OtStore, Description = "Operation theatre item store", IsActive = true, CreatedAt = DateTime.UtcNow },
+                new StockLocation { BranchId = tertiaryBranchId, Name = "Ward Stock", Code = "WARD-STOCK", LocationType = StockLocationType.WardStock, Description = "Ward floor backup stock", IsActive = true, CreatedAt = DateTime.UtcNow });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        var medicineMap = await _db.MedicineMasters
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.MedicineName, x => x.MedicineMasterId, cancellationToken);
+        var itemMap = await _db.StockItemMasters
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.ItemName, x => x.StockItemMasterId, cancellationToken);
+        var locationMap = await _db.StockLocations
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Code, x => x.StockLocationId, cancellationToken);
+        var supplierMap = await _db.Suppliers
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.SupplierCode, x => x.SupplierId, cancellationToken);
+
+        if (!await _db.StockBatches.AnyAsync(cancellationToken))
+        {
+            var today = DateTime.Today;
+            _db.StockBatches.AddRange(
+                new StockBatch { StockLocationId = locationMap["MAIN-STORE"], MedicineMasterId = medicineMap["Amoxicillin 500mg"], BatchNumber = "AMX-2601", ExpiryDate = today.AddMonths(5), QuantityOnHand = 18, UnitCost = 24, LastMovementAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow },
+                new StockBatch { StockLocationId = locationMap["PHARM-STORE"], MedicineMasterId = medicineMap["Paracetamol 500mg"], BatchNumber = "PCM-2603", ExpiryDate = today.AddMonths(11), QuantityOnHand = 120, UnitCost = 6, LastMovementAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow },
+                new StockBatch { StockLocationId = locationMap["PHARM-STORE"], MedicineMasterId = medicineMap["Insulin Pen"], BatchNumber = "INS-2512", ExpiryDate = today.AddDays(20), QuantityOnHand = 7, UnitCost = 650, LastMovementAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow },
+                new StockBatch { StockLocationId = locationMap["LAB-STORE"], StockItemMasterId = itemMap["CBC Reagent Kit"], BatchNumber = "CBC-2510", ExpiryDate = today.AddDays(12), QuantityOnHand = 4, UnitCost = 1450, LastMovementAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow },
+                new StockBatch { StockLocationId = locationMap["OT-STORE"], StockItemMasterId = itemMap["Surgical Gloves"], BatchNumber = "GLV-2501", ExpiryDate = today.AddMonths(8), QuantityOnHand = 16, UnitCost = 420, LastMovementAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow },
+                new StockBatch { StockLocationId = locationMap["WARD-STOCK"], MedicineMasterId = medicineMap["Amoxicillin 500mg"], BatchNumber = "AMX-2410", ExpiryDate = today.AddDays(-3), QuantityOnHand = 6, UnitCost = 22, LastMovementAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.PurchaseOrders.AnyAsync(cancellationToken))
+        {
+            var order = new PurchaseOrder
+            {
+                OrderNumber = "PO-000001",
+                SupplierId = supplierMap["SUP-HIM-01"],
+                StockLocationId = locationMap["MAIN-STORE"],
+                OrderDate = DateTime.Today.AddDays(-6),
+                ExpectedDeliveryDate = DateTime.Today.AddDays(-2),
+                Status = PurchaseOrderStatus.PartiallyReceived,
+                Notes = "Phase 5 seed purchase order",
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.PurchaseOrders.Add(order);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            _db.PurchaseOrderLines.AddRange(
+                new PurchaseOrderLine { PurchaseOrderId = order.PurchaseOrderId, MedicineMasterId = medicineMap["Amoxicillin 500mg"], ItemName = "Amoxicillin 500mg", UnitName = "Strip", OrderedQuantity = 80, ReceivedQuantity = 50, UnitCost = 24, CreatedAt = DateTime.UtcNow },
+                new PurchaseOrderLine { PurchaseOrderId = order.PurchaseOrderId, StockItemMasterId = itemMap["Surgical Gloves"], ItemName = "Surgical Gloves", UnitName = "Box", OrderedQuantity = 40, ReceivedQuantity = 20, UnitCost = 420, CreatedAt = DateTime.UtcNow });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.PurchaseInvoices.AnyAsync(cancellationToken))
+        {
+            var order = await _db.PurchaseOrders.AsNoTracking().OrderBy(x => x.PurchaseOrderId).FirstAsync(cancellationToken);
+            var invoice = new PurchaseInvoice
+            {
+                PurchaseOrderId = order.PurchaseOrderId,
+                SupplierId = order.SupplierId,
+                StockLocationId = order.StockLocationId,
+                InvoiceNumber = "INV-PH5-0001",
+                InvoiceDate = DateTime.Today.AddDays(-4),
+                DueDate = DateTime.Today.AddDays(26),
+                TotalAmount = 9600,
+                PaidAmount = 4000,
+                Status = PurchaseInvoiceStatus.Partial,
+                Notes = "Seed supplier invoice with due amount",
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.PurchaseInvoices.Add(invoice);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var orderLines = await _db.PurchaseOrderLines.Where(x => x.PurchaseOrderId == order.PurchaseOrderId).OrderBy(x => x.PurchaseOrderLineId).ToListAsync(cancellationToken);
+            _db.PurchaseInvoiceLines.AddRange(
+                new PurchaseInvoiceLine { PurchaseInvoiceId = invoice.PurchaseInvoiceId, PurchaseOrderLineId = orderLines[0].PurchaseOrderLineId, MedicineMasterId = orderLines[0].MedicineMasterId, ItemName = orderLines[0].ItemName, UnitName = orderLines[0].UnitName, BatchNumber = "AMX-2602", ExpiryDate = DateTime.Today.AddMonths(9), Quantity = 50, UnitCost = 24, LineTotal = 1200, CreatedAt = DateTime.UtcNow },
+                new PurchaseInvoiceLine { PurchaseInvoiceId = invoice.PurchaseInvoiceId, PurchaseOrderLineId = orderLines[1].PurchaseOrderLineId, StockItemMasterId = orderLines[1].StockItemMasterId, ItemName = orderLines[1].ItemName, UnitName = orderLines[1].UnitName, BatchNumber = "GLV-2602", ExpiryDate = DateTime.Today.AddMonths(18), Quantity = 20, UnitCost = 420, LineTotal = 8400, CreatedAt = DateTime.UtcNow });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.StockTransfers.AnyAsync(cancellationToken))
+        {
+            var sourceBatch = await _db.StockBatches.OrderByDescending(x => x.QuantityOnHand).FirstAsync(cancellationToken);
+            var transfer = new StockTransfer
+            {
+                TransferNumber = "TR-000001",
+                FromStockLocationId = sourceBatch.StockLocationId,
+                ToStockLocationId = locationMap["WARD-STOCK"],
+                TransferDate = DateTime.Today,
+                Status = TransferStatus.Pending,
+                Notes = "Pending ward replenishment transfer",
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.StockTransfers.Add(transfer);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            _db.StockTransferLines.Add(new StockTransferLine
+            {
+                StockTransferId = transfer.StockTransferId,
+                StockBatchId = sourceBatch.StockBatchId,
+                ItemName = sourceBatch.MedicineMasterId.HasValue ? "Paracetamol 500mg" : "Seed batch",
+                BatchNumber = sourceBatch.BatchNumber,
+                ExpiryDate = sourceBatch.ExpiryDate,
+                Quantity = 10,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        if (!await _db.StockAdjustments.AnyAsync(cancellationToken))
+        {
+            var batch = await _db.StockBatches.OrderBy(x => x.StockBatchId).FirstAsync(cancellationToken);
+            var adjustment = new StockAdjustment
+            {
+                AdjustmentNumber = "ADJ-000001",
+                StockLocationId = batch.StockLocationId,
+                Reason = StockAdjustmentReason.ManualCorrection,
+                Status = ApprovalStatus.Pending,
+                AdjustmentDate = DateTime.Today,
+                Notes = "Seed stock correction awaiting approval",
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.StockAdjustments.Add(adjustment);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            _db.StockAdjustmentLines.Add(new StockAdjustmentLine
+            {
+                StockAdjustmentId = adjustment.StockAdjustmentId,
+                StockBatchId = batch.StockBatchId,
+                ItemName = batch.MedicineMasterId.HasValue ? "Amoxicillin 500mg" : "Seed item",
+                BatchNumber = batch.BatchNumber,
+                ExpiryDate = batch.ExpiryDate,
+                QuantityDelta = -2,
+                Notes = "Physical count variance",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private static IEnumerable<string> SplitSqlBatches(string script)
+    {
+        using var reader = new StringReader(script);
+        var current = new List<string>();
+        string? line;
+
+        while ((line = reader.ReadLine()) is not null)
+        {
+            if (string.Equals(line.Trim(), "GO", StringComparison.OrdinalIgnoreCase))
+            {
+                if (current.Count != 0)
+                {
+                    yield return string.Join(Environment.NewLine, current);
+                    current.Clear();
+                }
+
+                continue;
+            }
+
+            current.Add(line);
+        }
+
+        if (current.Count != 0)
+        {
+            yield return string.Join(Environment.NewLine, current);
+        }
+    }
+
+    private async Task EnsureLabTestsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.LabTestMasters.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        _db.LabTestMasters.AddRange(
+            new LabTestMaster
+            {
+                TestName = "Complete Blood Count",
+                DepartmentName = "Laboratory",
+                Price = 900m,
+                SampleType = "Whole Blood",
+                ReportFormat = "Numeric panel with reference range",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new LabTestMaster
+            {
+                TestName = "Liver Function Test",
+                DepartmentName = "Laboratory",
+                Price = 1450m,
+                SampleType = "Serum",
+                ReportFormat = "Biochemistry report with interpretation",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new LabTestMaster
+            {
+                TestName = "Urine Routine Examination",
+                DepartmentName = "Outpatient Department",
+                Price = 550m,
+                SampleType = "Urine",
+                ReportFormat = "Microscopy and chemistry summary",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new LabTestMaster
+            {
+                TestName = "ABG Analysis",
+                DepartmentName = "Intensive Care Unit",
+                Price = 1800m,
+                SampleType = "Arterial Blood",
+                ReportFormat = "Critical care gas analysis sheet",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureServicePackagesAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.ServicePackages.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        _db.ServicePackages.AddRange(
+            new ServicePackage
+            {
+                Kind = ServicePackageKind.HealthPackage,
+                PackageName = "Executive Wellness Package",
+                DepartmentName = "Outpatient Department",
+                Price = 12000m,
+                DiscountAmount = 1500m,
+                Description = "Annual executive screening bundle with consultation, CBC, sugar profile, ECG, and ultrasound.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new ServicePackage
+            {
+                Kind = ServicePackageKind.SurgeryPackage,
+                PackageName = "Laparoscopic Cholecystectomy Pack",
+                DepartmentName = "Operation Theatre",
+                Price = 85000m,
+                DiscountAmount = 5000m,
+                Description = "Procedure, OT support, bed charge, anesthesia, and routine post-op consumables.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new ServicePackage
+            {
+                Kind = ServicePackageKind.CorporatePackage,
+                PackageName = "Factory Workforce Checkup",
+                DepartmentName = "Outpatient Department",
+                Price = 9500m,
+                DiscountAmount = 1000m,
+                Description = "Group employee screening bundle with vitals, consultation, CBC, urine exam, and summary reporting.",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            },
+            new ServicePackage
+            {
+                Kind = ServicePackageKind.DiscountedBundle,
+                PackageName = "Mother & Child Diagnostic Bundle",
+                DepartmentName = "Laboratory",
+                Price = 6000m,
+                DiscountAmount = 1200m,
+                Description = "Discounted bundle for antenatal checkup diagnostics, CBC, urine routine, and blood sugar.",
+                IsActive = true,
                 CreatedAt = DateTime.UtcNow
             });
 

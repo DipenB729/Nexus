@@ -11,8 +11,14 @@
 
   <nav class="sidebar-nav">
     <ul class="nav-list" *ngFor="let section of navigationSections">
-      <li class="nav-label" *ngIf="isExpanded">{{ section.label }}</li>
-      <li class="nav-item" *ngFor="let item of section.items">
+      <li class="nav-label" *ngIf="isExpanded && !section.collapsible">{{ section.label }}</li>
+      <li class="nav-group" *ngIf="section.collapsible">
+        <button type="button" class="group-toggle" [class.open]="isSectionExpanded(section)" (click)="toggleSection(section)">
+          <span>{{ section.label }}</span>
+          <mat-icon *ngIf="isExpanded">{{ isSectionExpanded(section) ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+      </li>
+      <li class="nav-item" *ngFor="let item of section.items" [class.group-child]="section.collapsible" [class.hidden]="section.collapsible && !isSectionExpanded(section)">
         <a
           [routerLink]="[item.route]"
           routerLinkActive="active-link"

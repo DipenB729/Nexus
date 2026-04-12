@@ -138,6 +138,39 @@ export class AppComponent implements OnInit, OnDestroy {
       return billingTitles[billingSection] ?? 'Billing Management';
     }
 
+    if (path.startsWith('/admin/inventory')) {
+      const inventorySection = path.split('/')[3] ?? 'dashboard';
+      const inventoryTitles: Record<string, string> = {
+        dashboard: 'Supply Chain Overview',
+        units: 'Inventory Unit Setup',
+        categories: 'Inventory Category Setup',
+        medicines: 'Medicine Master',
+        items: 'Item & Stock Master',
+        suppliers: 'Supplier Management',
+        locations: 'Stock Location Management',
+        purchases: 'Purchase Management',
+        returns: 'Purchase Return Management',
+        batches: 'Batch & Expiry Management',
+        transfers: 'Stock Transfer Management',
+        adjustments: 'Stock Adjustment Management'
+      };
+
+      return inventoryTitles[inventorySection] ?? 'Pharmacy & Stock Admin';
+    }
+
+    if (path.startsWith('/admin/laboratory')) {
+      const laboratorySection = path.split('/')[3] ?? 'labTests';
+      const laboratoryTitles: Record<string, string> = {
+        labTests: 'Lab Test Master',
+        healthPackages: 'Health Package Management',
+        surgeryPackages: 'Surgery Package Management',
+        corporatePackages: 'Corporate Package Management',
+        discountedBundles: 'Discounted Bundle Management'
+      };
+
+      return laboratoryTitles[laboratorySection] ?? 'Lab & Service Admin';
+    }
+
     const titles: Record<string, string> = {
       '/admin/dashboard': 'Admin Dashboard',
       '/admin/services': 'Service Management',

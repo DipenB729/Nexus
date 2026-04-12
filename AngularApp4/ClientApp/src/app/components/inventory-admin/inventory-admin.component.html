@@ -1,0 +1,834 @@
+<section class="inventory-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-header">
+    <div>
+      <h1>{{ currentSection.label }}</h1>
+      <p>{{ currentSection.description }}</p>
+    </div>
+
+    <div class="header-actions">
+      <button mat-stroked-button type="button" (click)="refresh()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <button mat-stroked-button type="button" *ngIf="!isIndexView" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to list
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isIndexView && canCreateCurrentSection" (click)="goToCreate()">
+        <mat-icon>add</mat-icon>
+        Create {{ currentRecordLabel }}
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isDetailsView && selectedRecordId && canEditSelectedRecord" (click)="goToEdit(selectedRecordId)">
+        <mat-icon>edit</mat-icon>
+        Edit {{ currentRecordLabel }}
+      </button>
+    </div>
+  </div>
+
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success-box" *ngIf="successMessage">{{ successMessage }}</p>
+
+  <div class="table-actions" *ngIf="activeSection !== 'dashboard' && isIndexView">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search {{ currentSection.label.toLowerCase() }}</mat-label>
+      <input matInput [(ngModel)]="searchTerm" />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+  </div>
+
+  <ng-container *ngIf="!isDetailsView" [ngSwitch]="activeSection">
+    <ng-container *ngSwitchCase="'dashboard'">
+      <div class="stats-grid">
+        <article class="stat-card">
+          <span>Active locations</span>
+          <strong>{{ dashboard.activeLocations }}</strong>
+          <small>Stores and ward stock points</small>
+        </article>
+        <article class="stat-card">
+          <span>Active suppliers</span>
+          <strong>{{ dashboard.activeSuppliers }}</strong>
+          <small>Approved vendors in rotation</small>
+        </article>
+        <article class="stat-card warning">
+          <span>Open purchase orders</span>
+          <strong>{{ dashboard.openPurchaseOrders }}</strong>
+          <small>Orders still awaiting stock receipt</small>
+        </article>
+        <article class="stat-card danger">
+          <span>Low stock / expiry</span>
+          <strong>{{ dashboard.lowStockCount + dashboard.nearExpiryCount }}</strong>
+          <small>{{ dashboard.lowStockCount }} low stock, {{ dashboard.nearExpiryCount }} near expiry</small>
+        </article>
+        <article class="stat-card info">
+          <span>Pending approvals</span>
+          <strong>{{ dashboard.pendingTransfers + dashboard.pendingAdjustments }}</strong>
+          <small>{{ dashboard.pendingTransfers }} transfers, {{ dashboard.pendingAdjustments }} adjustments</small>
+        </article>
+        <article class="stat-card violet">
+          <span>Supplier due amount</span>
+          <strong>NPR {{ dashboard.supplierDueAmount | number:'1.0-0' }}</strong>
+          <small>Outstanding payable exposure</small>
+        </article>
+      </div>
+
+      <div class="workspace-grid three-col">
+        <section class="table-card">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Reorder</span>
+              <h2>Low stock alerts</h2>
+            </div>
+          </div>
+          <div class="table-shell">
+            <table class="master-table compact-table" *ngIf="dashboard.lowStockAlerts.length; else emptyLowStock">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Location</th>
+                  <th>Batch</th>
+                  <th>Qty</th>
+                  <th>Minimum</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let alert of dashboard.lowStockAlerts">
+                  <td>{{ alert.itemName }}<small>{{ formatEnum(alert.itemType) }} | {{ alert.unitName }}</small></td>
+                  <td>{{ alert.locationName }}</td>
+                  <td>{{ alert.batchNumber || 'N/A' }}</td>
+                  <td>{{ alert.quantityOnHand | number:'1.0-2' }}</td>
+                  <td>{{ alert.minimumStock | number:'1.0-2' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-card">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Expiry</span>
+              <h2>Near-expiry watch</h2>
+            </div>
+          </div>
+          <div class="table-shell">
+            <table class="master-table compact-table" *ngIf="dashboard.nearExpiryAlerts.length; else emptyNearExpiry">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Location</th>
+                  <th>Batch</th>
+                  <th>Expiry</th>
+                  <th>Locked</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let alert of dashboard.nearExpiryAlerts">
+                  <td>{{ alert.itemName }}<small>{{ alert.unitName }}</small></td>
+                  <td>{{ alert.locationName }}</td>
+                  <td>{{ alert.batchNumber || 'N/A' }}</td>
+                  <td>{{ alert.expiryDate ? (alert.expiryDate | date:'mediumDate') : 'No expiry' }}</td>
+                  <td><span class="status-pill" [ngClass]="alert.isExpiredLocked ? 'danger' : 'warning'">{{ alert.isExpiredLocked ? 'Locked' : 'Watch' }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-card">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Payables</span>
+              <h2>Supplier due summary</h2>
+            </div>
+          </div>
+          <div class="table-shell">
+            <table class="master-table compact-table" *ngIf="dashboard.supplierDues.length; else emptyDues">
+              <thead>
+                <tr>
+                  <th>Supplier</th>
+                  <th>Open invoices</th>
+                  <th>Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let due of dashboard.supplierDues">
+                  <td>{{ due.supplierName }}<small>{{ due.supplierCode }}</small></td>
+                  <td>{{ due.openInvoiceCount }}</td>
+                  <td>NPR {{ due.dueAmount | number:'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'units'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head">
+            <div><span class="eyebrow">Units</span><h2>Inventory units</h2></div>
+          </div>
+          <div class="table-shell">
+            <table class="master-table compact-table">
+              <thead><tr><th>#</th><th>Name</th><th>Short</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredUnits; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.inventoryUnitId)">{{ item.name }}</button><small>{{ item.description || 'No description' }}</small></td>
+                  <td>{{ item.shortName || 'N/A' }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell"><button mat-button type="button" (click)="editUnit(item)">Edit</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No units found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create unit' : 'Edit unit' }}</h2></div>
+        </div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Unit name</mat-label><input matInput [(ngModel)]="unitForm.name" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Short name</mat-label><input matInput [(ngModel)]="unitForm.shortName" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Description</mat-label><textarea matInput rows="3" [(ngModel)]="unitForm.description"></textarea></mat-form-field>
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="unitForm.isActive" /><span>Unit active</span></label>
+          </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'categories'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head">
+            <div><span class="eyebrow">Categories</span><h2>Medicine & item categories</h2></div>
+          </div>
+          <div class="table-shell">
+            <table class="master-table compact-table">
+              <thead><tr><th>#</th><th>Category</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredCategories; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.inventoryCategoryId)">{{ item.name }}</button><small>{{ item.description || 'No description' }}</small></td>
+                  <td>{{ formatEnum(item.categoryType) }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell"><button mat-button type="button" (click)="editCategory(item)">Edit</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No categories found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create category' : 'Edit category' }}</h2></div>
+        </div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Category type</mat-label><mat-select [(ngModel)]="categoryForm.categoryType"><mat-option *ngFor="let option of categoryTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Category name</mat-label><input matInput [(ngModel)]="categoryForm.name" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Description</mat-label><textarea matInput rows="3" [(ngModel)]="categoryForm.description"></textarea></mat-form-field>
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="categoryForm.isActive" /><span>Category active</span></label>
+          </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'medicines'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Master</span><h2>Medicine catalog</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>Medicine</th><th>Unit</th><th>Category</th><th>Reorder</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredMedicines; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.medicineMasterId)">{{ item.medicineName }}</button><small>{{ item.genericName || 'No generic' }} | {{ item.brand || 'No brand' }}{{ item.strength ? ' | ' + item.strength : '' }}</small></td>
+                  <td>{{ item.unitName }}</td>
+                  <td>{{ item.categoryName || 'No category' }}</td>
+                  <td>{{ item.minimumStock | number:'1.0-0' }} / {{ item.maximumStock | number:'1.0-0' }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell"><button mat-button type="button" (click)="editMedicine(item)">Edit</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No medicines found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create medicine' : 'Edit medicine' }}</h2></div>
+        </div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Medicine name</mat-label><input matInput [(ngModel)]="medicineForm.medicineName" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Generic name</mat-label><input matInput [(ngModel)]="medicineForm.genericName" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Brand</mat-label><input matInput [(ngModel)]="medicineForm.brand" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Strength</mat-label><input matInput [(ngModel)]="medicineForm.strength" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Unit</mat-label><mat-select [(ngModel)]="medicineForm.inventoryUnitId"><mat-option *ngFor="let unit of activeUnits" [value]="unit.inventoryUnitId">{{ unit.name }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Category</mat-label><mat-select [(ngModel)]="medicineForm.inventoryCategoryId"><mat-option [value]="null">No category</mat-option><mat-option *ngFor="let category of activeMedicineCategories" [value]="category.inventoryCategoryId">{{ category.name }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Minimum stock</mat-label><input matInput type="number" [(ngModel)]="medicineForm.minimumStock" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Maximum stock</mat-label><input matInput type="number" [(ngModel)]="medicineForm.maximumStock" /></mat-form-field>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="medicineForm.batchRequired" /><span>Batch required</span></label>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="medicineForm.isActive" /><span>Medicine active</span></label>
+          </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'items'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Master</span><h2>Stock item catalog</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>Item</th><th>Type</th><th>Unit</th><th>Reorder</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredItems; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.stockItemMasterId)">{{ item.itemName }}</button><small>{{ item.specification || 'No specification' }} | {{ item.categoryName || 'No category' }}</small></td>
+                  <td>{{ formatEnum(item.itemType) }}</td>
+                  <td>{{ item.unitName }}</td>
+                  <td>{{ item.minimumStock | number:'1.0-0' }} / {{ item.maximumStock | number:'1.0-0' }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell"><button mat-button type="button" (click)="editItem(item)">Edit</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No stock items found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create item' : 'Edit item' }}</h2></div>
+        </div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Item type</mat-label><mat-select [(ngModel)]="itemForm.itemType"><mat-option *ngFor="let option of itemTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Item name</mat-label><input matInput [(ngModel)]="itemForm.itemName" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Specification</mat-label><input matInput [(ngModel)]="itemForm.specification" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Unit</mat-label><mat-select [(ngModel)]="itemForm.inventoryUnitId"><mat-option *ngFor="let unit of activeUnits" [value]="unit.inventoryUnitId">{{ unit.name }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Category</mat-label><mat-select [(ngModel)]="itemForm.inventoryCategoryId"><mat-option [value]="null">No category</mat-option><mat-option *ngFor="let category of activeItemCategories" [value]="category.inventoryCategoryId">{{ category.name }}</mat-option></mat-select></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Minimum stock</mat-label><input matInput type="number" [(ngModel)]="itemForm.minimumStock" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Maximum stock</mat-label><input matInput type="number" [(ngModel)]="itemForm.maximumStock" /></mat-form-field>
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="itemForm.isActive" /><span>Item active</span></label>
+          </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'suppliers'">
+      <div class="workspace-grid three-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Vendors</span><h2>Supplier register</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>Supplier</th><th>Terms</th><th>History</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredSuppliers; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.supplierId)">{{ item.supplierName }}</button><small>{{ item.supplierCode }} | {{ item.contactPerson || 'No contact' }} | {{ item.contactPhone || 'No phone' }}</small></td>
+                  <td>{{ item.paymentTermsDays }} day(s)</td>
+                  <td>{{ item.purchaseOrderCount }} PO / {{ item.purchaseInvoiceCount }} invoices<small>Last purchase {{ item.lastPurchaseDate ? (item.lastPurchaseDate | date:'mediumDate') : 'not yet' }}</small></td>
+                  <td>NPR {{ item.dueAmount | number:'1.0-0' }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell"><button mat-button type="button" (click)="editSupplier(item)">Edit</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No suppliers found for the current filter.</div>
+        </section>
+
+        <section class="support-panel">
+          <div class="panel-head"><div><span class="eyebrow">Payables</span><h2>Supplier dues</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table compact-table">
+              <thead><tr><th>Supplier</th><th>Open</th><th>Due</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredSupplierDues">
+                  <td>{{ item.supplierName }}<small>{{ item.supplierCode }}</small></td>
+                  <td>{{ item.openInvoiceCount }}</td>
+                  <td>NPR {{ item.dueAmount | number:'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create supplier' : 'Edit supplier' }}</h2></div>
+        </div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>Supplier name</mat-label><input matInput [(ngModel)]="supplierForm.supplierName" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Supplier code</mat-label><input matInput [(ngModel)]="supplierForm.supplierCode" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Contact person</mat-label><input matInput [(ngModel)]="supplierForm.contactPerson" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Contact phone</mat-label><input matInput [(ngModel)]="supplierForm.contactPhone" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Contact email</mat-label><input matInput [(ngModel)]="supplierForm.contactEmail" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Payment terms (days)</mat-label><input matInput type="number" [(ngModel)]="supplierForm.paymentTermsDays" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Address</mat-label><textarea matInput rows="2" [(ngModel)]="supplierForm.address"></textarea></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Notes</mat-label><textarea matInput rows="3" [(ngModel)]="supplierForm.notes"></textarea></mat-form-field>
+          <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="supplierForm.isActive" /><span>Supplier active</span></label>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'locations'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Stores</span><h2>Stock locations</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>Location</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredLocations; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.stockLocationId)">{{ item.name }}</button><small>{{ item.code }} | {{ item.description || 'No description' }}</small></td>
+                  <td>{{ formatEnum(item.locationType) }}</td>
+                  <td>{{ item.branchName }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell"><button mat-button type="button" (click)="editLocation(item)">Edit</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No stock locations found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create location' : 'Edit location' }}</h2></div>
+        </div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>Branch</mat-label><mat-select [(ngModel)]="locationForm.branchId"><mat-option [value]="null">No branch</mat-option><mat-option *ngFor="let branch of activeBranches" [value]="branch.branchId">{{ branch.name }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Location type</mat-label><mat-select [(ngModel)]="locationForm.locationType"><mat-option *ngFor="let option of locationTypeOptions" [value]="option">{{ formatEnum(option) }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Location name</mat-label><input matInput [(ngModel)]="locationForm.name" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Location code</mat-label><input matInput [(ngModel)]="locationForm.code" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Description</mat-label><textarea matInput rows="3" [(ngModel)]="locationForm.description"></textarea></mat-form-field>
+          <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="locationForm.isActive" /><span>Location active</span></label>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'purchases'">
+      <div class="workspace-grid three-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Orders</span><h2>Purchase orders</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>PO</th><th>Supplier</th><th>Location</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredPurchaseOrders; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.purchaseOrderId)">{{ item.orderNumber }}</button><small>{{ item.orderDate | date:'mediumDate' }}{{ item.expectedDeliveryDate ? ' | ETA ' + (item.expectedDeliveryDate | date:'mediumDate') : '' }}</small></td>
+                  <td>{{ item.supplierName }}</td>
+                  <td>{{ item.stockLocationName }}</td>
+                  <td>{{ item.orderedQuantity | number:'1.0-0' }} / {{ item.receivedQuantity | number:'1.0-0' }}</td>
+                  <td><span class="status-pill" [ngClass]="getStatusTone(item.status)">{{ formatEnum(item.status) }}</span></td>
+                  <td class="actions-cell">
+                    <button mat-button type="button" *ngIf="canEditPurchaseOrder(item)" (click)="editPurchaseOrder(item)">Edit</button>
+                    <button mat-button type="button" *ngIf="canReceivePurchaseOrder(item)" (click)="startReceivePurchaseOrder(item)">Receive</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No purchase orders found for the current filter.</div>
+        </section>
+
+        <section class="support-panel">
+          <div class="panel-head"><div><span class="eyebrow">Invoices</span><h2>Purchase invoices</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table compact-table">
+              <thead><tr><th>Invoice</th><th>Status</th><th>Due</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredPurchaseInvoices">
+                  <td>{{ item.invoiceNumber }}<small>{{ item.supplierName }} | {{ item.invoiceDate | date:'mediumDate' }}</small></td>
+                  <td><span class="status-pill" [ngClass]="getStatusTone(item.status)">{{ formatEnum(item.status) }}</span></td>
+                  <td>NPR {{ item.dueAmount | number:'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="support-panel" *ngIf="isIndexView && activeReceiveOrder as receiveOrder">
+        <div class="panel-head"><div><span class="eyebrow">Receive stock</span><h2>{{ receiveOrder.orderNumber }}</h2></div><button mat-button type="button" (click)="cancelReceivePurchaseOrder()">Close</button></div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>Invoice number</mat-label><input matInput [(ngModel)]="receiveForm.invoiceNumber" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Invoice date</mat-label><input matInput type="date" [(ngModel)]="receiveForm.invoiceDate" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Due date</mat-label><input matInput type="date" [(ngModel)]="receiveForm.dueDate" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Paid amount</mat-label><input matInput type="number" [(ngModel)]="receiveForm.paidAmount" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Receipt notes</mat-label><textarea matInput rows="2" [(ngModel)]="receiveForm.notes"></textarea></mat-form-field>
+        </div>
+        <div class="line-stack">
+          <div class="line-item" *ngFor="let line of receiveForm.lines; let i = index">
+            <div class="line-item-head"><strong>{{ line.itemName }}</strong><small>Pending {{ line.pendingQuantity | number:'1.0-2' }} {{ line.unitName }}</small></div>
+            <div class="form-grid compact-grid">
+              <mat-form-field appearance="outline"><mat-label>Receive qty</mat-label><input matInput type="number" [(ngModel)]="line.quantity" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Unit cost</mat-label><input matInput type="number" [(ngModel)]="line.unitCost" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Batch no.</mat-label><input matInput [(ngModel)]="line.batchNumber" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Expiry date</mat-label><input matInput type="date" [(ngModel)]="line.expiryDate" /></mat-form-field>
+              <mat-form-field appearance="outline" class="full-width"><mat-label>Line notes</mat-label><input matInput [(ngModel)]="line.notes" /></mat-form-field>
+            </div>
+            <p class="hint-text" *ngIf="line.batchRequired">Batch number is required for this medicine.</p>
+          </div>
+        </div>
+        <div class="actions-row"><button mat-stroked-button type="button" (click)="cancelReceivePurchaseOrder()">Cancel</button><button mat-raised-button color="primary" type="button" (click)="receivePurchaseOrder()" [disabled]="isSaving">Post receipt</button></div>
+      </section>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head"><div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create purchase order' : 'Edit purchase order' }}</h2></div></div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>Supplier</mat-label><mat-select [(ngModel)]="purchaseForm.supplierId"><mat-option *ngFor="let supplier of activeSuppliers" [value]="supplier.supplierId">{{ supplier.supplierName }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Stock location</mat-label><mat-select [(ngModel)]="purchaseForm.stockLocationId"><mat-option *ngFor="let location of activeLocations" [value]="location.stockLocationId">{{ location.name }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Order date</mat-label><input matInput type="date" [(ngModel)]="purchaseForm.orderDate" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Expected delivery</mat-label><input matInput type="date" [(ngModel)]="purchaseForm.expectedDeliveryDate" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Status</mat-label><mat-select [(ngModel)]="purchaseForm.status"><mat-option *ngFor="let option of purchaseStatusOptions" [value]="option">{{ formatEnum(option) }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Notes</mat-label><textarea matInput rows="2" [(ngModel)]="purchaseForm.notes"></textarea></mat-form-field>
+        </div>
+        <div class="line-stack">
+          <div class="line-item" *ngFor="let line of purchaseForm.lines; let i = index">
+            <div class="line-item-head"><strong>Line {{ i + 1 }}</strong><button mat-button type="button" (click)="removePurchaseLine(i)">Remove</button></div>
+            <div class="form-grid compact-grid">
+              <mat-form-field appearance="outline"><mat-label>Line type</mat-label><mat-select [(ngModel)]="line.entryType" (selectionChange)="onPurchaseLineEntryTypeChange(line)"><mat-option value="Medicine">Medicine</mat-option><mat-option value="Item">Item</mat-option></mat-select></mat-form-field>
+              <mat-form-field appearance="outline" *ngIf="line.entryType === 'Medicine'"><mat-label>Medicine</mat-label><mat-select [(ngModel)]="line.medicineMasterId"><mat-option *ngFor="let medicine of activeMedicines" [value]="medicine.medicineMasterId">{{ medicine.medicineName }}</mat-option></mat-select></mat-form-field>
+              <mat-form-field appearance="outline" *ngIf="line.entryType === 'Item'"><mat-label>Stock item</mat-label><mat-select [(ngModel)]="line.stockItemMasterId"><mat-option *ngFor="let item of activeItems" [value]="item.stockItemMasterId">{{ item.itemName }}</mat-option></mat-select></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Quantity</mat-label><input matInput type="number" [(ngModel)]="line.quantity" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Unit cost</mat-label><input matInput type="number" [(ngModel)]="line.unitCost" /></mat-form-field>
+              <mat-form-field appearance="outline" class="full-width"><mat-label>Notes</mat-label><input matInput [(ngModel)]="line.notes" /></mat-form-field>
+            </div>
+            <p class="hint-text">Unit: {{ purchaseLineUnitName(line) }}</p>
+          </div>
+          <button mat-stroked-button type="button" (click)="addPurchaseLine()">Add line</button>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'returns'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Returns</span><h2>Purchase return history</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>Return</th><th>Supplier</th><th>Invoice</th><th>Total</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredPurchaseReturns; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.purchaseReturnId)">{{ item.returnNumber }}</button><small>{{ item.returnDate | date:'mediumDate' }}</small></td>
+                  <td>{{ item.supplierName }}</td>
+                  <td>{{ item.invoiceNumber }}</td>
+                  <td>NPR {{ item.totalAmount | number:'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No purchase returns found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head"><div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>Create purchase return</h2></div></div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>Purchase invoice</mat-label><mat-select [(ngModel)]="returnForm.purchaseInvoiceId" (selectionChange)="onReturnInvoiceChange()"><mat-option *ngFor="let invoice of purchaseInvoices" [value]="invoice.purchaseInvoiceId">{{ invoice.invoiceNumber }} | {{ invoice.supplierName }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Return date</mat-label><input matInput type="date" [(ngModel)]="returnForm.returnDate" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Notes</mat-label><textarea matInput rows="2" [(ngModel)]="returnForm.notes"></textarea></mat-form-field>
+        </div>
+        <div class="line-stack" *ngIf="selectedReturnInvoice as invoice">
+          <div class="line-item" *ngFor="let line of returnForm.lines">
+            <div class="line-item-head"><strong>{{ line.itemName }}</strong><small>{{ invoice.invoiceNumber }} | Max {{ line.maxQuantity | number:'1.0-2' }}</small></div>
+            <div class="form-grid compact-grid">
+              <mat-form-field appearance="outline"><mat-label>Return qty</mat-label><input matInput type="number" [(ngModel)]="line.quantity" [attr.max]="line.maxQuantity" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Unit cost</mat-label><input matInput type="number" [(ngModel)]="line.unitCost" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Batch no.</mat-label><input matInput [(ngModel)]="line.batchNumber" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Expiry date</mat-label><input matInput type="date" [(ngModel)]="line.expiryDate" /></mat-form-field>
+              <mat-form-field appearance="outline" class="full-width"><mat-label>Reason</mat-label><input matInput [(ngModel)]="line.reason" /></mat-form-field>
+            </div>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'batches'">
+      <section class="table-card" *ngIf="isIndexView">
+        <div class="panel-head"><div><span class="eyebrow">Live stock</span><h2>Batch and expiry tracker</h2></div></div>
+        <div class="table-shell">
+          <table class="master-table">
+            <thead><tr><th>#</th><th>Item</th><th>Location</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Levels</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let item of filteredBatches; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td><button type="button" class="name-link" (click)="goToDetails(item.stockBatchId)">{{ item.itemName }}</button><small>{{ formatEnum(item.itemType) }} | {{ item.unitName }} | {{ item.categoryName || 'No category' }}</small></td>
+                <td>{{ item.locationName }}</td>
+                <td>{{ item.batchNumber || 'N/A' }}</td>
+                <td>{{ item.expiryDate ? (item.expiryDate | date:'mediumDate') : 'No expiry' }}</td>
+                <td>{{ item.quantityOnHand | number:'1.0-2' }}</td>
+                <td>{{ item.minimumStock | number:'1.0-0' }} / {{ item.maximumStock | number:'1.0-0' }}</td>
+                <td>
+                  <div class="pill-stack">
+                    <span class="status-pill" [ngClass]="hasLowStock(item) ? 'warning' : 'success'">{{ hasLowStock(item) ? 'Reorder' : 'Normal' }}</span>
+                    <span class="status-pill" *ngIf="item.isNearExpiry" ngClass="warning">Near expiry</span>
+                    <span class="status-pill" *ngIf="item.isExpiredLocked" ngClass="danger">Expired lock</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-state" *ngIf="sectionRecordCount === 0">No stock batches found for the current filter.</div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'transfers'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Movement</span><h2>Stock transfers</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>Transfer</th><th>From</th><th>To</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredTransfers; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.stockTransferId)">{{ item.transferNumber }}</button><small>{{ item.transferDate | date:'mediumDate' }}</small></td>
+                  <td>{{ item.fromStockLocationName }}</td>
+                  <td>{{ item.toStockLocationName }}</td>
+                  <td>{{ item.totalQuantity | number:'1.0-0' }}</td>
+                  <td><span class="status-pill" [ngClass]="getStatusTone(item.status)">{{ formatEnum(item.status) }}</span></td>
+                  <td class="actions-cell">
+                    <button mat-button type="button" *ngIf="canEditTransfer(item)" (click)="editTransfer(item)">Edit</button>
+                    <button mat-button type="button" *ngIf="canApproveTransfer(item)" (click)="approveTransfer(item)">Approve</button>
+                    <button mat-button type="button" *ngIf="canReceiveTransfer(item)" (click)="receiveTransfer(item)">Receive</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No stock transfers found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head"><div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create transfer' : 'Edit transfer' }}</h2></div></div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>From store</mat-label><mat-select [(ngModel)]="transferForm.fromStockLocationId" (selectionChange)="onTransferSourceChange()"><mat-option *ngFor="let location of activeLocations" [value]="location.stockLocationId">{{ location.name }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>To store</mat-label><mat-select [(ngModel)]="transferForm.toStockLocationId"><mat-option *ngFor="let location of activeLocations" [value]="location.stockLocationId">{{ location.name }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Transfer date</mat-label><input matInput type="date" [(ngModel)]="transferForm.transferDate" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Notes</mat-label><textarea matInput rows="2" [(ngModel)]="transferForm.notes"></textarea></mat-form-field>
+        </div>
+        <div class="line-stack">
+          <div class="line-item" *ngFor="let line of transferForm.lines; let i = index">
+            <div class="line-item-head"><strong>Batch line {{ i + 1 }}</strong><button mat-button type="button" (click)="removeTransferLine(i)">Remove</button></div>
+            <div class="form-grid compact-grid">
+              <mat-form-field appearance="outline" class="full-width"><mat-label>Source batch</mat-label><mat-select [(ngModel)]="line.stockBatchId" (selectionChange)="onTransferBatchChange(line)"><mat-option *ngFor="let batch of transferSourceBatches" [value]="batch.stockBatchId">{{ batchDisplayName(batch) }}</mat-option></mat-select></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Transfer qty</mat-label><input matInput type="number" [(ngModel)]="line.quantity" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Notes</mat-label><input matInput [(ngModel)]="line.notes" /></mat-form-field>
+            </div>
+            <p class="hint-text" *ngIf="line.itemName">Available {{ line.availableQuantity | number:'1.0-2' }} of {{ line.itemName }}</p>
+          </div>
+          <button mat-stroked-button type="button" (click)="addTransferLine()">Add batch line</button>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'adjustments'">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head"><div><span class="eyebrow">Approval flow</span><h2>Stock adjustments</h2></div></div>
+          <div class="table-shell">
+            <table class="master-table">
+              <thead><tr><th>#</th><th>Adjustment</th><th>Location</th><th>Reason</th><th>Total delta</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let item of filteredAdjustments; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td><button type="button" class="name-link" (click)="goToDetails(item.stockAdjustmentId)">{{ item.adjustmentNumber }}</button><small>{{ item.adjustmentDate | date:'mediumDate' }}</small></td>
+                  <td>{{ item.stockLocationName }}</td>
+                  <td>{{ formatEnum(item.reason) }}</td>
+                  <td>{{ item.totalDelta | number:'1.0-2' }}</td>
+                  <td><span class="status-pill" [ngClass]="getStatusTone(item.status)">{{ formatEnum(item.status) }}</span></td>
+                  <td class="actions-cell">
+                    <button mat-button type="button" *ngIf="canEditAdjustment(item)" (click)="editAdjustment(item)">Edit</button>
+                    <button mat-button type="button" *ngIf="canApproveAdjustment(item)" (click)="approveAdjustment(item)">Approve</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No stock adjustments found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head"><div><span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span><h2>{{ isCreateView ? 'Create adjustment' : 'Edit adjustment' }}</h2></div></div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>Stock location</mat-label><mat-select [(ngModel)]="adjustmentForm.stockLocationId" (selectionChange)="onAdjustmentLocationChange()"><mat-option *ngFor="let location of activeLocations" [value]="location.stockLocationId">{{ location.name }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Reason</mat-label><mat-select [(ngModel)]="adjustmentForm.reason"><mat-option *ngFor="let option of adjustmentReasonOptions" [value]="option">{{ formatEnum(option) }}</mat-option></mat-select></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Adjustment date</mat-label><input matInput type="date" [(ngModel)]="adjustmentForm.adjustmentDate" /></mat-form-field>
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Notes</mat-label><textarea matInput rows="2" [(ngModel)]="adjustmentForm.notes"></textarea></mat-form-field>
+        </div>
+        <div class="line-stack">
+          <div class="line-item" *ngFor="let line of adjustmentForm.lines; let i = index">
+            <div class="line-item-head"><strong>Batch line {{ i + 1 }}</strong><button mat-button type="button" (click)="removeAdjustmentLine(i)">Remove</button></div>
+            <div class="form-grid compact-grid">
+              <mat-form-field appearance="outline" class="full-width"><mat-label>Batch</mat-label><mat-select [(ngModel)]="line.stockBatchId" (selectionChange)="onAdjustmentBatchChange(line)"><mat-option *ngFor="let batch of adjustmentLocationBatches" [value]="batch.stockBatchId">{{ batchDisplayName(batch) }}</mat-option></mat-select></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Delta qty</mat-label><input matInput type="number" [(ngModel)]="line.quantity" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Notes</mat-label><input matInput [(ngModel)]="line.notes" /></mat-form-field>
+            </div>
+            <p class="hint-text" *ngIf="line.itemName">Available {{ line.availableQuantity | number:'1.0-2' }} of {{ line.itemName }}. Damage/loss/expiry will be posted as negative quantity.</p>
+          </div>
+          <button mat-stroked-button type="button" (click)="addAdjustmentLine()">Add batch line</button>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngIf="isFormView">
+      <div class="actions-row editor-actions">
+        <button mat-stroked-button type="button" (click)="backToIndex()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'units'" (click)="saveUnit()" [disabled]="isSaving">Save unit</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'categories'" (click)="saveCategory()" [disabled]="isSaving">Save category</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'medicines'" (click)="saveMedicine()" [disabled]="isSaving">Save medicine</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'items'" (click)="saveItem()" [disabled]="isSaving">Save item</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'suppliers'" (click)="saveSupplier()" [disabled]="isSaving">Save supplier</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'locations'" (click)="saveLocation()" [disabled]="isSaving">Save location</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'purchases'" (click)="savePurchaseOrder()" [disabled]="isSaving">Save purchase order</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'returns'" (click)="saveReturn()" [disabled]="isSaving">Save return</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'transfers'" (click)="saveTransfer()" [disabled]="isSaving">Save transfer</button>
+        <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'adjustments'" (click)="saveAdjustment()" [disabled]="isSaving">Save adjustment</button>
+      </div>
+    </ng-container>
+  </ng-container>
+
+  <ng-container *ngIf="isDetailsView">
+    <section class="details-panel" *ngIf="hasDetailsRecord && detailSummary as summary; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Details page</span>
+          <h2>{{ currentRecordLabel }} details</h2>
+        </div>
+      </div>
+
+      <div class="details-showcase">
+        <div class="details-hero" [ngClass]="summary.tone">
+          <span class="hero-kicker">{{ summary.kicker }}</span>
+          <h3>{{ summary.title }}</h3>
+          <p>{{ summary.description }}</p>
+
+          <div class="hero-badges">
+            <span class="hero-badge" *ngFor="let badge of summary.badges">{{ badge }}</span>
+            <span class="status-pill" *ngIf="summary.statusLabel" [ngClass]="summary.statusTone">{{ summary.statusLabel }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div *ngFor="let field of summary.fields" [class.full-width]="field.fullWidth">
+            <span>{{ field.label }}</span>
+            <strong>{{ field.value }}</strong>
+          </div>
+        </div>
+
+        <section class="table-card inner-panel" *ngIf="showDetailLines">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">{{ detailLineSubheading }}</span>
+              <h3>{{ detailLineHeading }}</h3>
+            </div>
+          </div>
+          <div class="table-shell">
+            <table class="master-table compact-table" *ngIf="detailLines.length; else emptyInventoryLines">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Batch</th>
+                  <th>Expiry</th>
+                  <th>Quantity</th>
+                  <th *ngIf="showDetailReceivedQuantity">Received</th>
+                  <th *ngIf="showDetailUnitCost">Unit cost</th>
+                  <th *ngIf="showDetailLineTotal">Line total</th>
+                  <th *ngIf="showDetailReason">Reason</th>
+                  <th *ngIf="showDetailNotes">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let line of detailLines">
+                  <td>
+                    {{ line.itemName }}
+                    <small>{{ formatEnum(line.itemType) }} | {{ line.unitName }} | Ref {{ line.referenceLineId }}</small>
+                  </td>
+                  <td>{{ line.batchNumber || 'N/A' }}</td>
+                  <td>{{ line.expiryDate ? (line.expiryDate | date:'mediumDate') : 'No expiry' }}</td>
+                  <td>{{ line.quantity | number:'1.0-2' }}</td>
+                  <td *ngIf="showDetailReceivedQuantity">{{ line.receivedQuantity | number:'1.0-2' }}</td>
+                  <td *ngIf="showDetailUnitCost">{{ line.unitCost | number:'1.0-2' }}</td>
+                  <td *ngIf="showDetailLineTotal">{{ line.lineTotal | number:'1.0-2' }}</td>
+                  <td *ngIf="showDetailReason">{{ line.reason || 'Not recorded' }}</td>
+                  <td *ngIf="showDetailNotes">{{ line.notes || 'No notes added.' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-card inner-panel" *ngIf="activeSection === 'purchases'">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Purchase invoices</span>
+              <h3>Related invoices</h3>
+            </div>
+          </div>
+          <div class="table-shell">
+            <table class="master-table compact-table" *ngIf="detailRelatedInvoices.length; else emptyRelatedInvoices">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Paid</th>
+                  <th>Due</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let invoice of detailRelatedInvoices">
+                  <td>
+                    {{ invoice.invoiceNumber }}
+                    <small>{{ invoice.stockLocationName }} | {{ invoice.supplierName }}</small>
+                  </td>
+                  <td>{{ invoice.invoiceDate | date:'mediumDate' }}</td>
+                  <td><span class="status-pill" [ngClass]="getStatusTone(invoice.status)">{{ formatEnum(invoice.status) }}</span></td>
+                  <td>{{ invoice.paidAmount | number:'1.0-0' }}</td>
+                  <td>{{ invoice.dueAmount | number:'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </ng-container>
+</section>
+
+<ng-template #emptyLowStock><div class="empty-state compact-empty">No low stock alerts right now.</div></ng-template>
+<ng-template #emptyNearExpiry><div class="empty-state compact-empty">No near-expiry alerts right now.</div></ng-template>
+<ng-template #emptyDues><div class="empty-state compact-empty">No supplier dues at the moment.</div></ng-template>
+<ng-template #missingRecord>
+  <section class="details-panel">
+    <div class="empty-state">The selected {{ currentRecordLabel.toLowerCase() }} could not be found.</div>
+  </section>
+</ng-template>
+<ng-template #emptyInventoryLines><div class="empty-state compact-empty">No {{ detailLineSubheading.toLowerCase() }} are recorded for this entry.</div></ng-template>
+<ng-template #emptyRelatedInvoices><div class="empty-state compact-empty">No purchase invoices are linked to this purchase order yet.</div></ng-template>
+
+<ng-template #loadingState>
+  <section class="inventory-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading pharmacy and stock workspace...</span>
+    </div>
+  </section>
+</ng-template>

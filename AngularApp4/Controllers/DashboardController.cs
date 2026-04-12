@@ -30,15 +30,31 @@ public class DashboardController : ControllerBase
             .Where(x => x.LastPaymentDate.HasValue && x.LastPaymentDate.Value.Date == today && x.Status != InvoiceStatus.Cancelled)
             .SumAsync(x => (decimal?)x.AmountPaid) ?? 0m;
 
-        var lowStockQuery = _db.MedicineInventoryItems
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Where(x => x.IsActive && x.QuantityInStock <= x.ReorderLevel && x.ExpiryDate.Date >= today);
+        var stockBatchQuery =
+            from batch in _db.StockBatches.AsNoTracking()
+            join location in _db.StockLocations.AsNoTracking() on batch.StockLocationId equals location.StockLocationId
+            join branchRow in _db.Branches.AsNoTracking() on location.BranchId equals branchRow.BranchId into branchJoin
+            from branch in branchJoin.DefaultIfEmpty()
+            join medicineRow in _db.MedicineMasters.AsNoTracking() on batch.MedicineMasterId equals medicineRow.MedicineMasterId into medicineJoin
+            from medicine in medicineJoin.DefaultIfEmpty()
+            join itemRow in _db.StockItemMasters.AsNoTracking() on batch.StockItemMasterId equals itemRow.StockItemMasterId into itemJoin
+            from item in itemJoin.DefaultIfEmpty()
+            where batch.QuantityOnHand > 0
+            select new
+            {
+                batch.StockBatchId,
+                Name = medicine != null ? medicine.MedicineName : item != null ? item.ItemName : "Unknown item",
+                BranchName = branch != null ? branch.Name : location.Name,
+                QuantityOnHand = batch.QuantityOnHand,
+                ReorderLevel = medicine != null ? medicine.MinimumStock : item != null ? item.MinimumStock : 0m,
+                batch.ExpiryDate
+            };
 
-        var expiredMedicineQuery = _db.MedicineInventoryItems
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Where(x => x.IsActive && x.ExpiryDate.Date < today);
+        var lowStockQuery = stockBatchQuery
+            .Where(x => x.QuantityOnHand <= x.ReorderLevel && (!x.ExpiryDate.HasValue || x.ExpiryDate.Value.Date >= today));
+
+        var expiredMedicineQuery = stockBatchQuery
+            .Where(x => x.ExpiryDate.HasValue && x.ExpiryDate.Value.Date < today);
 
         var pendingInvoiceRows = await _db.BillingInvoices
             .AsNoTracking()
@@ -158,16 +174,16 @@ public class DashboardController : ControllerBase
             OccupiedBeds = occupiedBeds,
             BedOccupancyRate = totalBeds == 0 ? 0 : Math.Round((decimal)occupiedBeds / totalBeds * 100m, 1),
             LowStockAlerts = await lowStockQuery
-                .OrderBy(x => x.QuantityInStock)
+                .OrderBy(x => x.QuantityOnHand)
                 .Take(5)
                 .Select(x => new StockAlertDto
                 {
-                    ItemId = x.MedicineInventoryItemId,
+                    ItemId = x.StockBatchId,
                     Name = x.Name,
-                    BranchName = x.Branch != null ? x.Branch.Name : "Unassigned",
-                    QuantityInStock = x.QuantityInStock,
-                    ReorderLevel = x.ReorderLevel,
-                    ExpiryDate = x.ExpiryDate
+                    BranchName = x.BranchName,
+                    QuantityInStock = (int)Math.Round(x.QuantityOnHand, MidpointRounding.AwayFromZero),
+                    ReorderLevel = (int)Math.Round(x.ReorderLevel, MidpointRounding.AwayFromZero),
+                    ExpiryDate = x.ExpiryDate ?? today
                 })
                 .ToListAsync(),
             ExpiredMedicineAlerts = await expiredMedicineQuery
@@ -175,12 +191,12 @@ public class DashboardController : ControllerBase
                 .Take(5)
                 .Select(x => new StockAlertDto
                 {
-                    ItemId = x.MedicineInventoryItemId,
+                    ItemId = x.StockBatchId,
                     Name = x.Name,
-                    BranchName = x.Branch != null ? x.Branch.Name : "Unassigned",
-                    QuantityInStock = x.QuantityInStock,
-                    ReorderLevel = x.ReorderLevel,
-                    ExpiryDate = x.ExpiryDate
+                    BranchName = x.BranchName,
+                    QuantityInStock = (int)Math.Round(x.QuantityOnHand, MidpointRounding.AwayFromZero),
+                    ReorderLevel = (int)Math.Round(x.ReorderLevel, MidpointRounding.AwayFromZero),
+                    ExpiryDate = x.ExpiryDate ?? today
                 })
                 .ToListAsync(),
             PendingPaymentDetails = pendingInvoices,

@@ -1,0 +1,309 @@
+<section class="lab-service-page" *ngIf="!isLoading; else loadingState">
+  <div class="page-header">
+    <div>
+      <h1>{{ currentSection.label }}</h1>
+      <p>{{ currentSection.description }}</p>
+    </div>
+
+    <div class="header-actions">
+      <button mat-stroked-button type="button" (click)="refresh()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <button mat-stroked-button type="button" *ngIf="!isIndexView" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to list
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isIndexView" (click)="goToCreate()">
+        <mat-icon>add</mat-icon>
+        Create {{ currentRecordLabel }}
+      </button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isDetailsView && selectedRecordId" (click)="goToEdit(selectedRecordId)">
+        <mat-icon>edit</mat-icon>
+        Edit {{ currentRecordLabel }}
+      </button>
+    </div>
+  </div>
+
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success-box" *ngIf="successMessage">{{ successMessage }}</p>
+
+  <div class="table-actions" *ngIf="isIndexView">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search {{ currentSection.label.toLowerCase() }}</mat-label>
+      <input matInput [(ngModel)]="searchTerm" />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <div class="filter-row">
+      <button
+        mat-stroked-button
+        type="button"
+        *ngFor="let filter of filterOptions"
+        [class.active-filter]="statusFilter === filter.key"
+        (click)="setStatusFilter(filter.key)">
+        {{ filter.label }}
+      </button>
+    </div>
+  </div>
+
+  <ng-container *ngIf="!isDetailsView">
+    <ng-container *ngIf="isLabTestSection; else packageSection">
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Laboratory</span>
+              <h2>Test catalog</h2>
+            </div>
+            <strong class="record-count">{{ sectionRecordCount }} records</strong>
+          </div>
+
+          <div class="table-shell">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Test</th>
+                  <th>Department</th>
+                  <th>Price</th>
+                  <th>Sample</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of filteredLabTests; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td>
+                    <button type="button" class="name-link" (click)="goToDetails(item.labTestMasterId)">{{ item.testName }}</button>
+                    <small>{{ item.reportFormat }}</small>
+                  </td>
+                  <td>{{ item.departmentName }}</td>
+                  <td>{{ formatCurrency(item.price) }}</td>
+                  <td>{{ item.sampleType }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell">
+                    <button mat-button type="button" (click)="editLabTest(item)">Edit</button>
+                    <button mat-button type="button" (click)="updateLabTestStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No lab tests found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span>
+            <h2>{{ isCreateView ? 'Create lab test' : 'Edit lab test' }}</h2>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Test name</mat-label>
+            <input matInput [(ngModel)]="labTestForm.testName" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Department</mat-label>
+            <mat-select [(ngModel)]="labTestForm.departmentName">
+              <mat-option *ngFor="let department of activeDepartmentNames" [value]="department">{{ department }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Price</mat-label>
+            <input matInput type="number" [(ngModel)]="labTestForm.price" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Sample type</mat-label>
+            <input matInput [(ngModel)]="labTestForm.sampleType" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Report format</mat-label>
+            <input matInput [(ngModel)]="labTestForm.reportFormat" />
+          </mat-form-field>
+
+          <label class="toggle-box full-width">
+            <input type="checkbox" [(ngModel)]="labTestForm.isActive" />
+            <span>Lab test active</span>
+          </label>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-template #packageSection>
+      <div class="workspace-grid two-col" *ngIf="isIndexView">
+        <section class="table-card span-two">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Package setup</span>
+              <h2>{{ currentSection.label }}</h2>
+            </div>
+            <strong class="record-count">{{ sectionRecordCount }} records</strong>
+          </div>
+
+          <div class="table-shell">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Package</th>
+                  <th>Department</th>
+                  <th>Price</th>
+                  <th>Discount</th>
+                  <th>Net</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of filteredPackages; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td>
+                    <button type="button" class="name-link" (click)="goToDetails(item.servicePackageId)">{{ item.packageName }}</button>
+                    <small>{{ item.description || 'No package notes' }}</small>
+                  </td>
+                  <td>{{ item.departmentName || 'All departments' }}</td>
+                  <td>{{ formatCurrency(item.price) }}</td>
+                  <td>{{ formatCurrency(item.discountAmount) }}</td>
+                  <td>{{ formatCurrency(item.netAmount) }}</td>
+                  <td><span class="status-pill" [class.inactive]="!item.isActive">{{ item.isActive ? 'Active' : 'Inactive' }}</span></td>
+                  <td class="actions-cell">
+                    <button mat-button type="button" (click)="editPackage(item)">Edit</button>
+                    <button mat-button type="button" (click)="updatePackageStatus(item)">{{ item.isActive ? 'Deactivate' : 'Activate' }}</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" *ngIf="sectionRecordCount === 0">No packages found for the current filter.</div>
+        </section>
+      </div>
+
+      <section class="editor-panel" *ngIf="isFormView">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">{{ isCreateView ? 'Create page' : 'Edit page' }}</span>
+            <h2>{{ isCreateView ? ('Create ' + currentRecordLabel.toLowerCase()) : ('Edit ' + currentRecordLabel.toLowerCase()) }}</h2>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Package name</mat-label>
+            <input matInput [(ngModel)]="packageForm.packageName" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Department</mat-label>
+            <mat-select [(ngModel)]="packageForm.departmentName">
+              <mat-option value="">All departments</mat-option>
+              <mat-option *ngFor="let department of activeDepartmentNames" [value]="department">{{ department }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Package price</mat-label>
+            <input matInput type="number" [(ngModel)]="packageForm.price" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Discount amount</mat-label>
+            <input matInput type="number" [(ngModel)]="packageForm.discountAmount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput rows="4" [(ngModel)]="packageForm.description"></textarea>
+          </mat-form-field>
+
+          <div class="support-panel full-width">
+            <span class="eyebrow">Pricing preview</span>
+            <h3>{{ formatCurrency(packageNetAmountPreview) }}</h3>
+            <p>Net package amount after discount.</p>
+          </div>
+
+          <label class="toggle-box full-width">
+            <input type="checkbox" [(ngModel)]="packageForm.isActive" />
+            <span>{{ currentRecordLabel }} active</span>
+          </label>
+        </div>
+      </section>
+    </ng-template>
+
+    <div class="actions-row editor-actions" *ngIf="isFormView">
+      <button mat-stroked-button type="button" (click)="backToIndex()">Cancel</button>
+      <button mat-stroked-button type="button" (click)="resetCurrentForm()">Reset</button>
+      <button mat-raised-button color="primary" type="button" *ngIf="isLabTestSection" (click)="saveLabTest()" [disabled]="isSaving">Save lab test</button>
+      <button mat-raised-button color="primary" type="button" *ngIf="!isLabTestSection" (click)="savePackage()" [disabled]="isSaving">Save {{ currentRecordLabel.toLowerCase() }}</button>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="isDetailsView">
+    <section class="details-panel" *ngIf="hasDetailsRecord && detailSummary as summary; else missingRecord">
+      <div class="panel-head">
+        <div>
+          <span class="eyebrow">Details page</span>
+          <h2>{{ currentRecordLabel }} details</h2>
+        </div>
+      </div>
+
+      <div class="details-showcase">
+        <div class="details-hero" [ngClass]="summary.tone">
+          <span class="hero-kicker">{{ summary.kicker }}</span>
+          <h3>{{ summary.title }}</h3>
+          <p>{{ summary.description }}</p>
+
+          <div class="hero-badges">
+            <span class="hero-badge" *ngFor="let badge of summary.badges">{{ badge }}</span>
+            <span class="status-pill" [ngClass]="summary.statusTone">{{ summary.statusLabel }}</span>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div *ngFor="let field of summary.fields" [class.full-width]="field.fullWidth">
+            <span>{{ field.label }}</span>
+            <strong>{{ field.value }}</strong>
+          </div>
+        </div>
+
+        <section class="support-panel" *ngIf="selectedPackage">
+          <span class="eyebrow">Package math</span>
+          <h3>{{ formatCurrency(selectedPackage.netAmount) }}</h3>
+          <p>{{ formatCurrency(selectedPackage.price) }} list amount less {{ formatCurrency(selectedPackage.discountAmount) }} discount.</p>
+        </section>
+
+        <section class="support-panel" *ngIf="selectedLabTest">
+          <span class="eyebrow">Report workflow</span>
+          <h3>{{ selectedLabTest.sampleType }}</h3>
+          <p>{{ selectedLabTest.reportFormat }}</p>
+        </section>
+      </div>
+    </section>
+  </ng-container>
+</section>
+
+<ng-template #missingRecord>
+  <section class="details-panel">
+    <div class="empty-state">The selected {{ currentRecordLabel.toLowerCase() }} could not be found.</div>
+  </section>
+</ng-template>
+
+<ng-template #loadingState>
+  <section class="lab-service-page">
+    <div class="loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <span>Loading lab and service admin workspace...</span>
+    </div>
+  </section>
+</ng-template>

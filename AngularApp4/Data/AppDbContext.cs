@@ -16,6 +16,9 @@ public class AppDbContext : DbContext
     public DbSet<DoctorSchedule> DoctorSchedules => Set<DoctorSchedule>();
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<HospitalService> HospitalServices => Set<HospitalService>();
+    public DbSet<LabTestMaster> LabTestMasters => Set<LabTestMaster>();
+    public DbSet<ServicePackage> ServicePackages => Set<ServicePackage>();
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<AngularApp4.Model.Service> Services => Set<AngularApp4.Model.Service>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
@@ -29,6 +32,23 @@ public class AppDbContext : DbContext
     public DbSet<PatientAdmission> PatientAdmissions => Set<PatientAdmission>();
     public DbSet<AdmissionTransfer> AdmissionTransfers => Set<AdmissionTransfer>();
     public DbSet<MedicineInventoryItem> MedicineInventoryItems => Set<MedicineInventoryItem>();
+    public DbSet<InventoryUnit> InventoryUnits => Set<InventoryUnit>();
+    public DbSet<InventoryCategory> InventoryCategories => Set<InventoryCategory>();
+    public DbSet<MedicineMaster> MedicineMasters => Set<MedicineMaster>();
+    public DbSet<StockItemMaster> StockItemMasters => Set<StockItemMaster>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<StockLocation> StockLocations => Set<StockLocation>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
+    public DbSet<PurchaseInvoiceLine> PurchaseInvoiceLines => Set<PurchaseInvoiceLine>();
+    public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
+    public DbSet<PurchaseReturnLine> PurchaseReturnLines => Set<PurchaseReturnLine>();
+    public DbSet<StockBatch> StockBatches => Set<StockBatch>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
+    public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
+    public DbSet<StockAdjustmentLine> StockAdjustmentLines => Set<StockAdjustmentLine>();
     public DbSet<BillingChargeDefinition> BillingChargeDefinitions => Set<BillingChargeDefinition>();
     public DbSet<BillingPaymentMethod> BillingPaymentMethods => Set<BillingPaymentMethod>();
     public DbSet<BillingPartner> BillingPartners => Set<BillingPartner>();
@@ -55,7 +75,26 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Doctor>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<Staff>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<HospitalService>().HasIndex(x => x.ServiceName).IsUnique();
+        modelBuilder.Entity<LabTestMaster>().HasIndex(x => new { x.DepartmentName, x.TestName }).IsUnique();
+        modelBuilder.Entity<ServicePackage>().HasIndex(x => new { x.Kind, x.PackageName }).IsUnique();
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(x => x.CreatedAt);
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(x => new { x.Category, x.CreatedAt });
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(x => new { x.Action, x.CreatedAt });
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(x => x.PerformedByUserId);
         modelBuilder.Entity<AngularApp4.Model.Service>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<InventoryUnit>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<InventoryCategory>().HasIndex(x => new { x.CategoryType, x.Name }).IsUnique();
+        modelBuilder.Entity<MedicineMaster>().HasIndex(x => new { x.MedicineName, x.Brand, x.Strength }).IsUnique();
+        modelBuilder.Entity<StockItemMaster>().HasIndex(x => new { x.ItemName, x.ItemType }).IsUnique();
+        modelBuilder.Entity<Supplier>().HasIndex(x => x.SupplierCode).IsUnique();
+        modelBuilder.Entity<Supplier>().HasIndex(x => x.SupplierName).IsUnique();
+        modelBuilder.Entity<StockLocation>().HasIndex(x => x.Code).IsUnique();
+        modelBuilder.Entity<StockLocation>().HasIndex(x => x.Name).IsUnique();
+        modelBuilder.Entity<PurchaseOrder>().HasIndex(x => x.OrderNumber).IsUnique();
+        modelBuilder.Entity<PurchaseInvoice>().HasIndex(x => new { x.SupplierId, x.InvoiceNumber }).IsUnique();
+        modelBuilder.Entity<PurchaseReturn>().HasIndex(x => x.ReturnNumber).IsUnique();
+        modelBuilder.Entity<StockTransfer>().HasIndex(x => x.TransferNumber).IsUnique();
+        modelBuilder.Entity<StockAdjustment>().HasIndex(x => x.AdjustmentNumber).IsUnique();
         modelBuilder.Entity<BillingChargeDefinition>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<BillingPaymentMethod>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<BillingPartner>().HasIndex(x => new { x.Kind, x.Name }).IsUnique();
@@ -161,6 +200,204 @@ public class AppDbContext : DbContext
             .HasOne(x => x.Branch)
             .WithMany()
             .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MedicineMaster>()
+            .HasOne(x => x.InventoryUnit)
+            .WithMany()
+            .HasForeignKey(x => x.InventoryUnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MedicineMaster>()
+            .HasOne(x => x.InventoryCategory)
+            .WithMany()
+            .HasForeignKey(x => x.InventoryCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockItemMaster>()
+            .HasOne(x => x.InventoryUnit)
+            .WithMany()
+            .HasForeignKey(x => x.InventoryUnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockItemMaster>()
+            .HasOne(x => x.InventoryCategory)
+            .WithMany()
+            .HasForeignKey(x => x.InventoryCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockLocation>()
+            .HasOne(x => x.Branch)
+            .WithMany()
+            .HasForeignKey(x => x.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseOrder>()
+            .HasOne(x => x.Supplier)
+            .WithMany()
+            .HasForeignKey(x => x.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseOrder>()
+            .HasOne(x => x.StockLocation)
+            .WithMany()
+            .HasForeignKey(x => x.StockLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseOrderLine>()
+            .HasOne(x => x.PurchaseOrder)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseOrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PurchaseOrderLine>()
+            .HasOne(x => x.MedicineMaster)
+            .WithMany()
+            .HasForeignKey(x => x.MedicineMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseOrderLine>()
+            .HasOne(x => x.StockItemMaster)
+            .WithMany()
+            .HasForeignKey(x => x.StockItemMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasOne(x => x.PurchaseOrder)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseOrderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasOne(x => x.Supplier)
+            .WithMany()
+            .HasForeignKey(x => x.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasOne(x => x.StockLocation)
+            .WithMany()
+            .HasForeignKey(x => x.StockLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoiceLine>()
+            .HasOne(x => x.PurchaseInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseInvoiceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PurchaseInvoiceLine>()
+            .HasOne(x => x.PurchaseOrderLine)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseOrderLineId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoiceLine>()
+            .HasOne(x => x.MedicineMaster)
+            .WithMany()
+            .HasForeignKey(x => x.MedicineMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseInvoiceLine>()
+            .HasOne(x => x.StockItemMaster)
+            .WithMany()
+            .HasForeignKey(x => x.StockItemMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseReturn>()
+            .HasOne(x => x.PurchaseInvoice)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseInvoiceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseReturn>()
+            .HasOne(x => x.Supplier)
+            .WithMany()
+            .HasForeignKey(x => x.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseReturnLine>()
+            .HasOne(x => x.PurchaseReturn)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseReturnId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PurchaseReturnLine>()
+            .HasOne(x => x.PurchaseInvoiceLine)
+            .WithMany()
+            .HasForeignKey(x => x.PurchaseInvoiceLineId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseReturnLine>()
+            .HasOne(x => x.MedicineMaster)
+            .WithMany()
+            .HasForeignKey(x => x.MedicineMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PurchaseReturnLine>()
+            .HasOne(x => x.StockItemMaster)
+            .WithMany()
+            .HasForeignKey(x => x.StockItemMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockBatch>()
+            .HasOne(x => x.StockLocation)
+            .WithMany()
+            .HasForeignKey(x => x.StockLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockBatch>()
+            .HasOne(x => x.MedicineMaster)
+            .WithMany()
+            .HasForeignKey(x => x.MedicineMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockBatch>()
+            .HasOne(x => x.StockItemMaster)
+            .WithMany()
+            .HasForeignKey(x => x.StockItemMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTransfer>()
+            .HasOne(x => x.FromStockLocation)
+            .WithMany()
+            .HasForeignKey(x => x.FromStockLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTransfer>()
+            .HasOne(x => x.ToStockLocation)
+            .WithMany()
+            .HasForeignKey(x => x.ToStockLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTransferLine>()
+            .HasOne(x => x.StockTransfer)
+            .WithMany()
+            .HasForeignKey(x => x.StockTransferId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StockTransferLine>()
+            .HasOne(x => x.StockBatch)
+            .WithMany()
+            .HasForeignKey(x => x.StockBatchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockAdjustment>()
+            .HasOne(x => x.StockLocation)
+            .WithMany()
+            .HasForeignKey(x => x.StockLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockAdjustmentLine>()
+            .HasOne(x => x.StockAdjustment)
+            .WithMany()
+            .HasForeignKey(x => x.StockAdjustmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StockAdjustmentLine>()
+            .HasOne(x => x.StockBatch)
+            .WithMany()
+            .HasForeignKey(x => x.StockBatchId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<BillingRule>()
@@ -321,6 +558,42 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<BillingPartner>()
             .Property(x => x.Kind)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<InventoryCategory>()
+            .Property(x => x.CategoryType)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<ServicePackage>()
+            .Property(x => x.Kind)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<StockItemMaster>()
+            .Property(x => x.ItemType)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<StockLocation>()
+            .Property(x => x.LocationType)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<PurchaseOrder>()
+            .Property(x => x.Status)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<PurchaseInvoice>()
+            .Property(x => x.Status)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<StockTransfer>()
+            .Property(x => x.Status)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<StockAdjustment>()
+            .Property(x => x.Reason)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<StockAdjustment>()
+            .Property(x => x.Status)
             .HasConversion<string>();
 
         modelBuilder.Entity<BillingInvoice>()
