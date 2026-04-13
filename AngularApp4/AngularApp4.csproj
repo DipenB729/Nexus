@@ -46,6 +46,12 @@
     <Folder Include="Service\" />
   </ItemGroup>
 
+  <Target Name="StopLockedDevHost" BeforeTargets="Build" Condition="'$(OS)' == 'Windows_NT'">
+    <Exec
+      Command="cmd /c taskkill /F /IM $(AssemblyName).exe /T &gt;nul 2&gt;&amp;1"
+      IgnoreExitCode="true" />
+  </Target>
+
     <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">
     <!-- Ensure Node.js is installed -->
     <Exec Command="node --version" ContinueOnError="true">
