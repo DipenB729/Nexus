@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.EntityFrameworkCore;
 using ServiceModel = AngularApp4.Model.Service;
 
@@ -50,6 +51,9 @@ public sealed class DatabaseInitializer
         await EnsureRolePermissionsAsync(cancellationToken);
         await EnsureDemoAccountsAsync(cancellationToken);
         await EnsureHospitalProfileAsync(cancellationToken);
+        await EnsureNotificationSettingsAsync(cancellationToken);
+        await EnsureSystemControlSettingsAsync(cancellationToken);
+        await EnsureSecuritySettingsAsync(cancellationToken);
         await EnsureBranchesAsync(cancellationToken);
         await EnsureDepartmentsAsync(cancellationToken);
         await EnsurePatientCategoriesAsync(cancellationToken);
@@ -73,6 +77,7 @@ public sealed class DatabaseInitializer
         await EnsureBillingPartnersAsync(cancellationToken);
         await EnsureBillingRulesAsync(cancellationToken);
         await EnsureBillingAsync(cancellationToken);
+        await EnsureAuditLogsAsync(cancellationToken);
 
         _logger.LogInformation("Database schema verified and initial seed data applied.");
     }
@@ -2468,6 +2473,199 @@ public sealed class DatabaseInitializer
             }),
             _ => ModuleSet(roleId, new Dictionary<string, (bool View, bool Add, bool Edit, bool Delete)>())
         };
+    }
+
+    private async Task EnsureAuditLogsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.AuditLogEntries.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var adminUser = await _db.Users
+            .Include(x => x.Role)
+            .FirstOrDefaultAsync(x => x.Email == "admin@nexus.local", cancellationToken);
+        var department = await _db.Departments.AsNoTracking().OrderBy(x => x.DepartmentId).FirstOrDefaultAsync(cancellationToken);
+        var labTest = await _db.LabTestMasters.AsNoTracking().OrderBy(x => x.LabTestMasterId).FirstOrDefaultAsync(cancellationToken);
+        var adjustment = await _db.StockAdjustments.AsNoTracking().OrderByDescending(x => x.StockAdjustmentId).FirstOrDefaultAsync(cancellationToken);
+        var invoice = await _db.BillingInvoices.AsNoTracking().OrderByDescending(x => x.BillingInvoiceId).FirstOrDefaultAsync(cancellationToken);
+        var refund = await _db.BillingRefunds.AsNoTracking().OrderByDescending(x => x.BillingRefundId).FirstOrDefaultAsync(cancellationToken);
+        var now = DateTime.UtcNow;
+
+        _db.AuditLogEntries.AddRange(
+            new AuditLogEntry
+            {
+                Category = AuditLogCategories.Authentication,
+                Action = "LoginSucceeded",
+                EntityName = "UserSession",
+                EntityId = adminUser?.UserId,
+                TargetDisplayName = adminUser?.FullName ?? "Nexus Admin",
+                Summary = "Administrator signed in to the admin workspace.",
+                PerformedByUserId = adminUser?.UserId,
+                PerformedByName = adminUser?.FullName ?? "Nexus Admin",
+                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                ActorEmail = adminUser?.Email ?? "admin@nexus.local",
+                CreatedAt = now.AddHours(-18)
+            },
+            new AuditLogEntry
+            {
+                Category = AuditLogCategories.MasterSetup,
+                Action = "Created",
+                EntityName = "Department",
+                EntityId = department?.DepartmentId,
+                TargetDisplayName = department?.Name ?? "Outpatient Department",
+                Summary = $"Department {(department?.Name ?? "Outpatient Department")} was added during master setup.",
+                PerformedByUserId = adminUser?.UserId,
+                PerformedByName = adminUser?.FullName ?? "Nexus Admin",
+                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                ActorEmail = adminUser?.Email ?? "admin@nexus.local",
+                CreatedAt = now.AddHours(-15)
+            },
+            new AuditLogEntry
+            {
+                Category = AuditLogCategories.Laboratory,
+                Action = "Updated",
+                EntityName = "Lab Test",
+                EntityId = labTest?.LabTestMasterId,
+                TargetDisplayName = labTest?.TestName ?? "Complete Blood Count",
+                Summary = $"Lab test {(labTest?.TestName ?? "Complete Blood Count")} pricing and sample details were updated.",
+                PerformedByUserId = adminUser?.UserId,
+                PerformedByName = adminUser?.FullName ?? "Nexus Admin",
+                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                ActorEmail = adminUser?.Email ?? "admin@nexus.local",
+                CreatedAt = now.AddHours(-11)
+            },
+            new AuditLogEntry
+            {
+                Category = AuditLogCategories.StockAdjustment,
+                Action = "Approved",
+                EntityName = "Stock Adjustment",
+                EntityId = adjustment?.StockAdjustmentId,
+                TargetDisplayName = adjustment?.AdjustmentNumber ?? "ADJ-1001",
+                Summary = $"Stock adjustment {(adjustment?.AdjustmentNumber ?? "ADJ-1001")} was approved for inventory correction.",
+                PerformedByUserId = adminUser?.UserId,
+                PerformedByName = adminUser?.FullName ?? "Nexus Admin",
+                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                ActorEmail = adminUser?.Email ?? "admin@nexus.local",
+                CreatedAt = now.AddHours(-8)
+            },
+            new AuditLogEntry
+            {
+                Category = AuditLogCategories.Billing,
+                Action = "InvoiceUpdated",
+                EntityName = "Billing Invoice",
+                EntityId = invoice?.BillingInvoiceId,
+                TargetDisplayName = invoice?.InvoiceNumber ?? "NEX-5001",
+                Summary = $"Billing invoice {(invoice?.InvoiceNumber ?? "NEX-5001")} totals and claim metadata were updated.",
+                PerformedByUserId = adminUser?.UserId,
+                PerformedByName = adminUser?.FullName ?? "Nexus Admin",
+                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                ActorEmail = adminUser?.Email ?? "admin@nexus.local",
+                CreatedAt = now.AddHours(-5)
+            },
+            new AuditLogEntry
+            {
+                Category = AuditLogCategories.RefundApproval,
+                Action = "RefundProcessed",
+                EntityName = "Billing Refund",
+                EntityId = refund?.BillingRefundId,
+                TargetDisplayName = invoice?.InvoiceNumber ?? "NEX-5001",
+                Summary = $"Refund {(refund?.BillingRefundId.ToString() ?? "request")} was processed against invoice {(invoice?.InvoiceNumber ?? "NEX-5001")}.",
+                PerformedByUserId = adminUser?.UserId,
+                PerformedByName = adminUser?.FullName ?? "Nexus Admin",
+                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                ActorEmail = adminUser?.Email ?? "admin@nexus.local",
+                CreatedAt = now.AddHours(-2)
+            });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureNotificationSettingsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.NotificationSettings.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        _db.NotificationSettings.Add(new NotificationSetting
+        {
+            LowStockAlertsEnabled = true,
+            LowStockAlertChannels = "Dashboard,Email",
+            LowStockReminderFrequencyHours = 12,
+            ExpiryAlertsEnabled = true,
+            ExpiryAlertDays = 30,
+            ExpiryAlertChannels = "Dashboard,Email",
+            AppointmentRemindersEnabled = true,
+            AppointmentReminderHoursBefore = 24,
+            AppointmentReminderChannels = "SMS,Email",
+            PaymentDueAlertsEnabled = true,
+            PaymentDueReminderDaysBefore = 2,
+            PaymentDueAlertChannels = "Dashboard,Email",
+            RecipientEmails = "admin@nexus.local, billing@nexushospital.local",
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureSystemControlSettingsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.SystemControlSettings.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var profile = await _db.HospitalProfiles
+            .AsNoTracking()
+            .OrderBy(x => x.HospitalProfileId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        _db.SystemControlSettings.Add(new SystemControlSetting
+        {
+            DefaultCurrencyCode = profile?.CurrencyCode ?? "NPR",
+            TimeZoneId = "Asia/Kathmandu",
+            InvoicePrefix = profile?.InvoicePrefix ?? "NEX",
+            NextInvoiceNumber = profile?.InvoiceStartingNumber ?? 5001,
+            SmsProviderName = "Twilio",
+            SmsApiUrl = "https://api.sms-provider.local/v1/messages",
+            SmsApiKey = "demo-sms-key",
+            SmsSenderId = "NEXUS",
+            EmailProviderName = "SendGrid",
+            EmailApiUrl = "https://api.email-provider.local/v3/mail/send",
+            EmailApiKey = "demo-email-key",
+            EmailFromAddress = profile?.ContactEmail ?? "notifications@nexushospital.local",
+            AutoBackupEnabled = true,
+            AutoBackupTime = "02:00",
+            BackupRetentionCount = 10,
+            BackupStoragePath = "App_Data/Backups",
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureSecuritySettingsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.SecuritySettings.AnyAsync(cancellationToken))
+        {
+            return;
+        }
+
+        _db.SecuritySettings.Add(new SecuritySetting
+        {
+            SessionTimeoutMinutes = 120,
+            MinPasswordLength = 8,
+            RequireUppercase = true,
+            RequireLowercase = true,
+            RequireDigit = true,
+            RequireSpecialCharacter = true,
+            PasswordExpiryDays = 90,
+            PermissionReviewIntervalDays = 30,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     private static IEnumerable<RolePermission> FullAccess(long roleId) =>

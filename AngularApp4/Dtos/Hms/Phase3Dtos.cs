@@ -77,7 +77,7 @@ public class AppointmentAdminDto
 
 public class ManageAppointmentDto
 {
-    public AppointmentStatus Status { get; set; }
+    public string Status { get; set; } = AppointmentStatus.Pending.ToString();
     public long? DoctorId { get; set; }
     public long? ScheduleId { get; set; }
     public DateTime? AppointmentDate { get; set; }

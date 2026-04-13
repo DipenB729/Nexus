@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class RolesController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public RolesController(AppDbContext db)
+    public RolesController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -90,6 +93,15 @@ public class RolesController : ControllerBase
         {
             await ReplacePermissionsAsync(role.RoleId, dto.Permissions);
         }
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Administration,
+            Action = "Created",
+            EntityName = "Role",
+            EntityId = role.RoleId,
+            TargetDisplayName = role.Name,
+            Summary = $"Role {role.Name} was created with {dto.Permissions?.Count() ?? 0} permission rows."
+        });
 
         var created = await BuildRoleDtoAsync(role.RoleId);
         return Ok(ApiResponse<RoleDetailsDto>.Ok(created, "Role created"));
@@ -127,6 +139,15 @@ public class RolesController : ControllerBase
 
         await ReplacePermissionsAsync(roleId, dto.Permissions);
         await _db.SaveChangesAsync();
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Administration,
+            Action = "Updated",
+            EntityName = "Role",
+            EntityId = role.RoleId,
+            TargetDisplayName = role.Name,
+            Summary = $"Role {role.Name} was updated with {dto.Permissions.Count()} permission rows."
+        });
 
         var updated = await BuildRoleDtoAsync(roleId);
         return Ok(ApiResponse<RoleDetailsDto>.Ok(updated, "Role updated"));

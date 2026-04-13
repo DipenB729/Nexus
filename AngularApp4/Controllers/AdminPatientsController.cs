@@ -3,6 +3,7 @@ using System.Text;
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +16,12 @@ namespace AngularApp4.Controllers;
 public class AdminPatientsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IPasswordPolicyService _passwordPolicy;
 
-    public AdminPatientsController(AppDbContext db)
+    public AdminPatientsController(AppDbContext db, IPasswordPolicyService passwordPolicy)
     {
         _db = db;
+        _passwordPolicy = passwordPolicy;
     }
 
     [HttpPost]
@@ -30,9 +33,10 @@ public class AdminPatientsController : ControllerBase
             return BadRequest(ApiResponse<PatientOverviewDto>.Fail("Full name and email are required"));
         }
 
-        if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 6)
+        var policyValidation = await _passwordPolicy.ValidateAsync(dto.Password);
+        if (!policyValidation.IsValid)
         {
-            return BadRequest(ApiResponse<PatientOverviewDto>.Fail("Password must be at least 6 characters"));
+            return BadRequest(ApiResponse<PatientOverviewDto>.Fail(policyValidation.Errors.First()));
         }
 
         if (await _db.Users.AnyAsync(x => x.Email == nextEmail))

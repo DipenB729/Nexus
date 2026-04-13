@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class WardsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public WardsController(AppDbContext db)
+    public WardsController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -88,6 +91,7 @@ public class WardsController : ControllerBase
 
         _db.Wards.Add(item);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", item.WardId, item.Name, $"Ward {item.Name} was created.");
 
         var payload = await GetWardAsync(item.WardId);
         return Ok(ApiResponse<WardDto>.Ok(payload, "Ward created"));
@@ -117,6 +121,7 @@ public class WardsController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", item.WardId, item.Name, $"Ward {item.Name} was updated.");
 
         var payload = await GetWardAsync(item.WardId);
         return Ok(ApiResponse<WardDto>.Ok(payload, "Ward updated"));
@@ -134,8 +139,22 @@ public class WardsController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync(dto.IsActive ? "Activated" : "Deactivated", item.WardId, item.Name, $"Ward {item.Name} was {(dto.IsActive ? "activated" : "deactivated")}.");
 
         return Ok(ApiResponse<object>.Ok(null, dto.IsActive ? "Ward activated" : "Ward deactivated"));
+    }
+
+    private Task WriteAuditAsync(string action, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.MasterSetup,
+            Action = action,
+            EntityName = "Ward",
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     private async Task<string?> ValidateMappingsAsync(long branchId, long? departmentId)

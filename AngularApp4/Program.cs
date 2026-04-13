@@ -23,6 +23,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IInventoryAdminService, InventoryAdminService>();
+builder.Services.AddScoped<IPasswordPolicyService, PasswordPolicyService>();
 
 builder.Services.AddCors(options =>
 {
@@ -96,7 +97,10 @@ else
 }
 
 app.UseGlobalExceptionMiddleware();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AngularClient");

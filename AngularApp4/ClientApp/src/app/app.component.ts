@@ -171,12 +171,49 @@ export class AppComponent implements OnInit, OnDestroy {
       return laboratoryTitles[laboratorySection] ?? 'Lab & Service Admin';
     }
 
+    if (path.startsWith('/admin/monitoring')) {
+      const monitoringSection = path.split('/')[3] ?? 'reports';
+      const monitoringReport = path.split('/')[4] ?? '';
+      const reportTitles: Record<string, string> = {
+        patient: 'Patient Report',
+        billing: 'Billing Report',
+        doctorRevenue: 'Doctor Revenue Report',
+        pharmacySales: 'Pharmacy Sales Report',
+        purchase: 'Purchase Report',
+        stockBalance: 'Stock Balance Report',
+        expiry: 'Expiry Report',
+        bedOccupancy: 'Bed Occupancy Report'
+      };
+      const monitoringTitles: Record<string, string> = {
+        reports: 'Reports Dashboard',
+        audit: 'Audit Log & Monitoring'
+      };
+
+      if (monitoringSection === 'reports' && monitoringReport) {
+        return reportTitles[monitoringReport] ?? 'Reports Dashboard';
+      }
+
+      return monitoringTitles[monitoringSection] ?? 'Reports & Monitoring';
+    }
+
+    if (path.startsWith('/admin/settings')) {
+      const settingsSection = path.split('/')[3] ?? 'organization';
+      const settingsTitles: Record<string, string> = {
+        organization: 'Organization Settings',
+        notifications: 'Notification Settings',
+        system: 'System Settings',
+        backup: 'Backup & Restore',
+        security: 'Security Settings'
+      };
+
+      return settingsTitles[settingsSection] ?? 'Hospital Settings';
+    }
+
     const titles: Record<string, string> = {
       '/admin/dashboard': 'Admin Dashboard',
       '/admin/services': 'Service Management',
       '/admin/roles': 'Roles & Permissions',
       '/admin/users': 'Roles & Permissions',
-      '/admin/settings': 'Hospital Settings',
       '/user/dashboard': 'User Dashboard',
       '/user/services': 'Service Catalog',
       '/user/appointments': 'My Appointments'

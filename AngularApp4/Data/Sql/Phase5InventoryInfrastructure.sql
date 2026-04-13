@@ -597,27 +597,52 @@ BEGIN
     DECLARE @Today DATE = CAST(GETDATE() AS DATE);
     DECLARE @NearExpiry DATE = DATEADD(DAY, 30, @Today);
 
-    WITH BatchView AS
+    CREATE TABLE #BatchView
     (
-        SELECT
-            sb.StockBatchId,
-            l.Name AS LocationName,
-            CASE WHEN sb.MedicineMasterId IS NOT NULL THEN N'Medicine' ELSE ISNULL(i.ItemType, N'Item') END AS ItemType,
-            COALESCE(m.MedicineName, i.ItemName) AS ItemName,
-            u.Name AS UnitName,
-            sb.BatchNumber,
-            sb.ExpiryDate,
-            sb.QuantityOnHand,
-            COALESCE(m.MinimumStock, i.MinimumStock, 0) AS MinimumStock,
-            CASE WHEN sb.ExpiryDate IS NOT NULL AND sb.ExpiryDate < @Today THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS IsExpiredLocked
-        FROM dbo.StockBatches sb
-        INNER JOIN dbo.StockLocations l ON l.StockLocationId = sb.StockLocationId
-        LEFT JOIN dbo.MedicineMasters m ON m.MedicineMasterId = sb.MedicineMasterId
-        LEFT JOIN dbo.StockItemMasters i ON i.StockItemMasterId = sb.StockItemMasterId
-        LEFT JOIN dbo.InventoryUnits u ON u.InventoryUnitId = COALESCE(m.InventoryUnitId, i.InventoryUnitId)
-        WHERE sb.QuantityOnHand > 0
-    ),
-    DueSummary AS
+        StockBatchId BIGINT NOT NULL,
+        LocationName NVARCHAR(120) NOT NULL,
+        ItemType NVARCHAR(40) NOT NULL,
+        ItemName NVARCHAR(200) NOT NULL,
+        UnitName NVARCHAR(80) NULL,
+        BatchNumber NVARCHAR(80) NULL,
+        ExpiryDate DATE NULL,
+        QuantityOnHand DECIMAL(18, 2) NOT NULL,
+        MinimumStock DECIMAL(18, 2) NOT NULL,
+        IsExpiredLocked BIT NOT NULL
+    );
+
+    INSERT INTO #BatchView
+    (
+        StockBatchId,
+        LocationName,
+        ItemType,
+        ItemName,
+        UnitName,
+        BatchNumber,
+        ExpiryDate,
+        QuantityOnHand,
+        MinimumStock,
+        IsExpiredLocked
+    )
+    SELECT
+        sb.StockBatchId,
+        l.Name AS LocationName,
+        CASE WHEN sb.MedicineMasterId IS NOT NULL THEN N'Medicine' ELSE ISNULL(i.ItemType, N'Item') END AS ItemType,
+        COALESCE(m.MedicineName, i.ItemName) AS ItemName,
+        u.Name AS UnitName,
+        sb.BatchNumber,
+        sb.ExpiryDate,
+        sb.QuantityOnHand,
+        COALESCE(m.MinimumStock, i.MinimumStock, 0) AS MinimumStock,
+        CASE WHEN sb.ExpiryDate IS NOT NULL AND sb.ExpiryDate < @Today THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS IsExpiredLocked
+    FROM dbo.StockBatches sb
+    INNER JOIN dbo.StockLocations l ON l.StockLocationId = sb.StockLocationId
+    LEFT JOIN dbo.MedicineMasters m ON m.MedicineMasterId = sb.MedicineMasterId
+    LEFT JOIN dbo.StockItemMasters i ON i.StockItemMasterId = sb.StockItemMasterId
+    LEFT JOIN dbo.InventoryUnits u ON u.InventoryUnitId = COALESCE(m.InventoryUnitId, i.InventoryUnitId)
+    WHERE sb.QuantityOnHand > 0;
+
+    WITH DueSummary AS
     (
         SELECT
             SUM(CASE WHEN pi.Status <> N'Cancelled' THEN pi.TotalAmount ELSE 0 END)
@@ -631,9 +656,9 @@ BEGIN
         (SELECT COUNT(*) FROM dbo.PurchaseOrders WHERE Status IN (N'Draft', N'Ordered', N'PartiallyReceived')) AS OpenPurchaseOrders,
         (SELECT COUNT(*) FROM dbo.StockTransfers WHERE Status IN (N'Pending', N'Approved')) AS PendingTransfers,
         (SELECT COUNT(*) FROM dbo.StockAdjustments WHERE Status = N'Pending') AS PendingAdjustments,
-        (SELECT COUNT(*) FROM BatchView WHERE QuantityOnHand <= MinimumStock AND IsExpiredLocked = 0) AS LowStockCount,
-        (SELECT COUNT(*) FROM BatchView WHERE ExpiryDate IS NOT NULL AND ExpiryDate >= @Today AND ExpiryDate <= @NearExpiry) AS NearExpiryCount,
-        (SELECT COUNT(*) FROM BatchView WHERE IsExpiredLocked = 1) AS ExpiredCount,
+        (SELECT COUNT(*) FROM #BatchView WHERE QuantityOnHand <= MinimumStock AND IsExpiredLocked = 0) AS LowStockCount,
+        (SELECT COUNT(*) FROM #BatchView WHERE ExpiryDate IS NOT NULL AND ExpiryDate >= @Today AND ExpiryDate <= @NearExpiry) AS NearExpiryCount,
+        (SELECT COUNT(*) FROM #BatchView WHERE IsExpiredLocked = 1) AS ExpiredCount,
         ISNULL((SELECT SupplierDueAmount FROM DueSummary), 0) AS SupplierDueAmount;
 
     SELECT TOP (6)
@@ -647,7 +672,7 @@ BEGIN
         QuantityOnHand,
         MinimumStock,
         IsExpiredLocked
-    FROM BatchView
+    FROM #BatchView
     WHERE QuantityOnHand <= MinimumStock AND IsExpiredLocked = 0
     ORDER BY QuantityOnHand, ItemName;
 
@@ -662,7 +687,7 @@ BEGIN
         QuantityOnHand,
         MinimumStock,
         IsExpiredLocked
-    FROM BatchView
+    FROM #BatchView
     WHERE ExpiryDate IS NOT NULL AND ExpiryDate >= @Today AND ExpiryDate <= @NearExpiry
     ORDER BY ExpiryDate, ItemName;
 

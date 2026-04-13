@@ -1,0 +1,448 @@
+<ng-container *ngIf="!isLoading; else loadingState">
+  <section class="monitoring-shell">
+    <header class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Phase 7 Monitoring</p>
+        <h1>{{ currentHeroTitle }}</h1>
+        <p>{{ currentHeroDescription }}</p>
+      </div>
+
+      <div class="section-switcher">
+        <button
+          *ngFor="let section of sections"
+          type="button"
+          class="section-chip"
+          [class.active]="section.key === activeSection"
+          (click)="setSection(section.key)">
+          <mat-icon>{{ section.icon }}</mat-icon>
+          <span>{{ section.label }}</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="error-banner" *ngIf="errorMessage">
+      <mat-icon>warning_amber</mat-icon>
+      <span>{{ errorMessage }}</span>
+    </div>
+
+    <ng-container *ngIf="activeSection === 'reports'">
+      <article class="panel-card full-width report-directory">
+        <div class="panel-head report-directory-head">
+          <div>
+            <h2>Report Dashboard</h2>
+            <p class="panel-note">
+              {{ activeReport
+                ? 'Showing ' + activeReport.label + '. Choose another report or go back to the report dashboard.'
+                : 'Select one report title to open its data. The dashboard landing page does not show every report together.' }}
+            </p>
+          </div>
+
+          <button *ngIf="activeReport" type="button" class="ghost-button" (click)="clearReportSelection()">
+            Back to Report Dashboard
+          </button>
+        </div>
+
+        <div class="report-grid">
+          <button
+            *ngFor="let report of reportOptions"
+            type="button"
+            class="report-card"
+            [class.active]="report.key === activeReportKey"
+            (click)="openReport(report.key)">
+            <mat-icon>{{ report.icon }}</mat-icon>
+            <div class="report-card-copy">
+              <strong>{{ report.label }}</strong>
+              <span>{{ report.description }}</span>
+            </div>
+          </button>
+        </div>
+      </article>
+
+      <ng-container *ngIf="activeReportKey && reports as data">
+        <ng-container [ngSwitch]="activeReportKey">
+          <article *ngSwitchCase="'patient'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Patient Report</h2>
+              <span>{{ data.patientReport.totalPatients }} total patients</span>
+            </div>
+            <div class="summary-row">
+              <div><strong>{{ data.patientReport.activePatients }}</strong><span>Active patients</span></div>
+              <div><strong>{{ data.patientReport.newPatientsLast30Days }}</strong><span>New in 30 days</span></div>
+              <div><strong>{{ data.patientReport.mergedPatients }}</strong><span>Merged profiles</span></div>
+            </div>
+            <div class="table-stack">
+              <div class="table-wrap">
+                <h3>Category Mix</h3>
+                <table>
+                  <thead><tr><th>Category</th><th>Patients</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.patientReport.categoryRows">
+                      <td>{{ row.label }}</td>
+                      <td>{{ row.count }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <h3>Branch Activity</h3>
+                <table>
+                  <thead><tr><th>Branch</th><th>Distinct Patients</th><th>Active Admissions</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.patientReport.branchRows">
+                      <td>{{ row.branchName }}</td>
+                      <td>{{ row.distinctPatients }}</td>
+                      <td>{{ row.activeAdmissions }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+
+          <article *ngSwitchCase="'billing'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Billing Report</h2>
+              <span>{{ data.billingReport.totalInvoices }} invoices</span>
+            </div>
+            <div class="summary-row">
+              <div><strong>{{ formatCurrency(data.billingReport.totalBilled) }}</strong><span>Total billed</span></div>
+              <div><strong>{{ formatCurrency(data.billingReport.totalCollected) }}</strong><span>Collected</span></div>
+              <div><strong>{{ formatCurrency(data.billingReport.totalDue) }}</strong><span>Due</span></div>
+              <div><strong>{{ formatCurrency(data.billingReport.totalRefunded) }}</strong><span>Refunded</span></div>
+            </div>
+            <div class="table-stack">
+              <div class="table-wrap">
+                <h3>Status Breakdown</h3>
+                <table>
+                  <thead><tr><th>Status</th><th>Invoices</th><th>Amount</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.billingReport.statusRows">
+                      <td>{{ row.status }}</td>
+                      <td>{{ row.invoiceCount }}</td>
+                      <td>{{ formatCurrency(row.amount) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <h3>Recent Invoices</h3>
+                <table>
+                  <thead><tr><th>Invoice</th><th>Patient</th><th>Branch</th><th>Status</th><th>Due</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.billingReport.recentInvoices">
+                      <td>
+                        <strong>{{ row.invoiceNumber }}</strong>
+                        <span>{{ formatDate(row.invoiceDate) }}</span>
+                      </td>
+                      <td>{{ row.patientName }}</td>
+                      <td>{{ row.branchName }}</td>
+                      <td>{{ row.status }}</td>
+                      <td>{{ formatCurrency(row.dueAmount) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+
+          <article *ngSwitchCase="'doctorRevenue'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Doctor Revenue Report</h2>
+              <span>{{ data.doctorRevenueReport.activeDoctors }} active doctors</span>
+            </div>
+            <div class="summary-row">
+              <div><strong>{{ data.doctorRevenueReport.doctorsWithRevenue }}</strong><span>Doctors with revenue</span></div>
+              <div><strong>{{ formatCurrency(data.doctorRevenueReport.totalRecognizedRevenue) }}</strong><span>Recognized revenue</span></div>
+              <div><strong>{{ formatCurrency(data.doctorRevenueReport.totalConsultationEstimate) }}</strong><span>Consultation estimate</span></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Doctor</th><th>Appointments</th><th>Invoices</th><th>Recognized</th><th>Reported</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let row of data.doctorRevenueReport.rows">
+                    <td>
+                      <strong>{{ row.doctorName }}</strong>
+                      <span>{{ row.specialization }}</span>
+                    </td>
+                    <td>{{ row.appointmentCount }}</td>
+                    <td>{{ row.linkedInvoiceCount }}</td>
+                    <td>{{ formatCurrency(row.recognizedRevenue) }}</td>
+                    <td>{{ formatCurrency(row.reportedRevenue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article *ngSwitchCase="'pharmacySales'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Pharmacy Sales Report</h2>
+              <span>{{ data.pharmacySalesReport.pharmacyLocations }} pharmacy locations</span>
+            </div>
+            <p class="panel-note">{{ data.pharmacySalesReport.basisNote }}</p>
+            <div class="summary-row">
+              <div><strong>{{ formatCurrency(data.pharmacySalesReport.receivedValue) }}</strong><span>Received value</span></div>
+              <div><strong>{{ formatCurrency(data.pharmacySalesReport.transferOutValue) }}</strong><span>Transfer out</span></div>
+              <div><strong>{{ formatCurrency(data.pharmacySalesReport.adjustmentOutValue) }}</strong><span>Adjustment out</span></div>
+              <div><strong>{{ formatCurrency(data.pharmacySalesReport.currentStockValue) }}</strong><span>Current stock value</span></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Location</th><th>Received</th><th>Returned</th><th>Transfer Out</th><th>Current Stock</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let row of data.pharmacySalesReport.rows">
+                    <td>
+                      <strong>{{ row.locationName }}</strong>
+                      <span>{{ row.branchName }}</span>
+                    </td>
+                    <td>{{ formatCurrency(row.receivedValue) }}</td>
+                    <td>{{ formatCurrency(row.returnedValue) }}</td>
+                    <td>{{ formatCurrency(row.transferOutValue) }}</td>
+                    <td>{{ formatCurrency(row.currentStockValue) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article *ngSwitchCase="'purchase'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Purchase Report</h2>
+              <span>{{ data.purchaseReport.purchaseInvoices }} purchase invoices</span>
+            </div>
+            <div class="summary-row">
+              <div><strong>{{ data.purchaseReport.purchaseOrders }}</strong><span>Purchase orders</span></div>
+              <div><strong>{{ formatCurrency(data.purchaseReport.totalPurchased) }}</strong><span>Total purchased</span></div>
+              <div><strong>{{ formatCurrency(data.purchaseReport.totalDue) }}</strong><span>Supplier due</span></div>
+              <div><strong>{{ formatCurrency(data.purchaseReport.totalReturned) }}</strong><span>Returns</span></div>
+            </div>
+            <div class="table-stack">
+              <div class="table-wrap">
+                <h3>Supplier View</h3>
+                <table>
+                  <thead><tr><th>Supplier</th><th>Invoices</th><th>Purchased</th><th>Due</th><th>Returns</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.purchaseReport.supplierRows">
+                      <td>{{ row.supplierName }}</td>
+                      <td>{{ row.invoiceCount }}</td>
+                      <td>{{ formatCurrency(row.totalPurchased) }}</td>
+                      <td>{{ formatCurrency(row.dueAmount) }}</td>
+                      <td>{{ formatCurrency(row.returnAmount) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <h3>Recent Purchase Invoices</h3>
+                <table>
+                  <thead><tr><th>Invoice</th><th>Supplier</th><th>Location</th><th>Status</th><th>Due</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.purchaseReport.recentInvoices">
+                      <td>
+                        <strong>{{ row.invoiceNumber }}</strong>
+                        <span>{{ formatDate(row.invoiceDate) }}</span>
+                      </td>
+                      <td>{{ row.supplierName }}</td>
+                      <td>{{ row.locationName }}</td>
+                      <td>{{ row.status }}</td>
+                      <td>{{ formatCurrency(row.dueAmount) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+
+          <article *ngSwitchCase="'stockBalance'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Stock Balance Report</h2>
+              <span>{{ data.stockBalanceReport.activeLocations }} active locations</span>
+            </div>
+            <div class="summary-row">
+              <div><strong>{{ data.stockBalanceReport.activeBatches }}</strong><span>Active batches</span></div>
+              <div><strong>{{ formatQuantity(data.stockBalanceReport.quantityOnHand) }}</strong><span>Quantity on hand</span></div>
+              <div><strong>{{ formatCurrency(data.stockBalanceReport.stockValue) }}</strong><span>Stock value</span></div>
+              <div><strong>{{ data.stockBalanceReport.lowStockBatches }}</strong><span>Low stock batches</span></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Location</th><th>Batches</th><th>Items</th><th>Quantity</th><th>Value</th><th>Low Stock</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let row of data.stockBalanceReport.locationRows">
+                    <td>
+                      <strong>{{ row.locationName }}</strong>
+                      <span>{{ row.branchName }}</span>
+                    </td>
+                    <td>{{ row.batchCount }}</td>
+                    <td>{{ row.itemCount }}</td>
+                    <td>{{ formatQuantity(row.quantityOnHand) }}</td>
+                    <td>{{ formatCurrency(row.stockValue) }}</td>
+                    <td>{{ row.lowStockBatches }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article *ngSwitchCase="'expiry'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Expiry Report</h2>
+              <span>{{ data.expiryReport.rows.length }} tracked batches</span>
+            </div>
+            <div class="summary-row">
+              <div><strong>{{ data.expiryReport.nearExpiryCount }}</strong><span>Near expiry</span></div>
+              <div><strong>{{ data.expiryReport.expiredCount }}</strong><span>Expired</span></div>
+              <div><strong>{{ formatCurrency(data.expiryReport.nearExpiryValue) }}</strong><span>Near expiry value</span></div>
+              <div><strong>{{ formatCurrency(data.expiryReport.expiredValue) }}</strong><span>Expired value</span></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Item</th><th>Location</th><th>Batch</th><th>Expiry</th><th>Quantity</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let row of data.expiryReport.rows">
+                    <td>{{ row.itemName }}</td>
+                    <td>{{ row.locationName }}</td>
+                    <td>{{ row.batchNumber }}</td>
+                    <td>{{ formatDate(row.expiryDate) }}</td>
+                    <td>{{ formatQuantity(row.quantityOnHand) }}</td>
+                    <td>{{ row.status }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article *ngSwitchCase="'bedOccupancy'" class="panel-card full-width">
+            <div class="panel-head">
+              <h2>Bed Occupancy Report</h2>
+              <span>{{ data.bedOccupancyReport.occupiedBeds }}/{{ data.bedOccupancyReport.totalBeds }} beds occupied</span>
+            </div>
+            <div class="summary-row">
+              <div><strong>{{ data.bedOccupancyReport.totalBeds }}</strong><span>Total beds</span></div>
+              <div><strong>{{ data.bedOccupancyReport.occupiedBeds }}</strong><span>Occupied beds</span></div>
+              <div><strong>{{ data.bedOccupancyReport.availableBeds }}</strong><span>Available beds</span></div>
+              <div><strong>{{ data.bedOccupancyReport.occupancyRate.toFixed(2) }}%</strong><span>Occupancy rate</span></div>
+            </div>
+            <div class="table-stack">
+              <div class="table-wrap">
+                <h3>Branch Occupancy</h3>
+                <table>
+                  <thead><tr><th>Branch</th><th>Total Beds</th><th>Occupied</th><th>Occupancy</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.bedOccupancyReport.branchRows">
+                      <td>{{ row.branchName }}</td>
+                      <td>{{ row.totalBeds }}</td>
+                      <td>{{ row.occupiedBeds }}</td>
+                      <td>{{ row.occupancyRate.toFixed(2) }}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <h3>Ward Occupancy</h3>
+                <table>
+                  <thead><tr><th>Ward</th><th>Branch</th><th>Total Beds</th><th>Occupied</th><th>Occupancy</th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let row of data.bedOccupancyReport.wardRows">
+                      <td>{{ row.wardName }}</td>
+                      <td>{{ row.branchName }}</td>
+                      <td>{{ row.totalBeds }}</td>
+                      <td>{{ row.occupiedBeds }}</td>
+                      <td>{{ row.occupancyRate.toFixed(2) }}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+        </ng-container>
+      </ng-container>
+    </ng-container>
+
+    <ng-container *ngIf="activeSection === 'audit' && audit as data">
+      <section class="metric-grid compact">
+        <article *ngFor="let metric of auditOverviewMetrics" class="metric-card" [ngClass]="'tone-' + metric.tone">
+          <span class="metric-label">{{ metric.label }}</span>
+          <strong class="metric-value">{{ metric.value }}</strong>
+          <span class="metric-helper">{{ metric.helper }}</span>
+        </article>
+      </section>
+
+      <article class="panel-card full-width">
+        <div class="panel-head">
+          <h2>Audit Explorer</h2>
+          <span>{{ currentAuditPanel.description }}</span>
+        </div>
+
+        <div class="audit-toolbar">
+          <div class="search-field">
+            <label for="auditSearch">Search</label>
+            <input id="auditSearch" type="text" [(ngModel)]="auditSearchTerm" placeholder="Search by actor, action, target, or summary" />
+          </div>
+
+          <div class="audit-tabs">
+            <button
+              *ngFor="let panel of auditPanels"
+              type="button"
+              class="audit-tab"
+              [class.active]="panel.key === activeAuditPanel"
+              (click)="setAuditPanel(panel.key)">
+              {{ panel.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Category</th>
+                <th>Action</th>
+                <th>Actor</th>
+                <th>Target</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody *ngIf="filteredAuditRows.length; else emptyAuditState">
+              <tr *ngFor="let row of filteredAuditRows">
+                <td>{{ formatDateTime(row.createdAt) }}</td>
+                <td>{{ row.category }}</td>
+                <td>{{ row.action }}</td>
+                <td>
+                  <strong>{{ row.performedByName || row.actorEmail || 'Unknown actor' }}</strong>
+                  <span>{{ row.performedByRole || row.actorEmail || 'Unattributed' }}</span>
+                </td>
+                <td>
+                  <strong>{{ row.targetDisplayName || row.entityName || 'General activity' }}</strong>
+                  <span *ngIf="row.entityId">ID {{ row.entityId }}</span>
+                </td>
+                <td>{{ row.summary }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </ng-container>
+  </section>
+</ng-container>
+
+<ng-template #emptyAuditState>
+  <tbody>
+    <tr>
+      <td colspan="6" class="empty-state">No audit entries matched the current filter.</td>
+    </tr>
+  </tbody>
+</ng-template>
+
+<ng-template #loadingState>
+  <section class="monitoring-shell">
+    <article class="hero-card loading-card">
+      <mat-icon>hourglass_top</mat-icon>
+      <div>
+        <h1>Loading monitoring workspace</h1>
+        <p>Fetching reports, audit summaries, and supporting dashboard data.</p>
+      </div>
+    </article>
+  </section>
+</ng-template>

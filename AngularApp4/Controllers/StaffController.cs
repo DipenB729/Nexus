@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class StaffController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public StaffController(AppDbContext db)
+    public StaffController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -95,6 +98,7 @@ public class StaffController : ControllerBase
 
         _db.Staff.Add(staff);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", staff.StaffId, staff.FullName, $"Staff member {staff.FullName} was created.");
 
         var payload = await GetStaffDtoAsync(staff.StaffId);
         return Ok(ApiResponse<StaffMasterDto>.Ok(payload, "Staff created"));
@@ -125,6 +129,7 @@ public class StaffController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", item.StaffId, item.FullName, $"Staff member {item.FullName} was updated.");
 
         var payload = await GetStaffDtoAsync(item.StaffId);
         return Ok(ApiResponse<StaffMasterDto>.Ok(payload, "Staff updated"));
@@ -139,6 +144,7 @@ public class StaffController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync(dto.IsActive ? "Activated" : "Deactivated", item.StaffId, item.FullName, $"Staff member {item.FullName} was {(dto.IsActive ? "activated" : "deactivated")}.");
 
         return Ok(ApiResponse<object>.Ok(null, dto.IsActive ? "Staff activated" : "Staff deactivated"));
     }
@@ -151,7 +157,21 @@ public class StaffController : ControllerBase
         item.IsActive = false;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Deleted", item.StaffId, item.FullName, $"Staff member {item.FullName} was deactivated from the master list.");
         return Ok(ApiResponse<object>.Ok(null, "Staff deactivated"));
+    }
+
+    private Task WriteAuditAsync(string action, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.MasterSetup,
+            Action = action,
+            EntityName = "Staff",
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     private async Task<string?> ValidateMappingsAsync(long? branchId, long? departmentId)

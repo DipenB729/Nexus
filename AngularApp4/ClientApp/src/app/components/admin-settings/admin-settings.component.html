@@ -1,227 +1,394 @@
 <section class="settings-page" *ngIf="!isLoading; else loadingState">
-  <div class="page-header">
+  <header class="hero-card">
     <div>
-      <span class="eyebrow">Organization setup</span>
-      <h1>Branch and hospital profile settings</h1>
-      <p>Manage hospital identity, tax rules, contact information, invoice format, and multi-branch operations.</p>
-    </div>
-  </div>
-
-  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
-  <p class="success-box" *ngIf="saveMessage">{{ saveMessage }}</p>
-
-  <div class="settings-grid">
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <span class="eyebrow">Hospital identity</span>
-          <h2>Profile</h2>
-        </div>
-      </div>
-
-      <div class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>Hospital name</mat-label>
-          <input matInput [(ngModel)]="profile.hospitalName" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Logo URL</mat-label>
-          <input matInput [(ngModel)]="profile.logoUrl" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Address</mat-label>
-          <input matInput [(ngModel)]="profile.addressLine1" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>City</mat-label>
-          <input matInput [(ngModel)]="profile.city" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>State / Province</mat-label>
-          <input matInput [(ngModel)]="profile.stateOrProvince" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Postal code</mat-label>
-          <input matInput [(ngModel)]="profile.postalCode" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Country</mat-label>
-          <input matInput [(ngModel)]="profile.country" />
-        </mat-form-field>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <span class="eyebrow">Contacts and tax</span>
-          <h2>Business settings</h2>
-        </div>
-      </div>
-
-      <div class="form-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>Contact email</mat-label>
-          <input matInput [(ngModel)]="profile.contactEmail" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Contact phone</mat-label>
-          <input matInput [(ngModel)]="profile.contactPhone" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Tax / VAT label</mat-label>
-          <input matInput [(ngModel)]="profile.taxLabel" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Tax registration</mat-label>
-          <input matInput [(ngModel)]="profile.taxRegistrationNumber" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Tax percentage</mat-label>
-          <input matInput type="number" [(ngModel)]="profile.taxPercentage" />
-        </mat-form-field>
-
-        <label class="toggle-box">
-          <input type="checkbox" [(ngModel)]="profile.multiBranchEnabled" />
-          <span>Enable multi-branch support</span>
-        </label>
-      </div>
-    </section>
-  </div>
-
-  <section class="panel">
-    <div class="panel-head">
-      <div>
-        <span class="eyebrow">Invoice setup</span>
-        <h2>Invoice format settings</h2>
-      </div>
+      <span class="eyebrow">Phase 8 Control Center</span>
+      <h1>{{ currentSection.label }}</h1>
+      <p>{{ currentSection.description }}</p>
     </div>
 
-    <div class="form-grid">
-      <mat-form-field appearance="outline">
-        <mat-label>Currency code</mat-label>
-        <input matInput [(ngModel)]="profile.currencyCode" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Invoice prefix</mat-label>
-        <input matInput [(ngModel)]="profile.invoicePrefix" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Starting invoice number</mat-label>
-        <input matInput type="number" [(ngModel)]="profile.invoiceStartingNumber" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Invoice footer note</mat-label>
-        <textarea matInput rows="3" [(ngModel)]="profile.invoiceFooterNote"></textarea>
-      </mat-form-field>
-    </div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head">
-      <div>
-        <span class="eyebrow">Multi-branch setup</span>
-        <h2>Branches</h2>
-      </div>
-
-      <button mat-stroked-button (click)="addBranch()">
-        <mat-icon>add_business</mat-icon>
-        Add branch
+    <div class="section-switcher">
+      <button
+        *ngFor="let section of sections"
+        type="button"
+        class="section-chip"
+        [class.active]="section.key === activeSection"
+        (click)="navigateSection(section.key)">
+        <mat-icon>{{ section.icon }}</mat-icon>
+        <span>{{ section.label }}</span>
       </button>
     </div>
+  </header>
 
-    <div class="branch-grid" *ngIf="branches.length; else noBranches">
-      <article class="branch-card" *ngFor="let branch of branches; let i = index">
-        <div class="branch-head">
-          <div>
-            <strong>{{ branch.name || 'New branch' }}</strong>
-            <small>{{ branch.code || 'Code pending' }}</small>
+  <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success-box" *ngIf="successMessage">{{ successMessage }}</p>
+
+  <ng-container [ngSwitch]="activeSection">
+    <ng-container *ngSwitchCase="'organization'">
+      <div class="settings-grid">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Hospital identity</span>
+              <h2>Profile</h2>
+            </div>
           </div>
 
-          <div class="branch-actions">
-            <button mat-button type="button" (click)="setPrimary(i)" [disabled]="branch.isPrimary">Set primary</button>
-            <button mat-icon-button type="button" (click)="removeBranch(i)">
-              <mat-icon>{{ branch.branchId > 0 ? 'block' : 'delete' }}</mat-icon>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Hospital name</mat-label><input matInput [(ngModel)]="profile.hospitalName" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Logo URL</mat-label><input matInput [(ngModel)]="profile.logoUrl" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Address</mat-label><input matInput [(ngModel)]="profile.addressLine1" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>City</mat-label><input matInput [(ngModel)]="profile.city" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>State / Province</mat-label><input matInput [(ngModel)]="profile.stateOrProvince" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Postal code</mat-label><input matInput [(ngModel)]="profile.postalCode" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Country</mat-label><input matInput [(ngModel)]="profile.country" /></mat-form-field>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Contacts and tax</span>
+              <h2>Business settings</h2>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Contact email</mat-label><input matInput [(ngModel)]="profile.contactEmail" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Contact phone</mat-label><input matInput [(ngModel)]="profile.contactPhone" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Tax / VAT label</mat-label><input matInput [(ngModel)]="profile.taxLabel" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Tax registration</mat-label><input matInput [(ngModel)]="profile.taxRegistrationNumber" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Tax percentage</mat-label><input matInput type="number" [(ngModel)]="profile.taxPercentage" /></mat-form-field>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="profile.multiBranchEnabled" /><span>Enable multi-branch support</span></label>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">Multi-branch setup</span>
+            <h2>Branches</h2>
+          </div>
+
+          <button mat-stroked-button type="button" (click)="addBranch()">
+            <mat-icon>add_business</mat-icon>
+            Add branch
+          </button>
+        </div>
+
+        <div class="branch-grid" *ngIf="branches.length; else noBranches">
+          <article class="branch-card" *ngFor="let branch of branches; let i = index">
+            <div class="branch-head">
+              <div>
+                <strong>{{ branch.name || 'New branch' }}</strong>
+                <small>{{ branch.code || 'Code pending' }}</small>
+              </div>
+
+              <div class="branch-actions">
+                <button mat-button type="button" (click)="setPrimary(i)" [disabled]="branch.isPrimary">Set primary</button>
+                <button mat-icon-button type="button" (click)="removeBranch(i)">
+                  <mat-icon>{{ branch.branchId > 0 ? 'block' : 'delete' }}</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <div class="branch-badges">
+              <span class="badge primary" *ngIf="branch.isPrimary">Primary</span>
+              <span class="badge inactive" *ngIf="!branch.isActive">Inactive</span>
+            </div>
+
+            <div class="form-grid compact">
+              <mat-form-field appearance="outline"><mat-label>Branch name</mat-label><input matInput [(ngModel)]="branch.name" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Code</mat-label><input matInput [(ngModel)]="branch.code" /></mat-form-field>
+              <mat-form-field appearance="outline" class="full-width"><mat-label>Address</mat-label><input matInput [(ngModel)]="branch.address" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput [(ngModel)]="branch.contactPhone" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput [(ngModel)]="branch.contactEmail" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Total beds</mat-label><input matInput type="number" [(ngModel)]="branch.totalBeds" /></mat-form-field>
+              <mat-form-field appearance="outline"><mat-label>Occupied beds</mat-label><input matInput type="number" [(ngModel)]="branch.occupiedBeds" /></mat-form-field>
+              <label class="toggle-box"><input type="checkbox" [(ngModel)]="branch.isActive" /><span>Branch active</span></label>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div class="actions-row">
+        <button mat-raised-button color="primary" (click)="saveOrganization()" [disabled]="isSectionSaving('organization')">
+          <mat-icon>save</mat-icon>
+          Save organization settings
+        </button>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'notifications'">
+      <section class="stats-grid">
+        <article class="stat-card"><span>Low stock</span><strong>{{ notifications.preview.lowStockCount }}</strong></article>
+        <article class="stat-card"><span>Near expiry</span><strong>{{ notifications.preview.nearExpiryCount }}</strong></article>
+        <article class="stat-card"><span>Appointments</span><strong>{{ notifications.preview.appointmentReminderCount }}</strong></article>
+        <article class="stat-card"><span>Payment due</span><strong>{{ notifications.preview.paymentDueCount }}</strong></article>
+      </section>
+
+      <div class="settings-grid">
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Inventory alerts</span><h2>Low stock alerts</h2></div></div>
+          <div class="form-grid">
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="notifications.lowStockAlertsEnabled" /><span>Enable low stock alerts</span></label>
+            <mat-form-field appearance="outline"><mat-label>Channels</mat-label><input matInput [(ngModel)]="notifications.lowStockAlertChannels" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Reminder frequency (hours)</mat-label><input matInput type="number" [(ngModel)]="notifications.lowStockReminderFrequencyHours" /></mat-form-field>
+          </div>
+          <div class="table-wrap" *ngIf="notifications.preview.lowStockAlerts.length">
+            <table>
+              <thead><tr><th>Item</th><th>Branch</th><th>Stock</th><th>Reorder</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let row of notifications.preview.lowStockAlerts">
+                  <td>{{ row.name }}</td><td>{{ row.branchName }}</td><td>{{ row.quantityInStock }}</td><td>{{ row.reorderLevel }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Inventory alerts</span><h2>Expiry alerts</h2></div></div>
+          <div class="form-grid">
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="notifications.expiryAlertsEnabled" /><span>Enable expiry alerts</span></label>
+            <mat-form-field appearance="outline"><mat-label>Channels</mat-label><input matInput [(ngModel)]="notifications.expiryAlertChannels" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Alert before expiry (days)</mat-label><input matInput type="number" [(ngModel)]="notifications.expiryAlertDays" /></mat-form-field>
+          </div>
+          <div class="table-wrap" *ngIf="notifications.preview.expiryAlerts.length">
+            <table>
+              <thead><tr><th>Item</th><th>Branch</th><th>Expiry</th><th>Qty</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let row of notifications.preview.expiryAlerts">
+                  <td>{{ row.name }}</td><td>{{ row.branchName }}</td><td>{{ formatDateTime(row.expiryDate) }}</td><td>{{ row.quantityInStock }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Patient communication</span><h2>Appointment reminders</h2></div></div>
+          <div class="form-grid">
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="notifications.appointmentRemindersEnabled" /><span>Enable appointment reminders</span></label>
+            <mat-form-field appearance="outline"><mat-label>Channels</mat-label><input matInput [(ngModel)]="notifications.appointmentReminderChannels" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Send before (hours)</mat-label><input matInput type="number" [(ngModel)]="notifications.appointmentReminderHoursBefore" /></mat-form-field>
+          </div>
+          <div class="table-wrap" *ngIf="notifications.preview.appointmentReminders.length">
+            <table>
+              <thead><tr><th>Patient</th><th>Doctor</th><th>When</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let row of notifications.preview.appointmentReminders">
+                  <td>{{ row.patientName }}</td><td>{{ row.doctorName }}</td><td>{{ formatDateTime(row.appointmentDate) }}</td><td>{{ row.status }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Collections</span><h2>Payment due alerts</h2></div></div>
+          <div class="form-grid">
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="notifications.paymentDueAlertsEnabled" /><span>Enable payment due alerts</span></label>
+            <mat-form-field appearance="outline"><mat-label>Channels</mat-label><input matInput [(ngModel)]="notifications.paymentDueAlertChannels" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Due window (days)</mat-label><input matInput type="number" [(ngModel)]="notifications.paymentDueReminderDaysBefore" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Recipient emails</mat-label><input matInput [(ngModel)]="notifications.recipientEmails" /></mat-form-field>
+          </div>
+          <div class="table-wrap" *ngIf="notifications.preview.paymentDueAlerts.length">
+            <table>
+              <thead><tr><th>Invoice</th><th>Patient</th><th>Due date</th><th>Amount</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let row of notifications.preview.paymentDueAlerts">
+                  <td>{{ row.invoiceNumber }}</td><td>{{ row.patientName }}</td><td>{{ formatDateTime(row.dueDate) }}</td><td>{{ formatCurrency(row.dueAmount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="actions-row">
+        <button mat-raised-button color="primary" (click)="saveNotifications()" [disabled]="isSectionSaving('notifications')">
+          <mat-icon>save</mat-icon>
+          Save notification settings
+        </button>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'system'">
+      <div class="settings-grid">
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Regional controls</span><h2>Core system settings</h2></div></div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Currency</mat-label><input matInput [(ngModel)]="system.defaultCurrencyCode" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Time zone</mat-label><input matInput [(ngModel)]="system.timeZoneId" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Invoice prefix</mat-label><input matInput [(ngModel)]="system.invoicePrefix" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Next invoice number</mat-label><input matInput type="number" [(ngModel)]="system.nextInvoiceNumber" /></mat-form-field>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Message providers</span><h2>SMS API settings</h2></div></div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>SMS provider</mat-label><input matInput [(ngModel)]="system.smsProviderName" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Sender ID</mat-label><input matInput [(ngModel)]="system.smsSenderId" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>SMS API URL</mat-label><input matInput [(ngModel)]="system.smsApiUrl" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>SMS API key</mat-label><input matInput [(ngModel)]="system.smsApiKey" /></mat-form-field>
+          </div>
+        </section>
+      </div>
+
+      <div class="settings-grid">
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Message providers</span><h2>Email API settings</h2></div></div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Email provider</mat-label><input matInput [(ngModel)]="system.emailProviderName" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>From address</mat-label><input matInput [(ngModel)]="system.emailFromAddress" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Email API URL</mat-label><input matInput [(ngModel)]="system.emailApiUrl" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Email API key</mat-label><input matInput [(ngModel)]="system.emailApiKey" /></mat-form-field>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Automation</span><h2>Backup settings</h2></div></div>
+          <div class="form-grid">
+            <label class="toggle-box full-width"><input type="checkbox" [(ngModel)]="system.autoBackupEnabled" /><span>Enable automatic backups</span></label>
+            <mat-form-field appearance="outline"><mat-label>Backup time</mat-label><input matInput [(ngModel)]="system.autoBackupTime" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Retention count</mat-label><input matInput type="number" [(ngModel)]="system.backupRetentionCount" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Backup storage path</mat-label><input matInput [(ngModel)]="system.backupStoragePath" /></mat-form-field>
+          </div>
+        </section>
+      </div>
+
+      <div class="actions-row">
+        <button mat-raised-button color="primary" (click)="saveSystem()" [disabled]="isSectionSaving('system')">
+          <mat-icon>save</mat-icon>
+          Save system settings
+        </button>
+      </div>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'backup'">
+      <section class="stats-grid">
+        <article class="stat-card"><span>Last backup</span><strong>{{ formatDateTime(backups.lastBackupAt) }}</strong></article>
+        <article class="stat-card"><span>Last restore</span><strong>{{ formatDateTime(backups.lastRestoreAt) }}</strong></article>
+        <article class="stat-card"><span>Total logs</span><strong>{{ backups.logs.length }}</strong></article>
+        <article class="stat-card"><span>Auto backup</span><strong>{{ system.autoBackupEnabled ? 'Enabled' : 'Disabled' }}</strong></article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><span class="eyebrow">Manual backup</span><h2>Create backup</h2></div></div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width"><mat-label>Backup name</mat-label><input matInput [(ngModel)]="backupName" placeholder="Optional custom name" /></mat-form-field>
+        </div>
+        <div class="actions-row left">
+          <button mat-raised-button color="primary" (click)="createManualBackup()" [disabled]="isSectionSaving('backup')">
+            <mat-icon>archive</mat-icon>
+            Create manual backup
+          </button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><div><span class="eyebrow">Backup logs</span><h2>History</h2></div></div>
+        <div class="table-wrap" *ngIf="backups.logs.length; else noBackupLogs">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Triggered by</th><th>Created</th><th>Restored</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let log of backups.logs">
+                <td>{{ log.backupName }}<span>{{ log.summary }}</span></td>
+                <td>{{ log.backupType }}</td>
+                <td>{{ log.status }}</td>
+                <td>{{ log.triggeredByName || 'System' }}</td>
+                <td>{{ formatDateTime(log.createdAt) }}</td>
+                <td>{{ formatDateTime(log.restoredAt) }}</td>
+                <td>
+                  <button mat-button type="button" (click)="restoreBackup(log)" [disabled]="!log.canRestore || restoringBackupId === log.backupLogId">
+                    Restore
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-container *ngSwitchCase="'security'">
+      <div class="settings-grid">
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Policy</span><h2>Security rules</h2></div></div>
+          <div class="form-grid">
+            <mat-form-field appearance="outline"><mat-label>Session timeout (minutes)</mat-label><input matInput type="number" [(ngModel)]="security.settings.sessionTimeoutMinutes" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Minimum password length</mat-label><input matInput type="number" [(ngModel)]="security.settings.minPasswordLength" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Password expiry (days)</mat-label><input matInput type="number" [(ngModel)]="security.settings.passwordExpiryDays" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Permission review interval (days)</mat-label><input matInput type="number" [(ngModel)]="security.settings.permissionReviewIntervalDays" /></mat-form-field>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="security.settings.requireUppercase" /><span>Require uppercase</span></label>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="security.settings.requireLowercase" /><span>Require lowercase</span></label>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="security.settings.requireDigit" /><span>Require number</span></label>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="security.settings.requireSpecialCharacter" /><span>Require special character</span></label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">Permission review</span><h2>Review summary</h2></div></div>
+          <section class="stats-grid compact">
+            <article class="stat-card"><span>Total roles</span><strong>{{ security.permissionReview.totalRoles }}</strong></article>
+            <article class="stat-card"><span>Active roles</span><strong>{{ security.permissionReview.activeRoles }}</strong></article>
+            <article class="stat-card"><span>Total users</span><strong>{{ security.permissionReview.totalUsers }}</strong></article>
+            <article class="stat-card"><span>Next review due</span><strong>{{ formatDateTime(security.permissionReview.nextReviewDueAt) }}</strong></article>
+          </section>
+          <div class="actions-row left">
+            <button mat-stroked-button type="button" (click)="completePermissionReview()" [disabled]="isSectionSaving('security')">
+              <mat-icon>fact_check</mat-icon>
+              Mark permission review complete
             </button>
           </div>
+          <div class="table-wrap" *ngIf="security.permissionReview.roles.length">
+            <table>
+              <thead><tr><th>Role</th><th>Users</th><th>View</th><th>Edit</th><th>Delete</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let row of security.permissionReview.roles">
+                  <td>{{ row.roleName }}</td><td>{{ row.userCount }}</td><td>{{ row.modulesWithView }}</td><td>{{ row.modulesWithEdit }}</td><td>{{ row.modulesWithDelete }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head"><div><span class="eyebrow">IP and device log</span><h2>Recent authentication activity</h2></div></div>
+        <div class="table-wrap" *ngIf="security.deviceLogs.length; else noDeviceLogs">
+          <table>
+            <thead><tr><th>When</th><th>Action</th><th>Actor</th><th>IP</th><th>Device</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let row of security.deviceLogs">
+                <td>{{ formatDateTime(row.createdAt) }}</td>
+                <td>{{ row.action }}</td>
+                <td>{{ row.actorName }}<span>{{ row.actorEmail || row.actorRole || 'Unknown actor' }}</span></td>
+                <td>{{ row.ipAddress || 'N/A' }}</td>
+                <td>{{ row.userAgent || 'Unknown device' }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </section>
 
-        <div class="branch-badges">
-          <span class="badge primary" *ngIf="branch.isPrimary">Primary</span>
-          <span class="badge inactive" *ngIf="!branch.isActive">Inactive</span>
-        </div>
-
-        <div class="form-grid compact">
-          <mat-form-field appearance="outline">
-            <mat-label>Branch name</mat-label>
-            <input matInput [(ngModel)]="branch.name" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Code</mat-label>
-            <input matInput [(ngModel)]="branch.code" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Address</mat-label>
-            <input matInput [(ngModel)]="branch.address" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Phone</mat-label>
-            <input matInput [(ngModel)]="branch.contactPhone" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Email</mat-label>
-            <input matInput [(ngModel)]="branch.contactEmail" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Total beds</mat-label>
-            <input matInput type="number" [(ngModel)]="branch.totalBeds" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Occupied beds</mat-label>
-            <input matInput type="number" [(ngModel)]="branch.occupiedBeds" />
-          </mat-form-field>
-
-          <label class="toggle-box">
-            <input type="checkbox" [(ngModel)]="branch.isActive" />
-            <span>Branch active</span>
-          </label>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <div class="actions-row">
-    <button mat-raised-button color="primary" (click)="saveSettings()" [disabled]="isSaving">
-      <mat-icon>save</mat-icon>
-      Save organization settings
-    </button>
-  </div>
+      <div class="actions-row">
+        <button mat-raised-button color="primary" (click)="saveSecurity()" [disabled]="isSectionSaving('security')">
+          <mat-icon>save</mat-icon>
+          Save security settings
+        </button>
+      </div>
+    </ng-container>
+  </ng-container>
 </section>
 
 <ng-template #loadingState>
   <section class="settings-page">
     <div class="loading-card">
       <mat-icon>hourglass_top</mat-icon>
-      <span>Loading hospital settings...</span>
+      <span>Loading control center settings...</span>
     </div>
   </section>
 </ng-template>
@@ -229,5 +396,17 @@
 <ng-template #noBranches>
   <div class="empty-state">
     No branches configured yet. Add your first branch to enable bed occupancy and multi-site management.
+  </div>
+</ng-template>
+
+<ng-template #noBackupLogs>
+  <div class="empty-state">
+    No backup logs yet. Create a manual backup or enable automatic backups in system settings.
+  </div>
+</ng-template>
+
+<ng-template #noDeviceLogs>
+  <div class="empty-state">
+    No recent authentication activity was found in the audit trail.
   </div>
 </ng-template>

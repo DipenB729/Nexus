@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class BedsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public BedsController(AppDbContext db)
+    public BedsController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -90,6 +93,7 @@ public class BedsController : ControllerBase
 
         _db.Beds.Add(item);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", item.BedId, item.BedNumber, $"Bed {item.BedNumber} was created.");
 
         var payload = await GetBedAsync(item.BedId);
         return Ok(ApiResponse<BedDto>.Ok(payload, "Bed created"));
@@ -119,6 +123,7 @@ public class BedsController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", item.BedId, item.BedNumber, $"Bed {item.BedNumber} was updated.");
 
         var payload = await GetBedAsync(item.BedId);
         return Ok(ApiResponse<BedDto>.Ok(payload, "Bed updated"));
@@ -136,8 +141,22 @@ public class BedsController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync(dto.IsActive ? "Activated" : "Deactivated", item.BedId, item.BedNumber, $"Bed {item.BedNumber} was {(dto.IsActive ? "activated" : "deactivated")}.");
 
         return Ok(ApiResponse<object>.Ok(null, dto.IsActive ? "Bed activated" : "Bed deactivated"));
+    }
+
+    private Task WriteAuditAsync(string action, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.MasterSetup,
+            Action = action,
+            EntityName = "Bed",
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     private async Task<string?> ValidateMappingsAsync(long wardId, long branchId, long? departmentId)

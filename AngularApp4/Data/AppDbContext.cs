@@ -23,6 +23,10 @@ public class AppDbContext : DbContext
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<HospitalProfile> HospitalProfiles => Set<HospitalProfile>();
+    public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
+    public DbSet<SystemControlSetting> SystemControlSettings => Set<SystemControlSetting>();
+    public DbSet<SecuritySetting> SecuritySettings => Set<SecuritySetting>();
+    public DbSet<BackupLog> BackupLogs => Set<BackupLog>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<PatientCategory> PatientCategories => Set<PatientCategory>();
@@ -81,6 +85,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AuditLogEntry>().HasIndex(x => new { x.Category, x.CreatedAt });
         modelBuilder.Entity<AuditLogEntry>().HasIndex(x => new { x.Action, x.CreatedAt });
         modelBuilder.Entity<AuditLogEntry>().HasIndex(x => x.PerformedByUserId);
+        modelBuilder.Entity<BackupLog>().HasIndex(x => x.CreatedAt);
+        modelBuilder.Entity<BackupLog>().HasIndex(x => new { x.BackupType, x.CreatedAt });
+        modelBuilder.Entity<BackupLog>().HasIndex(x => new { x.Status, x.CreatedAt });
         modelBuilder.Entity<AngularApp4.Model.Service>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<InventoryUnit>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<InventoryCategory>().HasIndex(x => new { x.CategoryType, x.Name }).IsUnique();

@@ -74,6 +74,11 @@ public class AdminAppointmentsController : ControllerBase
             return NotFound(ApiResponse<AppointmentAdminDto>.Fail("Appointment not found"));
         }
 
+        if (!Enum.TryParse<AppointmentStatus>(dto.Status, true, out var nextStatus))
+        {
+            return BadRequest(ApiResponse<AppointmentAdminDto>.Fail("Invalid appointment status"));
+        }
+
         var nextDoctorId = dto.DoctorId ?? appointment.DoctorId;
         var nextDate = dto.AppointmentDate?.Date ?? appointment.AppointmentDate.Date;
         var nextStart = dto.SlotStartTime ?? appointment.SlotStartTime;
@@ -121,13 +126,13 @@ public class AdminAppointmentsController : ControllerBase
         appointment.AppointmentDate = nextDate;
         appointment.SlotStartTime = nextStart;
         appointment.SlotEndTime = nextEnd;
-        appointment.Status = dto.Status;
+        appointment.Status = nextStatus;
         appointment.AdminRemarks = Normalize(dto.AdminRemarks);
         appointment.UpdatedAt = DateTime.UtcNow;
 
-        if (dto.Status == AppointmentStatus.Approved ||
-            dto.Status == AppointmentStatus.Rescheduled ||
-            dto.Status == AppointmentStatus.Completed)
+        if (nextStatus == AppointmentStatus.Approved ||
+            nextStatus == AppointmentStatus.Rescheduled ||
+            nextStatus == AppointmentStatus.Completed)
         {
             appointment.TokenNumber = await GenerateTokenNumberAsync(nextDoctorId, nextDate, appointmentId);
         }

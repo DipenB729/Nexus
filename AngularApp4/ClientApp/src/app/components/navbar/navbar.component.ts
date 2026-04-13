@@ -102,6 +102,15 @@ export class NavbarComponent implements OnInit, OnDestroy {
       ]
     },
     {
+      id: 'monitoring',
+      label: 'Monitoring',
+      collapsible: true,
+      items: [
+        { label: 'Reports Dashboard', icon: 'insights', route: '/admin/monitoring/reports' },
+        { label: 'Audit Log', icon: 'history', route: '/admin/monitoring/audit' }
+      ]
+    },
+    {
       id: 'administration',
       label: 'Administration',
       items: [

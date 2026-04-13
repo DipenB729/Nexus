@@ -15,11 +15,15 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IJwtTokenService _jwt;
+    private readonly IAuditLogService _audit;
+    private readonly IPasswordPolicyService _passwordPolicy;
 
-    public AuthController(AppDbContext db, IJwtTokenService jwt)
+    public AuthController(AppDbContext db, IJwtTokenService jwt, IAuditLogService audit, IPasswordPolicyService passwordPolicy)
     {
         _db = db;
         _jwt = jwt;
+        _audit = audit;
+        _passwordPolicy = passwordPolicy;
     }
 
     [HttpPost("register")]
@@ -30,6 +34,12 @@ public class AuthController : ControllerBase
         if (await _db.Users.AnyAsync(x => x.Email == email))
         {
             return BadRequest(ApiResponse<AuthResponseDto>.Fail("Email already exists"));
+        }
+
+        var policyValidation = await _passwordPolicy.ValidateAsync(dto.Password);
+        if (!policyValidation.IsValid)
+        {
+            return BadRequest(ApiResponse<AuthResponseDto>.Fail(policyValidation.Errors.First()));
         }
 
         const string roleName = "User";
@@ -56,7 +66,22 @@ public class AuthController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        var token = _jwt.GenerateToken(user, roleName);
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Authentication,
+            Action = "Registered",
+            EntityName = "User",
+            EntityId = user.UserId,
+            TargetDisplayName = user.FullName,
+            Summary = $"User {user.FullName} registered a new portal account.",
+            Metadata = new { user.Email, Role = roleName },
+            PerformedByUserId = user.UserId,
+            PerformedByName = user.FullName,
+            PerformedByRole = roleName,
+            ActorEmail = user.Email
+        });
+
+        var token = await _jwt.GenerateTokenAsync(user, roleName);
         return Ok(ApiResponse<AuthResponseDto>.Ok(new AuthResponseDto
         {
             Token = token,
@@ -74,11 +99,35 @@ public class AuthController : ControllerBase
         var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
         if (user is null || !VerifyPassword(dto.Password, user.PasswordHash, user.PasswordSalt))
         {
+            await _audit.WriteAsync(new AuditLogRequest
+            {
+                Category = AuditLogCategories.Authentication,
+                Action = "LoginFailed",
+                EntityName = "UserSession",
+                TargetDisplayName = email,
+                Summary = $"Failed login attempt for {email}.",
+                ActorEmail = email
+            });
             return Unauthorized(ApiResponse<AuthResponseDto>.Fail("Invalid credentials"));
         }
 
         var role = user.Role?.Name ?? "User";
-        var token = _jwt.GenerateToken(user, role);
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Authentication,
+            Action = "LoginSucceeded",
+            EntityName = "UserSession",
+            EntityId = user.UserId,
+            TargetDisplayName = user.FullName,
+            Summary = $"{user.FullName} signed in successfully.",
+            Metadata = new { user.Email, Role = role },
+            PerformedByUserId = user.UserId,
+            PerformedByName = user.FullName,
+            PerformedByRole = role,
+            ActorEmail = user.Email
+        });
+
+        var token = await _jwt.GenerateTokenAsync(user, role);
         return Ok(ApiResponse<AuthResponseDto>.Ok(new AuthResponseDto
         {
             Token = token,

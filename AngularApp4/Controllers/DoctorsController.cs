@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,10 +13,12 @@ namespace AngularApp4.Controllers;
 public class DoctorsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public DoctorsController(AppDbContext db)
+    public DoctorsController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -132,6 +135,7 @@ public class DoctorsController : ControllerBase
 
         _db.Doctors.Add(doctor);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was created.");
 
         var payload = await GetDoctorDtoAsync(doctor.DoctorId);
         return Ok(ApiResponse<DoctorMasterDto>.Ok(payload, "Doctor created"));
@@ -169,6 +173,7 @@ public class DoctorsController : ControllerBase
         doctor.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was updated.");
 
         var payload = await GetDoctorDtoAsync(doctor.DoctorId);
         return Ok(ApiResponse<DoctorMasterDto>.Ok(payload, "Doctor updated"));
@@ -187,6 +192,7 @@ public class DoctorsController : ControllerBase
         doctor.IsActive = dto.IsActive;
         doctor.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync(dto.IsActive ? "Activated" : "Deactivated", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was {(dto.IsActive ? "activated" : "deactivated")}.");
 
         return Ok(ApiResponse<object>.Ok(null, dto.IsActive ? "Doctor activated" : "Doctor deactivated"));
     }
@@ -201,7 +207,21 @@ public class DoctorsController : ControllerBase
         doctor.IsActive = false;
         doctor.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Deleted", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was deactivated from the master list.");
         return Ok(ApiResponse<object>.Ok(null, "Doctor deactivated"));
+    }
+
+    private Task WriteAuditAsync(string action, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.MasterSetup,
+            Action = action,
+            EntityName = "Doctor",
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     [HttpGet("{doctorId:long}/available-slots")]

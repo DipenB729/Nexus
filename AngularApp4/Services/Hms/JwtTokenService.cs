@@ -2,8 +2,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using AngularApp4.Model.Hms;
+using AngularApp4.Data;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 
 namespace AngularApp4.Services.Hms;
 
@@ -17,19 +19,21 @@ public class JwtSettings
 
 public interface IJwtTokenService
 {
-    string GenerateToken(User user, string role);
+    Task<string> GenerateTokenAsync(User user, string role, CancellationToken cancellationToken = default);
 }
 
 public class JwtTokenService : IJwtTokenService
 {
     private readonly JwtSettings _settings;
+    private readonly AppDbContext _db;
 
-    public JwtTokenService(IOptions<JwtSettings> options)
+    public JwtTokenService(IOptions<JwtSettings> options, AppDbContext db)
     {
         _settings = options.Value;
+        _db = db;
     }
 
-    public string GenerateToken(User user, string role)
+    public async Task<string> GenerateTokenAsync(User user, string role, CancellationToken cancellationToken = default)
     {
         var claims = new List<Claim>
         {
@@ -42,7 +46,13 @@ public class JwtTokenService : IJwtTokenService
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expires = DateTime.UtcNow.AddMinutes(_settings.ExpiresInMinutes);
+        var sessionTimeoutMinutes = await _db.SecuritySettings
+            .AsNoTracking()
+            .OrderBy(x => x.SecuritySettingId)
+            .Select(x => (int?)x.SessionTimeoutMinutes)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? _settings.ExpiresInMinutes;
+        var expires = DateTime.UtcNow.AddMinutes(sessionTimeoutMinutes);
 
         var token = new JwtSecurityToken(
             issuer: _settings.Issuer,

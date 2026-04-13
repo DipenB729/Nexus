@@ -43,11 +43,12 @@ export class AuthApiService {
   }
 
   getSession(): AuthSession | null {
+    this.ensureSessionValidity();
     return this.sessionSubject.value;
   }
 
   isLoggedIn(): boolean {
-    return !!this.getToken();
+    return this.ensureSessionValidity();
   }
 
   getDashboardRoute(role = this.getRole()): string {
@@ -84,9 +85,51 @@ export class AuthApiService {
     }
 
     try {
-      return JSON.parse(raw) as AuthSession;
+      const session = JSON.parse(raw) as AuthSession;
+      return this.isTokenExpired(session.token) ? null : session;
     } catch {
       localStorage.removeItem(this.sessionKey);
+      return null;
+    }
+  }
+
+  private ensureSessionValidity(): boolean {
+    const token = this.getToken();
+    if (!token) {
+      return false;
+    }
+
+    if (!this.isTokenExpired(token)) {
+      return true;
+    }
+
+    localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.roleKey);
+    localStorage.removeItem(this.sessionKey);
+    this.sessionSubject.next(null);
+    return false;
+  }
+
+  private isTokenExpired(token: string): boolean {
+    const payload = this.parseTokenPayload(token);
+    if (!payload?.exp) {
+      return false;
+    }
+
+    return Date.now() >= payload.exp * 1000;
+  }
+
+  private parseTokenPayload(token: string): { exp?: number } | null {
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+
+    try {
+      const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+      return JSON.parse(atob(padded)) as { exp?: number };
+    } catch {
       return null;
     }
   }

@@ -8,11 +8,13 @@ namespace AngularApp4.Services.Hms;
 public class InventoryAdminService : IInventoryAdminService
 {
     private readonly string _connectionString;
+    private readonly IAuditLogService _audit;
 
-    public InventoryAdminService(IConfiguration configuration)
+    public InventoryAdminService(IConfiguration configuration, IAuditLogService audit)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Default database connection is not configured.");
+        _audit = audit;
     }
 
     public async Task<InventoryDashboardDto> GetDashboardAsync()
@@ -74,7 +76,14 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@IsActive", dto.IsActive);
         });
 
-        return await FindRequiredAsync(GetUnitsAsync, x => x.InventoryUnitId == id, "Inventory unit not found after save.");
+        var result = await FindRequiredAsync(GetUnitsAsync, x => x.InventoryUnitId == id, "Inventory unit not found after save.");
+        await WriteInventoryAuditAsync(
+            inventoryUnitId.HasValue ? "Updated" : "Created",
+            "Inventory Unit",
+            result.InventoryUnitId,
+            result.Name,
+            $"Inventory unit {result.Name} was {(inventoryUnitId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<InventoryCategoryDto>> GetCategoriesAsync() =>
@@ -91,7 +100,14 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@IsActive", dto.IsActive);
         });
 
-        return await FindRequiredAsync(GetCategoriesAsync, x => x.InventoryCategoryId == id, "Inventory category not found after save.");
+        var result = await FindRequiredAsync(GetCategoriesAsync, x => x.InventoryCategoryId == id, "Inventory category not found after save.");
+        await WriteInventoryAuditAsync(
+            inventoryCategoryId.HasValue ? "Updated" : "Created",
+            "Inventory Category",
+            result.InventoryCategoryId,
+            result.Name,
+            $"Inventory category {result.Name} was {(inventoryCategoryId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<MedicineMasterDto>> GetMedicinesAsync() =>
@@ -114,7 +130,14 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@IsActive", dto.IsActive);
         });
 
-        return await FindRequiredAsync(GetMedicinesAsync, x => x.MedicineMasterId == id, "Medicine master not found after save.");
+        var result = await FindRequiredAsync(GetMedicinesAsync, x => x.MedicineMasterId == id, "Medicine master not found after save.");
+        await WriteInventoryAuditAsync(
+            medicineMasterId.HasValue ? "Updated" : "Created",
+            "Medicine Master",
+            result.MedicineMasterId,
+            result.MedicineName,
+            $"Medicine master {result.MedicineName} was {(medicineMasterId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<StockItemMasterDto>> GetItemsAsync() =>
@@ -135,7 +158,14 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@IsActive", dto.IsActive);
         });
 
-        return await FindRequiredAsync(GetItemsAsync, x => x.StockItemMasterId == id, "Stock item master not found after save.");
+        var result = await FindRequiredAsync(GetItemsAsync, x => x.StockItemMasterId == id, "Stock item master not found after save.");
+        await WriteInventoryAuditAsync(
+            stockItemMasterId.HasValue ? "Updated" : "Created",
+            "Stock Item",
+            result.StockItemMasterId,
+            result.ItemName,
+            $"Stock item {result.ItemName} was {(stockItemMasterId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<SupplierDto>> GetSuppliersAsync() =>
@@ -157,7 +187,14 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@IsActive", dto.IsActive);
         });
 
-        return await FindRequiredAsync(GetSuppliersAsync, x => x.SupplierId == id, "Supplier not found after save.");
+        var result = await FindRequiredAsync(GetSuppliersAsync, x => x.SupplierId == id, "Supplier not found after save.");
+        await WriteInventoryAuditAsync(
+            supplierId.HasValue ? "Updated" : "Created",
+            "Supplier",
+            result.SupplierId,
+            result.SupplierName,
+            $"Supplier {result.SupplierName} was {(supplierId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<StockLocationDto>> GetLocationsAsync() =>
@@ -176,7 +213,14 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@IsActive", dto.IsActive);
         });
 
-        return await FindRequiredAsync(GetLocationsAsync, x => x.StockLocationId == id, "Stock location not found after save.");
+        var result = await FindRequiredAsync(GetLocationsAsync, x => x.StockLocationId == id, "Stock location not found after save.");
+        await WriteInventoryAuditAsync(
+            stockLocationId.HasValue ? "Updated" : "Created",
+            "Stock Location",
+            result.StockLocationId,
+            result.Name,
+            $"Stock location {result.Name} was {(stockLocationId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<StockBatchDto>> GetBatchesAsync() =>
@@ -204,7 +248,14 @@ public class InventoryAdminService : IInventoryAdminService
             command.Parameters.Add(CreateLineTableParameter(dto.Lines));
         });
 
-        return await FindRequiredAsync(GetPurchaseOrdersAsync, x => x.PurchaseOrderId == id, "Purchase order not found after save.");
+        var result = await FindRequiredAsync(GetPurchaseOrdersAsync, x => x.PurchaseOrderId == id, "Purchase order not found after save.");
+        await WriteInventoryAuditAsync(
+            purchaseOrderId.HasValue ? "Updated" : "Created",
+            "Purchase Order",
+            result.PurchaseOrderId,
+            result.OrderNumber,
+            $"Purchase order {result.OrderNumber} was {(purchaseOrderId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<PurchaseInvoiceDto> ReceivePurchaseOrderAsync(long purchaseOrderId, ReceivePurchaseOrderDto dto)
@@ -221,7 +272,14 @@ public class InventoryAdminService : IInventoryAdminService
             command.Parameters.Add(CreateLineTableParameter(dto.Lines));
         });
 
-        return await FindRequiredAsync(GetPurchaseInvoicesAsync, x => x.PurchaseInvoiceId == id, "Purchase invoice not found after receiving stock.");
+        var result = await FindRequiredAsync(GetPurchaseInvoicesAsync, x => x.PurchaseInvoiceId == id, "Purchase invoice not found after receiving stock.");
+        await WriteInventoryAuditAsync(
+            "Received",
+            "Purchase Invoice",
+            result.PurchaseInvoiceId,
+            result.InvoiceNumber,
+            $"Stock receipt {result.InvoiceNumber} was recorded for purchase order {result.OrderNumber}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<PurchaseInvoiceDto>> GetPurchaseInvoicesAsync()
@@ -251,7 +309,14 @@ public class InventoryAdminService : IInventoryAdminService
             command.Parameters.Add(CreateLineTableParameter(dto.Lines));
         });
 
-        return await FindRequiredAsync(GetPurchaseReturnsAsync, x => x.PurchaseReturnId == id, "Purchase return not found after save.");
+        var result = await FindRequiredAsync(GetPurchaseReturnsAsync, x => x.PurchaseReturnId == id, "Purchase return not found after save.");
+        await WriteInventoryAuditAsync(
+            "Created",
+            "Purchase Return",
+            result.PurchaseReturnId,
+            result.ReturnNumber,
+            $"Purchase return {result.ReturnNumber} was recorded for invoice {result.InvoiceNumber}.");
+        return result;
     }
 
     public async Task<IReadOnlyList<SupplierDueSummaryDto>> GetSupplierDueSummaryAsync() =>
@@ -277,7 +342,14 @@ public class InventoryAdminService : IInventoryAdminService
             command.Parameters.Add(CreateLineTableParameter(dto.Lines));
         });
 
-        return await FindRequiredAsync(GetTransfersAsync, x => x.StockTransferId == id, "Stock transfer not found after save.");
+        var result = await FindRequiredAsync(GetTransfersAsync, x => x.StockTransferId == id, "Stock transfer not found after save.");
+        await WriteInventoryAuditAsync(
+            stockTransferId.HasValue ? "Updated" : "Created",
+            "Stock Transfer",
+            result.StockTransferId,
+            result.TransferNumber,
+            $"Stock transfer {result.TransferNumber} was {(stockTransferId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<StockTransferDto> ApproveTransferAsync(long stockTransferId, ApproveStockTransferDto dto)
@@ -288,7 +360,9 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@Notes", Normalize(dto.Notes));
         });
 
-        return await FindRequiredAsync(GetTransfersAsync, x => x.StockTransferId == stockTransferId, "Stock transfer not found after approval.");
+        var result = await FindRequiredAsync(GetTransfersAsync, x => x.StockTransferId == stockTransferId, "Stock transfer not found after approval.");
+        await WriteInventoryAuditAsync("Approved", "Stock Transfer", result.StockTransferId, result.TransferNumber, $"Stock transfer {result.TransferNumber} was approved.");
+        return result;
     }
 
     public async Task<StockTransferDto> ReceiveTransferAsync(long stockTransferId, ReceiveStockTransferDto dto)
@@ -299,7 +373,9 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@Notes", Normalize(dto.Notes));
         });
 
-        return await FindRequiredAsync(GetTransfersAsync, x => x.StockTransferId == stockTransferId, "Stock transfer not found after receipt.");
+        var result = await FindRequiredAsync(GetTransfersAsync, x => x.StockTransferId == stockTransferId, "Stock transfer not found after receipt.");
+        await WriteInventoryAuditAsync("Received", "Stock Transfer", result.StockTransferId, result.TransferNumber, $"Stock transfer {result.TransferNumber} was received.");
+        return result;
     }
 
     public async Task<IReadOnlyList<StockAdjustmentDto>> GetAdjustmentsAsync()
@@ -322,7 +398,13 @@ public class InventoryAdminService : IInventoryAdminService
             command.Parameters.Add(CreateLineTableParameter(dto.Lines));
         });
 
-        return await FindRequiredAsync(GetAdjustmentsAsync, x => x.StockAdjustmentId == id, "Stock adjustment not found after save.");
+        var result = await FindRequiredAsync(GetAdjustmentsAsync, x => x.StockAdjustmentId == id, "Stock adjustment not found after save.");
+        await WriteStockAdjustmentAuditAsync(
+            stockAdjustmentId.HasValue ? "Updated" : "Created",
+            result.StockAdjustmentId,
+            result.AdjustmentNumber,
+            $"Stock adjustment {result.AdjustmentNumber} was {(stockAdjustmentId.HasValue ? "updated" : "created")}.");
+        return result;
     }
 
     public async Task<StockAdjustmentDto> ApproveAdjustmentAsync(long stockAdjustmentId, ApproveStockAdjustmentDto dto)
@@ -333,7 +415,35 @@ public class InventoryAdminService : IInventoryAdminService
             AddParameter(command, "@Notes", Normalize(dto.Notes));
         });
 
-        return await FindRequiredAsync(GetAdjustmentsAsync, x => x.StockAdjustmentId == stockAdjustmentId, "Stock adjustment not found after approval.");
+        var result = await FindRequiredAsync(GetAdjustmentsAsync, x => x.StockAdjustmentId == stockAdjustmentId, "Stock adjustment not found after approval.");
+        await WriteStockAdjustmentAuditAsync("Approved", result.StockAdjustmentId, result.AdjustmentNumber, $"Stock adjustment {result.AdjustmentNumber} was approved.");
+        return result;
+    }
+
+    private Task WriteInventoryAuditAsync(string action, string entityName, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Inventory,
+            Action = action,
+            EntityName = entityName,
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
+    }
+
+    private Task WriteStockAdjustmentAuditAsync(string action, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.StockAdjustment,
+            Action = action,
+            EntityName = "Stock Adjustment",
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     private async Task<IReadOnlyList<THeader>> ReadHeaderWithLinesAsync<THeader>(

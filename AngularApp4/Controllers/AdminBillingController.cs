@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class AdminBillingController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public AdminBillingController(AppDbContext db)
+    public AdminBillingController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet("charges")]
@@ -62,6 +65,7 @@ public class AdminBillingController : ControllerBase
 
         _db.BillingChargeDefinitions.Add(item);
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Created", "Billing Charge Definition", item.BillingChargeDefinitionId, item.Name, $"Billing charge definition {item.Name} was created.");
 
         return Ok(ApiResponse<BillingChargeDefinitionDto>.Ok(MapChargeDefinition(item), "Charge definition created"));
     }
@@ -98,6 +102,7 @@ public class AdminBillingController : ControllerBase
         item.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Updated", "Billing Charge Definition", item.BillingChargeDefinitionId, item.Name, $"Billing charge definition {item.Name} was updated.");
 
         return Ok(ApiResponse<BillingChargeDefinitionDto>.Ok(MapChargeDefinition(item), "Charge definition updated"));
     }
@@ -142,6 +147,7 @@ public class AdminBillingController : ControllerBase
 
         _db.BillingPaymentMethods.Add(item);
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Created", "Billing Payment Method", item.BillingPaymentMethodId, item.Name, $"Billing payment method {item.Name} was created.");
 
         return Ok(ApiResponse<BillingPaymentMethodDto>.Ok(MapPaymentMethod(item), "Payment method created"));
     }
@@ -175,6 +181,7 @@ public class AdminBillingController : ControllerBase
         item.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Updated", "Billing Payment Method", item.BillingPaymentMethodId, item.Name, $"Billing payment method {item.Name} was updated.");
 
         return Ok(ApiResponse<BillingPaymentMethodDto>.Ok(MapPaymentMethod(item), "Payment method updated"));
     }
@@ -232,6 +239,7 @@ public class AdminBillingController : ControllerBase
 
         _db.BillingPartners.Add(item);
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Created", "Billing Partner", item.BillingPartnerId, item.Name, $"Billing partner {item.Name} was created.");
 
         return Ok(ApiResponse<BillingPartnerDto>.Ok(MapPartner(item), "Billing partner created"));
     }
@@ -276,6 +284,7 @@ public class AdminBillingController : ControllerBase
         item.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Updated", "Billing Partner", item.BillingPartnerId, item.Name, $"Billing partner {item.Name} was updated.");
 
         return Ok(ApiResponse<BillingPartnerDto>.Ok(MapPartner(item), "Billing partner updated"));
     }
@@ -334,6 +343,7 @@ public class AdminBillingController : ControllerBase
 
         _db.BillingRules.Add(item);
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Created", "Billing Rule", item.BillingRuleId, item.RuleName, $"Billing rule {item.RuleName} was created.");
 
         return Ok(ApiResponse<BillingRuleDto>.Ok(MapBillingRule(item, partner), "Billing rule created"));
     }
@@ -377,6 +387,7 @@ public class AdminBillingController : ControllerBase
         item.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await WriteBillingAuditAsync("Updated", "Billing Rule", item.BillingRuleId, item.RuleName, $"Billing rule {item.RuleName} was updated.");
 
         return Ok(ApiResponse<BillingRuleDto>.Ok(MapBillingRule(item, partner), "Billing rule updated"));
     }
@@ -429,6 +440,7 @@ public class AdminBillingController : ControllerBase
         await RecalculateInvoiceAsync(invoice.BillingInvoiceId);
 
         var payload = await BuildInvoiceDtoAsync(invoice.BillingInvoiceId, includeDetails: true);
+        await WriteBillingAuditAsync("InvoiceCreated", "Billing Invoice", invoice.BillingInvoiceId, invoice.InvoiceNumber, $"Billing invoice {invoice.InvoiceNumber} was created.");
         return Ok(ApiResponse<BillingInvoiceDto>.Ok(payload!, "Invoice created"));
     }
 
@@ -463,6 +475,7 @@ public class AdminBillingController : ControllerBase
         await RecalculateInvoiceAsync(invoice.BillingInvoiceId);
 
         var payload = await BuildInvoiceDtoAsync(invoice.BillingInvoiceId, includeDetails: true);
+        await WriteBillingAuditAsync("InvoiceUpdated", "Billing Invoice", invoice.BillingInvoiceId, invoice.InvoiceNumber, $"Billing invoice {invoice.InvoiceNumber} was updated.");
         return Ok(ApiResponse<BillingInvoiceDto>.Ok(payload!, "Invoice updated"));
     }
 
@@ -492,6 +505,11 @@ public class AdminBillingController : ControllerBase
         await RecalculateInvoiceAsync(billingInvoiceId);
 
         var payload = await BuildInvoiceDtoAsync(billingInvoiceId, includeDetails: true);
+        await WriteBillingAuditAsync("DiscountApproved", "Billing Invoice", invoice.BillingInvoiceId, invoice.InvoiceNumber, $"Discount approval was updated for invoice {invoice.InvoiceNumber}.", new
+        {
+            invoice.RequestedDiscountAmount,
+            invoice.ApprovedDiscountAmount
+        });
         return Ok(ApiResponse<BillingInvoiceDto>.Ok(payload!, "Discount approval updated"));
     }
 
@@ -520,7 +538,7 @@ public class AdminBillingController : ControllerBase
             return BadRequest(ApiResponse<BillingInvoiceDto>.Fail("Reference number is required for the selected payment method"));
         }
 
-        _db.BillingInvoicePayments.Add(new BillingInvoicePayment
+        var payment = new BillingInvoicePayment
         {
             BillingInvoiceId = billingInvoiceId,
             BillingPaymentMethodId = dto.BillingPaymentMethodId,
@@ -529,12 +547,20 @@ public class AdminBillingController : ControllerBase
             ReferenceNumber = Normalize(dto.ReferenceNumber),
             Notes = Normalize(dto.Notes),
             CreatedAt = DateTime.UtcNow
-        });
+        };
+
+        _db.BillingInvoicePayments.Add(payment);
 
         await _db.SaveChangesAsync();
         await RecalculateInvoiceAsync(billingInvoiceId);
 
         var payload = await BuildInvoiceDtoAsync(billingInvoiceId, includeDetails: true);
+        await WriteBillingAuditAsync("PaymentRecorded", "Billing Invoice", invoice.BillingInvoiceId, invoice.InvoiceNumber, $"Payment was recorded for invoice {invoice.InvoiceNumber}.", new
+        {
+            payment.Amount,
+            payment.PaymentDate,
+            payment.ReferenceNumber
+        });
         return Ok(ApiResponse<BillingInvoiceDto>.Ok(payload!, "Payment recorded"));
     }
 
@@ -573,7 +599,7 @@ public class AdminBillingController : ControllerBase
             return BadRequest(ApiResponse<BillingInvoiceDto>.Fail("Processed refund cannot exceed the amount paid"));
         }
 
-        _db.BillingRefunds.Add(new BillingRefund
+        var refund = new BillingRefund
         {
             BillingInvoiceId = billingInvoiceId,
             BillingPaymentMethodId = dto.BillingPaymentMethodId,
@@ -584,12 +610,37 @@ public class AdminBillingController : ControllerBase
             RequestedAt = DateTime.UtcNow,
             ProcessedAt = status == RefundStatus.Processed ? DateTime.UtcNow : null,
             CreatedAt = DateTime.UtcNow
-        });
+        };
+
+        _db.BillingRefunds.Add(refund);
 
         await _db.SaveChangesAsync();
         await RecalculateInvoiceAsync(billingInvoiceId);
 
         var payload = await BuildInvoiceDtoAsync(billingInvoiceId, includeDetails: true);
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = status == RefundStatus.Processed || status == RefundStatus.Approved
+                ? AuditLogCategories.RefundApproval
+                : AuditLogCategories.Billing,
+            Action = status switch
+            {
+                RefundStatus.Processed => "RefundProcessed",
+                RefundStatus.Approved => "RefundApproved",
+                RefundStatus.Rejected => "RefundRejected",
+                _ => "RefundRequested"
+            },
+            EntityName = "Billing Refund",
+            EntityId = refund.BillingRefundId,
+            TargetDisplayName = invoice.InvoiceNumber,
+            Summary = $"Refund request for invoice {invoice.InvoiceNumber} is now {status}.",
+            Metadata = new
+            {
+                refund.Amount,
+                refund.Reason,
+                Status = status.ToString()
+            }
+        });
         return Ok(ApiResponse<BillingInvoiceDto>.Ok(payload!, "Refund recorded"));
     }
 
@@ -1117,6 +1168,20 @@ public class AdminBillingController : ControllerBase
             RequestedAt = item.RequestedAt,
             ProcessedAt = item.ProcessedAt
         };
+    }
+
+    private Task WriteBillingAuditAsync(string action, string entityName, long entityId, string targetDisplayName, string summary, object? metadata = null)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Billing,
+            Action = action,
+            EntityName = entityName,
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary,
+            Metadata = metadata
+        });
     }
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

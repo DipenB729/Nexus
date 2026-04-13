@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class DepartmentsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public DepartmentsController(AppDbContext db)
+    public DepartmentsController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -76,6 +79,7 @@ public class DepartmentsController : ControllerBase
 
         _db.Departments.Add(department);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", department.DepartmentId, department.Name, $"Department {department.Name} was created.");
 
         var payload = await GetDepartmentAsync(department.DepartmentId);
         return Ok(ApiResponse<DepartmentDto>.Ok(payload, "Department created"));
@@ -102,6 +106,7 @@ public class DepartmentsController : ControllerBase
         department.IsActive = dto.IsActive;
         department.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", department.DepartmentId, department.Name, $"Department {department.Name} was updated.");
 
         var payload = await GetDepartmentAsync(department.DepartmentId);
         return Ok(ApiResponse<DepartmentDto>.Ok(payload, "Department updated"));
@@ -119,8 +124,22 @@ public class DepartmentsController : ControllerBase
         department.IsActive = dto.IsActive;
         department.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync(dto.IsActive ? "Activated" : "Deactivated", department.DepartmentId, department.Name, $"Department {department.Name} was {(dto.IsActive ? "activated" : "deactivated")}.");
 
         return Ok(ApiResponse<object>.Ok(null, dto.IsActive ? "Department activated" : "Department deactivated"));
+    }
+
+    private Task WriteAuditAsync(string action, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.MasterSetup,
+            Action = action,
+            EntityName = "Department",
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     private async Task<DepartmentDto> GetDepartmentAsync(long departmentId)

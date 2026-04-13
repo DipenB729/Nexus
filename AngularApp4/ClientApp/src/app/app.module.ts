@@ -45,6 +45,7 @@ import { AdmissionControlComponent } from './components/admission-control/admiss
 import { BillingFinanceComponent } from './components/billing-finance/billing-finance.component';
 import { InventoryAdminComponent } from './components/inventory-admin/inventory-admin.component';
 import { LabServiceAdminComponent } from './components/lab-service-admin/lab-service-admin.component';
+import { MonitoringAdminComponent } from './components/monitoring-admin/monitoring-admin.component';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { AuthInterceptor } from './core/services/hms/auth.interceptor';
@@ -69,7 +70,8 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     AdmissionControlComponent,
     BillingFinanceComponent,
     InventoryAdminComponent,
-    LabServiceAdminComponent
+    LabServiceAdminComponent,
+    MonitoringAdminComponent
   ],
   imports: [
     BrowserModule,
@@ -111,6 +113,9 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'admin/laboratory/:section/:id/edit', component: LabServiceAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/laboratory/:section/:id', component: LabServiceAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/laboratory/:section', component: LabServiceAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/monitoring', pathMatch: 'full', redirectTo: 'admin/monitoring/reports' },
+      { path: 'admin/monitoring/:section/:reportKey', component: MonitoringAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/monitoring/:section', component: MonitoringAdminComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/roles', component: UsersDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/users', pathMatch: 'full', redirectTo: 'admin/roles' },
       { path: 'admin/masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
@@ -118,7 +123,8 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'admin/masters/:section/:id/edit', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/masters/:section/:id', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/masters/:section', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
-      { path: 'admin/settings', component: AdminSettingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/settings', pathMatch: 'full', redirectTo: 'admin/settings/organization' },
+      { path: 'admin/settings/:section', component: AdminSettingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'user', pathMatch: 'full', redirectTo: 'user/dashboard' },
       { path: 'user/dashboard', component: UserPageComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
       { path: 'user/services', component: ServiceListComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
@@ -129,6 +135,7 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'billing', pathMatch: 'full', redirectTo: 'admin/billing/bills' },
       { path: 'inventory', pathMatch: 'full', redirectTo: 'admin/inventory' },
       { path: 'laboratory', pathMatch: 'full', redirectTo: 'admin/laboratory' },
+      { path: 'monitoring', pathMatch: 'full', redirectTo: 'admin/monitoring' },
       { path: 'settings', pathMatch: 'full', redirectTo: 'admin/settings' },
       { path: 'masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
       { path: 'users', pathMatch: 'full', redirectTo: 'admin/roles' },

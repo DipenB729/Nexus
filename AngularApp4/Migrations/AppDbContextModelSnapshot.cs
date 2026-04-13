@@ -159,6 +159,344 @@ namespace AngularApp4.Migrations
                     b.ToTable("AppointmentTokenSettings");
                 });
 
+            modelBuilder.Entity("AngularApp4.Model.Hms.AuditLogEntry", b =>
+                {
+                    b.Property<long>("AuditLogEntryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AuditLogEntryId"), 1L, 1);
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ActorEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("EntityId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("EntityName")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("MetadataJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("PerformedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("PerformedByRole")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<long?>("PerformedByUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("TargetDisplayName")
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.HasKey("AuditLogEntryId");
+
+                    b.HasIndex("Action", "CreatedAt");
+
+                    b.HasIndex("Category", "CreatedAt");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("PerformedByUserId");
+
+                    b.ToTable("AuditLogEntries");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.BackupLog", b =>
+                {
+                    b.Property<long>("BackupLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("BackupLogId"), 1L, 1);
+
+                    b.Property<string>("BackupName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("BackupType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RestoredByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("RestoredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SnapshotJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("TriggeredByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<long?>("TriggeredByUserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BackupLogId");
+
+                    b.HasIndex("BackupType", "CreatedAt");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("BackupLogs");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.NotificationSetting", b =>
+                {
+                    b.Property<long>("NotificationSettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NotificationSettingId"), 1L, 1);
+
+                    b.Property<string>("AppointmentReminderChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("AppointmentReminderHoursBefore")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("AppointmentRemindersEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ExpiryAlertChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("ExpiryAlertDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ExpiryAlertsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LowStockAlertChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("LowStockAlertsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LowStockReminderFrequencyHours")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentDueAlertChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("PaymentDueAlertsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PaymentDueReminderDaysBefore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecipientEmails")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("NotificationSettingId");
+
+                    b.ToTable("NotificationSettings");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.SecuritySetting", b =>
+                {
+                    b.Property<long>("SecuritySettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SecuritySettingId"), 1L, 1);
+
+                    b.Property<string>("LastPermissionReviewedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("LastPermissionReviewAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MinPasswordLength")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PasswordExpiryDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PermissionReviewIntervalDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequireDigit")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequireLowercase")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequireSpecialCharacter")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequireUppercase")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SessionTimeoutMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SecuritySettingId");
+
+                    b.ToTable("SecuritySettings");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.SystemControlSetting", b =>
+                {
+                    b.Property<long>("SystemControlSettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SystemControlSettingId"), 1L, 1);
+
+                    b.Property<bool>("AutoBackupEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AutoBackupTime")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("BackupRetentionCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BackupStoragePath")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("DefaultCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("EmailApiKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EmailApiUrl")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("EmailFromAddress")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("EmailProviderName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("InvoicePrefix")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("NextInvoiceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SmsApiKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SmsApiUrl")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("SmsProviderName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("SmsSenderId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SystemControlSettingId");
+
+                    b.ToTable("SystemControlSettings");
+                });
+
             modelBuilder.Entity("AngularApp4.Model.Hms.Bed", b =>
                 {
                     b.Property<long>("BedId")

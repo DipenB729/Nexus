@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class PatientCategoriesController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public PatientCategoriesController(AppDbContext db)
+    public PatientCategoriesController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet]
@@ -65,6 +68,7 @@ public class PatientCategoriesController : ControllerBase
 
         _db.PatientCategories.Add(item);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", item.PatientCategoryId, item.Name, $"Patient category {item.Name} was created.");
 
         return Ok(ApiResponse<PatientCategoryDto>.Ok(Map(item), "Patient category created"));
     }
@@ -84,6 +88,7 @@ public class PatientCategoriesController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", item.PatientCategoryId, item.Name, $"Patient category {item.Name} was updated.");
 
         return Ok(ApiResponse<PatientCategoryDto>.Ok(Map(item), "Patient category updated"));
     }
@@ -100,8 +105,22 @@ public class PatientCategoriesController : ControllerBase
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await WriteAuditAsync(dto.IsActive ? "Activated" : "Deactivated", item.PatientCategoryId, item.Name, $"Patient category {item.Name} was {(dto.IsActive ? "activated" : "deactivated")}.");
 
         return Ok(ApiResponse<object>.Ok(null, dto.IsActive ? "Patient category activated" : "Patient category deactivated"));
+    }
+
+    private Task WriteAuditAsync(string action, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.MasterSetup,
+            Action = action,
+            EntityName = "Patient Category",
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     private static PatientCategoryDto Map(PatientCategory item)

@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AngularApp4.Controllers;
 public class AdminLaboratoryController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _audit;
 
-    public AdminLaboratoryController(AppDbContext db)
+    public AdminLaboratoryController(AppDbContext db, IAuditLogService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     [HttpGet("lab-tests")]
@@ -66,6 +69,7 @@ public class AdminLaboratoryController : ControllerBase
 
         _db.LabTestMasters.Add(item);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", "Lab Test", item.LabTestMasterId, item.TestName, $"Lab test {item.TestName} was created.");
 
         return Ok(ApiResponse<LabTestMasterDto>.Ok(MapLabTest(item), "Lab test created"));
     }
@@ -111,6 +115,7 @@ public class AdminLaboratoryController : ControllerBase
         item.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", "Lab Test", item.LabTestMasterId, item.TestName, $"Lab test {item.TestName} was updated.");
 
         return Ok(ApiResponse<LabTestMasterDto>.Ok(MapLabTest(item), "Lab test updated"));
     }
@@ -163,6 +168,7 @@ public class AdminLaboratoryController : ControllerBase
 
         _db.ServicePackages.Add(item);
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Created", "Service Package", item.ServicePackageId, item.PackageName, $"Service package {item.PackageName} was created.");
 
         return Ok(ApiResponse<ServicePackageDto>.Ok(MapPackage(item), "Package created"));
     }
@@ -204,8 +210,22 @@ public class AdminLaboratoryController : ControllerBase
         item.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await WriteAuditAsync("Updated", "Service Package", item.ServicePackageId, item.PackageName, $"Service package {item.PackageName} was updated.");
 
         return Ok(ApiResponse<ServicePackageDto>.Ok(MapPackage(item), "Package updated"));
+    }
+
+    private Task WriteAuditAsync(string action, string entityName, long entityId, string targetDisplayName, string summary)
+    {
+        return _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Laboratory,
+            Action = action,
+            EntityName = entityName,
+            EntityId = entityId,
+            TargetDisplayName = targetDisplayName,
+            Summary = summary
+        });
     }
 
     private static LabTestMasterDto MapLabTest(LabTestMaster item)
