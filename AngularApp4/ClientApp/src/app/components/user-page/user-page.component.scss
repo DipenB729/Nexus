@@ -8,7 +8,7 @@
 }
 
 .hero {
-  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, #0f766e 0%, #0891b2 100%);
   color: #fff;
   padding: 1.25rem;
   border-radius: 18px;
@@ -51,6 +51,24 @@ h1 {
 .hero-actions {
   display: flex;
   gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.feedback,
+.error {
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+}
+
+.feedback {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.error {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .stats-grid {
@@ -64,33 +82,33 @@ h1 {
   border: 1px solid #dbe5f4;
   border-radius: 14px;
   padding: 1rem;
+}
 
-  p {
-    margin: 0;
-    color: #64748b;
-    font-size: 0.9rem;
-  }
+.stat-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
 
-  strong {
-    display: block;
-    margin-top: 0.35rem;
-    font-size: 1.5rem;
-    color: #0f172a;
-  }
+.stat-card strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
 
-  small {
-    color: #94a3b8;
-  }
+.stat-card small {
+  color: #94a3b8;
 }
 
 .stat-card.highlight {
-  background: #eff6ff;
-  border-color: #bfdbfe;
+  background: #ecfeff;
+  border-color: #a5f3fc;
 }
 
 .content-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr;
+  grid-template-columns: 1.15fr 1.85fr;
   gap: 1rem;
 }
 
@@ -128,8 +146,10 @@ h1 {
   font-size: 0.95rem;
 }
 
-.upcoming-item p {
-  margin: 0.2rem 0 0;
+.upcoming-item p,
+.upcoming-item small {
+  display: block;
+  margin: 0.22rem 0 0;
   color: #64748b;
   font-size: 0.85rem;
 }
@@ -160,16 +180,22 @@ th {
   border-radius: 999px;
   padding: 0.2rem 0.6rem;
   font-size: 0.75rem;
-}
-
-.confirmed {
-  background: #dcfce7;
-  color: #166534;
+  white-space: nowrap;
 }
 
 .pending {
   background: #fef3c7;
   color: #92400e;
+}
+
+.approved {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.rescheduled {
+  background: #ede9fe;
+  color: #6d28d9;
 }
 
 .cancelled {
@@ -178,8 +204,8 @@ th {
 }
 
 .completed {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .empty {

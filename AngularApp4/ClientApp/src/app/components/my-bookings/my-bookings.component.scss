@@ -1,90 +1,230 @@
 .bookings-container {
-  padding: 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 2.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-.page-header {
+.page-header,
+.header-actions,
+.actions-row,
+.section-head,
+.card-head {
   display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-header,
+.section-head,
+.card-head,
+.actions-row {
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: #1e293b;
+  font-size: 2rem;
+  line-height: 1.12;
+  color: #0f172a;
 }
 
-.page-header p {
-  margin: 5px 0 0;
+.page-header p,
+.eyebrow,
+.subcopy,
+.appointment-id,
+.reason-note {
+  margin: 0;
   color: #64748b;
 }
 
+.feedback,
+.error,
+.empty-state {
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+}
+
+.feedback {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.feedback.success {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .table-actions {
-  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .search-field {
-  width: 100%;
-  max-width: 400px;
+  width: min(420px, 100%);
+}
+
+.eyebrow {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.table-card,
+.details-shell {
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  border: 1px solid #dbe5f4;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.06);
+}
+
+.details-shell {
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
 }
 
 .table-card {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  padding: 0;
   overflow: hidden;
 }
 
-table {
+.phase-table {
   width: 100%;
+  border-collapse: collapse;
 }
 
-.customer-info span {
-  font-weight: 500;
+.phase-table th,
+.phase-table td {
+  padding: 0.9rem 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
 }
 
-.mat-mdc-header-cell {
+.phase-table tbody tr:hover {
   background: #f8fafc;
-  color: #475569;
-  font-weight: 700;
-  padding: 16px !important;
 }
 
-.mat-mdc-cell {
-  padding: 16px !important;
-  border-bottom: 1px solid #f1f5f9;
+.phase-table th {
+  color: #334155;
+  font-size: 0.82rem;
 }
 
-/* Datetime styling */
-.datetime-cell {
+.phase-table strong {
+  color: #0f172a;
+}
+
+.phase-table small {
+  display: block;
+  margin-top: 0.3rem;
+  color: #64748b;
+}
+
+.name-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.actions-row a {
+  text-decoration: none;
+}
+
+.details-hero {
   display: flex;
-  flex-direction: column;
-}
-
-.datetime-cell small {
-  color: #94a3b8;
-  font-size: 0.75rem;
-}
-
-/* STATUS BADGES */
-.status-badge {
-  padding: 4px 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.2rem;
   border-radius: 20px;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  border: 1px solid #bfdbfe;
+}
+
+.details-hero h2 {
+  margin: 0.35rem 0 0;
+  color: #0f172a;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.detail-grid div {
+  padding: 1rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.detail-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.detail-grid strong,
+.detail-grid small {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.detail-grid strong {
+  color: #0f172a;
+}
+
+.detail-grid small {
+  color: #64748b;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
 }
 
-.status-badge.confirmed {
-  background: #dcfce7;
-  color: #166534;
-}
-
 .status-badge.pending {
   background: #fef9c3;
   color: #854d0e;
+}
+
+.status-badge.approved {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge.rescheduled {
+  background: #ede9fe;
+  color: #6d28d9;
 }
 
 .status-badge.cancelled {
@@ -93,15 +233,18 @@ table {
 }
 
 .status-badge.completed {
-  background: #f1f5f9;
-  color: #475569;
+  background: #dcfce7;
+  color: #166534;
 }
 
-.action-cell {
-  text-align: right;
-  white-space: nowrap;
+@media (max-width: 1100px) {
+  .detail-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
-.booking-row:hover {
-  background: #f8fafc;
+@media (max-width: 720px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
 }

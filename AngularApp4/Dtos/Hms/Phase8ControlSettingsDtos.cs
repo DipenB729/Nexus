@@ -62,8 +62,12 @@ public class SystemSettingsDto
     public string SmsSenderId { get; set; } = string.Empty;
     public string EmailProviderName { get; set; } = string.Empty;
     public string EmailApiUrl { get; set; } = string.Empty;
+    public int EmailSmtpPort { get; set; }
+    public string EmailSmtpUsername { get; set; } = string.Empty;
     public string EmailApiKey { get; set; } = string.Empty;
     public string EmailFromAddress { get; set; } = string.Empty;
+    public bool EmailUseSsl { get; set; }
+    public string DoctorPortalBaseUrl { get; set; } = string.Empty;
     public bool AutoBackupEnabled { get; set; }
     public string AutoBackupTime { get; set; } = string.Empty;
     public int BackupRetentionCount { get; set; }

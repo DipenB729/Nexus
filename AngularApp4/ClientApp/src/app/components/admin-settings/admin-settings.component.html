@@ -239,13 +239,20 @@
 
       <div class="settings-grid">
         <section class="panel">
-          <div class="panel-head"><div><span class="eyebrow">Message providers</span><h2>Email API settings</h2></div></div>
+          <div class="panel-head"><div><span class="eyebrow">Doctor portal delivery</span><h2>SMTP configuration</h2></div></div>
           <div class="form-grid">
-            <mat-form-field appearance="outline"><mat-label>Email provider</mat-label><input matInput [(ngModel)]="system.emailProviderName" /></mat-form-field>
-            <mat-form-field appearance="outline"><mat-label>From address</mat-label><input matInput [(ngModel)]="system.emailFromAddress" /></mat-form-field>
-            <mat-form-field appearance="outline" class="full-width"><mat-label>Email API URL</mat-label><input matInput [(ngModel)]="system.emailApiUrl" /></mat-form-field>
-            <mat-form-field appearance="outline" class="full-width"><mat-label>Email API key</mat-label><input matInput [(ngModel)]="system.emailApiKey" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>Provider</mat-label><input matInput [(ngModel)]="system.emailProviderName" placeholder="Gmail or SMTP" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>SMTP host</mat-label><input matInput [(ngModel)]="system.emailApiUrl" placeholder="smtp.gmail.com" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>SMTP port</mat-label><input matInput type="number" [(ngModel)]="system.emailSmtpPort" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>SMTP username</mat-label><input matInput [(ngModel)]="system.emailSmtpUsername" placeholder="your gmail address" /></mat-form-field>
+            <mat-form-field appearance="outline"><mat-label>From address</mat-label><input matInput [(ngModel)]="system.emailFromAddress" placeholder="noreply@yourdomain.com" /></mat-form-field>
+            <label class="toggle-box"><input type="checkbox" [(ngModel)]="system.emailUseSsl" /><span>Use SSL / TLS</span></label>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>SMTP password / app password</mat-label><input matInput [(ngModel)]="system.emailApiKey" type="password" /></mat-form-field>
+            <mat-form-field appearance="outline" class="full-width"><mat-label>Doctor portal login URL</mat-label><input matInput [(ngModel)]="system.doctorPortalBaseUrl" placeholder="http://localhost:4200/auth/login" /></mat-form-field>
           </div>
+          <p class="hint-text">
+            When a new doctor is added, the system sends this portal URL, the doctor email as username, and a temporary password using the SMTP settings above.
+          </p>
         </section>
 
         <section class="panel">

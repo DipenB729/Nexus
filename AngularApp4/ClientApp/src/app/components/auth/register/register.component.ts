@@ -16,7 +16,8 @@ export class RegisterComponent {
     {
       fullName: ['', [Validators.required]],
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      phone: [''],
+      password: ['', [Validators.required, Validators.minLength(8)]],
       confirmPassword: ['', [Validators.required]]
     },
     { validators: RegisterComponent.passwordMatchValidator }
@@ -37,17 +38,17 @@ export class RegisterComponent {
     this.errorMessage = '';
     this.isSubmitting = true;
 
-    const { fullName, email, password } = this.form.getRawValue();
+    const { fullName, email, phone, password } = this.form.getRawValue();
     this.auth
-      .register({ fullName: fullName!, email: email!, password: password! })
+      .register({ fullName: fullName!, email: email!, phone: phone || null, password: password! })
       .subscribe({
         next: () => {
           this.isSubmitting = false;
-          this.router.navigateByUrl('/user/dashboard');
+          this.router.navigateByUrl(this.auth.getDashboardRoute('User'));
         },
-        error: () => {
+        error: (error: { error?: { message?: string } }) => {
           this.isSubmitting = false;
-          this.errorMessage = 'Unable to register. Please check your details and try again.';
+          this.errorMessage = error?.error?.message || 'Unable to register. Please check your details and try again.';
         }
       });
   }

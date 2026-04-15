@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Patient> Patients => Set<Patient>();
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<DoctorSchedule> DoctorSchedules => Set<DoctorSchedule>();
+    public DbSet<DoctorAvailabilityException> DoctorAvailabilityExceptions => Set<DoctorAvailabilityException>();
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<HospitalService> HospitalServices => Set<HospitalService>();
     public DbSet<LabTestMaster> LabTestMasters => Set<LabTestMaster>();
@@ -21,12 +22,19 @@ public class AppDbContext : DbContext
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<AngularApp4.Model.Service> Services => Set<AngularApp4.Model.Service>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
+    public DbSet<PatientClinicalProfile> PatientClinicalProfiles => Set<PatientClinicalProfile>();
+    public DbSet<DoctorConsultation> DoctorConsultations => Set<DoctorConsultation>();
+    public DbSet<DoctorPrescription> DoctorPrescriptions => Set<DoctorPrescription>();
+    public DbSet<DoctorPrescriptionItem> DoctorPrescriptionItems => Set<DoctorPrescriptionItem>();
+    public DbSet<DiagnosticRequest> DiagnosticRequests => Set<DiagnosticRequest>();
+    public DbSet<PatientDocument> PatientDocuments => Set<PatientDocument>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<HospitalProfile> HospitalProfiles => Set<HospitalProfile>();
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
     public DbSet<SystemControlSetting> SystemControlSettings => Set<SystemControlSetting>();
     public DbSet<SecuritySetting> SecuritySettings => Set<SecuritySetting>();
     public DbSet<BackupLog> BackupLogs => Set<BackupLog>();
+    public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<PatientCategory> PatientCategories => Set<PatientCategory>();
@@ -77,6 +85,7 @@ public class AppDbContext : DbContext
             .IsUnique()
             .HasFilter("[MedicalRecordNumber] IS NOT NULL");
         modelBuilder.Entity<Doctor>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<DoctorAvailabilityException>().HasIndex(x => new { x.DoctorId, x.StartDate, x.EndDate, x.ExceptionType });
         modelBuilder.Entity<Staff>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<HospitalService>().HasIndex(x => x.ServiceName).IsUnique();
         modelBuilder.Entity<LabTestMaster>().HasIndex(x => new { x.DepartmentName, x.TestName }).IsUnique();
@@ -88,6 +97,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BackupLog>().HasIndex(x => x.CreatedAt);
         modelBuilder.Entity<BackupLog>().HasIndex(x => new { x.BackupType, x.CreatedAt });
         modelBuilder.Entity<BackupLog>().HasIndex(x => new { x.Status, x.CreatedAt });
+        modelBuilder.Entity<AppNotification>().HasIndex(x => new { x.RecipientUserId, x.IsRead, x.ScheduledForUtc });
+        modelBuilder.Entity<AppNotification>().HasIndex(x => new { x.RelatedEntityName, x.RelatedEntityId });
         modelBuilder.Entity<AngularApp4.Model.Service>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<InventoryUnit>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<InventoryCategory>().HasIndex(x => new { x.CategoryType, x.Name }).IsUnique();
@@ -112,6 +123,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Ward>().HasIndex(x => new { x.BranchId, x.Name }).IsUnique();
         modelBuilder.Entity<Bed>().HasIndex(x => new { x.WardId, x.BedNumber }).IsUnique();
         modelBuilder.Entity<PatientAdmission>().HasIndex(x => x.AdmissionNumber).IsUnique();
+        modelBuilder.Entity<PatientClinicalProfile>().HasIndex(x => x.PatientId).IsUnique();
+        modelBuilder.Entity<DoctorConsultation>().HasIndex(x => x.AppointmentId).IsUnique();
+        modelBuilder.Entity<DoctorPrescription>().HasIndex(x => x.AppointmentId);
+        modelBuilder.Entity<DiagnosticRequest>().HasIndex(x => new { x.PatientId, x.RequestType, x.CreatedAt });
 
         modelBuilder.Entity<User>()
             .HasOne(x => x.Role)
@@ -131,7 +146,19 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.MergedIntoPatientId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<PatientClinicalProfile>()
+            .HasOne(x => x.Patient)
+            .WithMany()
+            .HasForeignKey(x => x.PatientId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         modelBuilder.Entity<DoctorSchedule>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DoctorAvailabilityException>()
             .HasOne(x => x.Doctor)
             .WithMany()
             .HasForeignKey(x => x.DoctorId)
@@ -515,6 +542,90 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.BedId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<DoctorConsultation>()
+            .HasOne(x => x.Appointment)
+            .WithMany()
+            .HasForeignKey(x => x.AppointmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DoctorConsultation>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DoctorConsultation>()
+            .HasOne(x => x.Patient)
+            .WithMany()
+            .HasForeignKey(x => x.PatientId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DoctorPrescription>()
+            .HasOne(x => x.Appointment)
+            .WithMany()
+            .HasForeignKey(x => x.AppointmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DoctorPrescription>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DoctorPrescription>()
+            .HasOne(x => x.Patient)
+            .WithMany()
+            .HasForeignKey(x => x.PatientId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DoctorPrescriptionItem>()
+            .HasOne(x => x.DoctorPrescription)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorPrescriptionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DoctorPrescriptionItem>()
+            .HasOne(x => x.MedicineMaster)
+            .WithMany()
+            .HasForeignKey(x => x.MedicineMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DiagnosticRequest>()
+            .HasOne(x => x.Appointment)
+            .WithMany()
+            .HasForeignKey(x => x.AppointmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DiagnosticRequest>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DiagnosticRequest>()
+            .HasOne(x => x.Patient)
+            .WithMany()
+            .HasForeignKey(x => x.PatientId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<DiagnosticRequest>()
+            .HasOne(x => x.LabTestMaster)
+            .WithMany()
+            .HasForeignKey(x => x.LabTestMasterId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PatientDocument>()
+            .HasOne(x => x.Patient)
+            .WithMany()
+            .HasForeignKey(x => x.PatientId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PatientDocument>()
+            .HasOne(x => x.Appointment)
+            .WithMany()
+            .HasForeignKey(x => x.AppointmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<AdmissionTransfer>()
             .HasOne(x => x.PatientAdmission)
             .WithMany()
@@ -548,6 +659,24 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Patient>().HasIndex(x => x.UserId).IsUnique();
 
         modelBuilder.Entity<Appointment>()
+            .Property(x => x.Status)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<DoctorAvailabilityException>()
+            .Property(x => x.ExceptionType)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        modelBuilder.Entity<DoctorConsultation>()
+            .Property(x => x.Status)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<DiagnosticRequest>()
+            .Property(x => x.RequestType)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        modelBuilder.Entity<DiagnosticRequest>()
             .Property(x => x.Status)
             .HasConversion<string>();
 

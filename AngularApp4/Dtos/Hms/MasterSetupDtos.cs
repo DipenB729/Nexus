@@ -49,6 +49,9 @@ public class DoctorMasterDto
     public TimeSpan? OpdEndTime { get; set; }
     public decimal ConsultationFee { get; set; }
     public bool IsActive { get; set; }
+    public bool? PortalAccountCreated { get; set; }
+    public bool? PortalEmailSent { get; set; }
+    public string? PortalProvisioningNote { get; set; }
 }
 
 public class SaveDoctorDto

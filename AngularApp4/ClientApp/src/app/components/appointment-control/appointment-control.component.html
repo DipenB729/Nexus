@@ -2,7 +2,7 @@
   <div class="page-header">
     <div>
       <h1>Appointment Management</h1>
-      <p>Review bookings, approve or reschedule them, and keep schedule and token controls aligned with actual OPD operations.</p>
+      <p>Review bookings, approve or reschedule them, and manage token controls for actual OPD operations.</p>
     </div>
 
     <div class="header-actions">
@@ -248,90 +248,6 @@
         </button>
       </div>
     </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <span class="eyebrow">Control panel</span>
-          <h2>Doctor-wise schedule control</h2>
-          <p>Keep OPD slot timings aligned with live booking windows.</p>
-        </div>
-      </div>
-
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Doctor</mat-label>
-        <mat-select [(ngModel)]="selectedDoctorId" (selectionChange)="changeScheduleDoctor()">
-          <mat-option *ngFor="let doctor of doctors" [value]="doctor.doctorId">{{ doctor.fullName }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <div class="table-card inner-table">
-        <table class="phase-table" *ngIf="schedules.length > 0; else noSchedules">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Window</th>
-              <th>Slot</th>
-              <th>Patients</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let schedule of schedules">
-              <td>{{ scheduleDayLabel(schedule.dayOfWeek) }}</td>
-              <td>{{ schedule.startTime | slice:0:5 }} - {{ schedule.endTime | slice:0:5 }}</td>
-              <td>{{ schedule.slotDurationMinutes }} min</td>
-              <td>{{ schedule.maxPatientsPerSlot }}</td>
-              <td class="actions-cell">
-                <button mat-button type="button" (click)="editSchedule(schedule)">Edit</button>
-                <button mat-button type="button" color="warn" (click)="deleteSchedule(schedule.scheduleId)">Delete</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="form-grid compact-grid">
-        <mat-form-field appearance="outline">
-          <mat-label>Day</mat-label>
-          <mat-select [(ngModel)]="scheduleForm.dayOfWeek">
-            <mat-option *ngFor="let day of dayOptions" [value]="day.value">{{ day.label }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Start</mat-label>
-          <input matInput type="time" [(ngModel)]="scheduleForm.startTime" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>End</mat-label>
-          <input matInput type="time" [(ngModel)]="scheduleForm.endTime" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Slot duration</mat-label>
-          <input matInput type="number" [(ngModel)]="scheduleForm.slotDurationMinutes" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Max patients</mat-label>
-          <input matInput type="number" [(ngModel)]="scheduleForm.maxPatientsPerSlot" />
-        </mat-form-field>
-
-        <label class="toggle-box">
-          <input type="checkbox" [(ngModel)]="scheduleForm.isActive" />
-          <span>Schedule is active</span>
-        </label>
-      </div>
-
-      <div class="actions-row">
-        <button mat-raised-button color="primary" type="button" [disabled]="isSavingSchedule" (click)="saveSchedule()">
-          Save doctor schedule
-        </button>
-        <button mat-stroked-button type="button" (click)="resetScheduleForm()">Reset</button>
-      </div>
-    </section>
   </div>
 </section>
 
@@ -343,10 +259,6 @@
 
 <ng-template #noAppointments>
   <div class="empty-state">No bookings match the current filters.</div>
-</ng-template>
-
-<ng-template #noSchedules>
-  <div class="empty-state compact-state">No schedules configured for the selected doctor.</div>
 </ng-template>
 
 <ng-template #loadingState>

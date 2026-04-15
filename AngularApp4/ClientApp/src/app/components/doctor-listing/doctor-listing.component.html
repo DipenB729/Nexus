@@ -1,0 +1,94 @@
+<section class="doctor-listing">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Patient appointment module</p>
+      <h1>Choose your doctor</h1>
+      <p class="subtitle">Browse active doctors, filter by expertise, and open the detail page to view time slots and book.</p>
+    </div>
+
+    <div class="hero-note">
+      <span>Main patient page</span>
+      <strong>Select a doctor to continue to booking</strong>
+    </div>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="feedback" *ngIf="isLoading">Loading doctors...</p>
+
+  <div class="toolbar" *ngIf="!isLoading">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search doctors</mat-label>
+      <input matInput [(ngModel)]="searchTerm" placeholder="Name, specialty, department, branch" />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="expertise-field">
+      <mat-label>Expertise</mat-label>
+      <mat-select [(ngModel)]="expertiseFilter">
+        <mat-option *ngFor="let expertise of expertiseOptions" [value]="expertise">{{ expertise }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="department-field">
+      <mat-label>Department</mat-label>
+      <mat-select [(ngModel)]="departmentFilter">
+        <mat-option *ngFor="let department of departmentOptions" [value]="department">{{ department }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div class="cards-grid" *ngIf="!isLoading">
+    <article class="doctor-card" *ngFor="let doctor of filteredDoctors; trackBy: trackByDoctor">
+      <header class="card-header">
+        <div class="identity">
+          <div class="avatar">{{ doctor.fullName.charAt(0) }}</div>
+          <div>
+            <h2>{{ doctor.fullName }}</h2>
+            <p>{{ doctor.specialization }}</p>
+          </div>
+        </div>
+
+        <div class="fee-pill">
+          <span>Consultation fee</span>
+          <strong>{{ doctor.consultationFee | currency:'USD' }}</strong>
+        </div>
+      </header>
+
+      <div class="meta-grid">
+        <div>
+          <span>Department</span>
+          <strong>{{ doctor.departmentName || 'General practice' }}</strong>
+        </div>
+        <div>
+          <span>Branch</span>
+          <strong>{{ doctor.branchName || 'Main hospital' }}</strong>
+        </div>
+        <div>
+          <span>Available days</span>
+          <strong>{{ formatDays(doctor.opdDays) }}</strong>
+        </div>
+        <div>
+          <span>OPD time</span>
+          <strong>{{ formatTimeRange(doctor.opdStartTime, doctor.opdEndTime) }}</strong>
+        </div>
+      </div>
+
+      <footer class="list-footer">
+        <p class="card-hint">Review the profile or jump directly into the appointment booking page for this doctor.</p>
+
+        <div class="action-group">
+          <a mat-stroked-button color="primary" [routerLink]="['/patient/doctors', doctor.doctorId]">
+            View Details
+          </a>
+          <a mat-raised-button color="primary" [routerLink]="['/patient/book']" [queryParams]="{ doctorId: doctor.doctorId }">
+            Book Now
+          </a>
+        </div>
+      </footer>
+    </article>
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && !filteredDoctors.length">
+    No doctors matched your current search, expertise, or department filter.
+  </div>
+</section>

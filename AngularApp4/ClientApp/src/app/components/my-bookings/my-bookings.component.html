@@ -4,69 +4,153 @@
       <h1>{{ pageTitle }}</h1>
       <p>{{ pageSubtitle }}</p>
     </div>
+
+    <div class="header-actions" *ngIf="isDetailsView">
+      <button mat-stroked-button type="button" (click)="backToIndex()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to appointments
+      </button>
+    </div>
   </div>
 
-  <div class="table-actions">
+  <p class="feedback" *ngIf="isLoading">Loading your appointment history...</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="feedback success" *ngIf="statusMessage">{{ statusMessage }}</p>
+
+  <div class="table-actions" *ngIf="!isLoading && isIndexView">
     <mat-form-field appearance="outline" class="search-field">
       <mat-label>Filter appointments...</mat-label>
-      <input matInput (keyup)="applyFilter($event)" placeholder="Search by person or service">
+      <input matInput [(ngModel)]="searchTerm" placeholder="Search by doctor, service, or status" />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
   </div>
 
-  <div class="table-card mat-elevation-z0">
-    <table mat-table [dataSource]="dataSource">
-      <ng-container matColumnDef="id">
-        <th mat-header-cell *matHeaderCellDef> Booking ID </th>
-        <td mat-cell *matCellDef="let b"> <strong>#{{ b.id }}</strong> </td>
-      </ng-container>
-
-      <ng-container matColumnDef="customer">
-        <th mat-header-cell *matHeaderCellDef> Customer </th>
-        <td mat-cell *matCellDef="let b">
-          <div class="customer-info">
-            <span>{{ b.customerName }}</span>
-          </div>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="service">
-        <th mat-header-cell *matHeaderCellDef> Service </th>
-        <td mat-cell *matCellDef="let b"> {{ b.serviceName }} </td>
-      </ng-container>
-
-      <ng-container matColumnDef="date">
-        <th mat-header-cell *matHeaderCellDef> Scheduled For </th>
-        <td mat-cell *matCellDef="let b">
-          <div class="datetime-cell">
-            <span>{{ b.appointmentDate | date:'mediumDate' }}</span>
-            <small>{{ b.time }}</small>
-          </div>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="status">
-        <th mat-header-cell *matHeaderCellDef> Status </th>
-        <td mat-cell *matCellDef="let b">
-          <span [class]="getStatusClass(b.status)">
-            {{ getStatusText(b.status) }}
-          </span>
-        </td>
-      </ng-container>
-
-      <ng-container matColumnDef="price">
-        <th mat-header-cell *matHeaderCellDef> Price </th>
-        <td mat-cell *matCellDef="let b"> {{ b.price | currency:'USD' }} </td>
-      </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="booking-row"></tr>
-
-      <tr class="mat-row" *matNoDataRow>
-        <td class="mat-cell" [attr.colspan]="displayedColumns.length" style="padding: 24px; text-align: center; color: #64748b;">
-          No appointments found.
-        </td>
-      </tr>
+  <section class="table-card" *ngIf="!isLoading && isIndexView">
+    <table class="phase-table" *ngIf="filteredAppointments.length > 0; else noAppointments">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Doctor</th>
+          <th>Service</th>
+          <th>Date</th>
+          <th>Status</th>
+          <th>Token</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let appointment of filteredAppointments; let i = index">
+          <td>{{ i + 1 }}</td>
+          <td>
+            <button type="button" class="name-link" (click)="openDetails(appointment.appointmentId)">
+              {{ appointment.doctorName }}
+            </button>
+            <small>{{ appointment.doctorSpecialization || 'General practice' }}</small>
+          </td>
+          <td>
+            <strong>{{ appointment.serviceName || 'General consultation' }}</strong>
+            <small *ngIf="appointment.reason">{{ appointment.reason }}</small>
+          </td>
+          <td>
+            <strong>{{ appointment.appointmentDate | date:'mediumDate' }}</strong>
+            <small>{{ formatSlot(appointment) }}</small>
+          </td>
+          <td><span [class]="getStatusClass(appointment.status)">{{ appointment.status }}</span></td>
+          <td>{{ appointment.tokenNumber || 'Pending' }}</td>
+          <td class="actions-cell">
+            <button mat-button type="button" (click)="openDetails(appointment.appointmentId)">View</button>
+            <a
+              mat-button
+              color="primary"
+              *ngIf="canReschedule(appointment)"
+              [routerLink]="['/patient/book']"
+              [queryParams]="{ appointmentId: appointment.appointmentId, doctorId: appointment.doctorId }">
+              Reschedule
+            </a>
+            <button
+              mat-button
+              color="warn"
+              type="button"
+              *ngIf="canCancel(appointment)"
+              [disabled]="isCancelling"
+              (click)="cancelAppointment(appointment)">
+              Cancel
+            </button>
+          </td>
+        </tr>
+      </tbody>
     </table>
+  </section>
+
+  <section class="details-shell" *ngIf="!isLoading && isDetailsView && selectedAppointment as appointment">
+    <div class="details-hero">
+      <div>
+        <p class="eyebrow">Appointment record</p>
+        <h2>Appointment #{{ appointment.appointmentId }}</h2>
+        <p class="subcopy">{{ appointment.serviceName || 'General consultation' }} with {{ appointment.doctorName }}</p>
+      </div>
+      <span [class]="getStatusClass(appointment.status)">{{ appointment.status }}</span>
+    </div>
+
+    <div class="detail-grid">
+      <div>
+        <span>Doctor</span>
+        <strong>{{ appointment.doctorName }}</strong>
+        <small>{{ appointment.doctorSpecialization || 'General practice' }}</small>
+      </div>
+      <div>
+        <span>Date</span>
+        <strong>{{ appointment.appointmentDate | date:'fullDate' }}</strong>
+      </div>
+      <div>
+        <span>Time</span>
+        <strong>{{ formatSlot(appointment) }}</strong>
+      </div>
+      <div>
+        <span>Token</span>
+        <strong>{{ appointment.tokenNumber || 'Pending' }}</strong>
+      </div>
+      <div>
+        <span>Service</span>
+        <strong>{{ appointment.serviceName || 'General consultation' }}</strong>
+      </div>
+      <div>
+        <span>Admin note</span>
+        <strong>{{ appointment.adminRemarks || 'No admin note added yet' }}</strong>
+      </div>
+      <div class="full-width">
+        <span>Reason for visit</span>
+        <strong>{{ appointment.reason || 'No reason provided' }}</strong>
+      </div>
+    </div>
+
+    <div class="actions-row">
+      <button mat-stroked-button type="button" (click)="backToIndex()">Back to appointments</button>
+      <a
+        mat-raised-button
+        color="primary"
+        *ngIf="canReschedule(appointment)"
+        [routerLink]="['/patient/book']"
+        [queryParams]="{ appointmentId: appointment.appointmentId, doctorId: appointment.doctorId }">
+        Reschedule
+      </a>
+      <button
+        mat-button
+        color="warn"
+        type="button"
+        *ngIf="canCancel(appointment)"
+        [disabled]="isCancelling"
+        (click)="cancelAppointment(appointment)">
+        Cancel appointment
+      </button>
+    </div>
+  </section>
+
+  <div class="empty-state" *ngIf="!isLoading && isDetailsView && !selectedAppointment">
+    The selected appointment could not be found.
   </div>
 </div>
+
+<ng-template #noAppointments>
+  <div class="empty-state">No appointments match the current filter.</div>
+</ng-template>

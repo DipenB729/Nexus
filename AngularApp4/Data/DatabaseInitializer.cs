@@ -71,6 +71,7 @@ public sealed class DatabaseInitializer
         await EnsurePhase5InventoryInfrastructureAsync(cancellationToken);
         await EnsurePhase5InventorySeedAsync(cancellationToken);
         await EnsureLabTestsAsync(cancellationToken);
+        await EnsureDoctorWorkspaceSeedAsync(cancellationToken);
         await EnsureServicePackagesAsync(cancellationToken);
         await EnsureBillingChargeDefinitionsAsync(cancellationToken);
         await EnsureBillingPaymentMethodsAsync(cancellationToken);
@@ -170,6 +171,9 @@ public sealed class DatabaseInitializer
     {
         await EnsureUserAsync("Nexus Admin", "admin@nexus.local", "Admin@123", "Admin", false, cancellationToken);
         await EnsureUserAsync("Nexus User", "user@nexus.local", "User@123", "User", true, cancellationToken);
+        await EnsureUserAsync("Dr. Aryan Shah", "aryan.shah@nexushospital.local", "Doctor@123", "Doctor", false, cancellationToken);
+        await EnsureUserAsync("Dr. Nisha Gurung", "nisha.gurung@nexushospital.local", "Doctor@123", "Doctor", false, cancellationToken);
+        await EnsureUserAsync("Dr. Samir Rana", "samir.rana@nexushospital.local", "Doctor@123", "Doctor", false, cancellationToken);
         await EnsureUserAsync("Mira Adhikari", "mira.patient@nexus.local", "User@123", "User", true, cancellationToken);
         await EnsureUserAsync("Mira Adhikari", "mira.duplicate@nexus.local", "User@123", "User", true, cancellationToken);
         await EnsureUserAsync("Sudeep Khadka", "sudeep.patient@nexus.local", "User@123", "User", true, cancellationToken);
@@ -450,6 +454,11 @@ public sealed class DatabaseInitializer
         var doctors = await _db.Doctors.Where(x => x.IsActive).ToListAsync(cancellationToken);
         foreach (var doctor in doctors)
         {
+            if (await _db.DoctorSchedules.AnyAsync(x => x.DoctorId == doctor.DoctorId, cancellationToken))
+            {
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(doctor.OpdDays) || !doctor.OpdStartTime.HasValue || !doctor.OpdEndTime.HasValue)
             {
                 continue;
@@ -492,19 +501,161 @@ public sealed class DatabaseInitializer
                         CreatedAt = DateTime.UtcNow
                     });
                 }
-                else
-                {
-                    schedule.StartTime = doctor.OpdStartTime.Value;
-                    schedule.EndTime = doctor.OpdEndTime.Value;
-                    schedule.SlotDurationMinutes = 30;
-                    schedule.MaxPatientsPerSlot = 1;
-                    schedule.IsActive = true;
-                    schedule.UpdatedAt = DateTime.UtcNow;
-                }
             }
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task EnsureDoctorWorkspaceSeedAsync(CancellationToken cancellationToken)
+    {
+        var patients = await _db.Patients.AsNoTracking().ToListAsync(cancellationToken);
+        if (patients.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var patient in patients)
+        {
+            var profile = await _db.PatientClinicalProfiles.FirstOrDefaultAsync(x => x.PatientId == patient.PatientId, cancellationToken);
+            if (profile is not null)
+            {
+                continue;
+            }
+
+            _db.PatientClinicalProfiles.Add(new PatientClinicalProfile
+            {
+                PatientId = patient.PatientId,
+                MedicalHistory = patient.Notes ?? "General outpatient history available from prior visits.",
+                Allergies = patient.BloodGroup == "AB-" ? "Penicillin" : "No known drug allergies",
+                ChronicConditions = patient.PatientCategoryId.HasValue ? "Requires periodic chronic care review" : "None recorded",
+                CurrentMedications = "Review current medications during consultation",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (!await _db.PatientDocuments.AnyAsync(cancellationToken))
+        {
+            var samplePatient = patients.First();
+            var sampleAppointmentId = await _db.Appointments
+                .AsNoTracking()
+                .Where(x => x.PatientId == samplePatient.PatientId)
+                .OrderByDescending(x => x.AppointmentDate)
+                .Select(x => (long?)x.AppointmentId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            _db.PatientDocuments.Add(new PatientDocument
+            {
+                PatientId = samplePatient.PatientId,
+                AppointmentId = sampleAppointmentId,
+                Category = "Report",
+                Title = "Previous blood investigation",
+                FileUrl = "https://example.com/reports/sample-blood-investigation.pdf",
+                Notes = "Uploaded from patient portal for doctor review.",
+                UploadedByRole = "Patient",
+                UploadedAt = DateTime.UtcNow.AddDays(-10)
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        var completedAppointments = await _db.Appointments
+            .Where(x => x.Status == AppointmentStatus.Completed)
+            .OrderBy(x => x.AppointmentDate)
+            .Take(3)
+            .ToListAsync(cancellationToken);
+
+        if (completedAppointments.Count == 0)
+        {
+            return;
+        }
+
+        var firstMedicine = await _db.MedicineMasters.AsNoTracking().OrderBy(x => x.MedicineName).FirstOrDefaultAsync(cancellationToken);
+        var firstLab = await _db.LabTestMasters.AsNoTracking().OrderBy(x => x.TestName).FirstOrDefaultAsync(cancellationToken);
+
+        foreach (var appointment in completedAppointments)
+        {
+            if (!await _db.DoctorConsultations.AnyAsync(x => x.AppointmentId == appointment.AppointmentId, cancellationToken))
+            {
+                _db.DoctorConsultations.Add(new DoctorConsultation
+                {
+                    AppointmentId = appointment.AppointmentId,
+                    DoctorId = appointment.DoctorId,
+                    PatientId = appointment.PatientId,
+                    Symptoms = "Headache, mild fatigue, intermittent dizziness",
+                    Diagnosis = "Clinical review suggests non-urgent follow-up condition",
+                    Notes = "Patient stable during visit and advised hydration with routine monitoring.",
+                    VitalObservations = "BP 120/80, Pulse 76, Temp 98.4F",
+                    Advice = "Continue home care, maintain hydration, and return if symptoms worsen.",
+                    FollowUpDate = appointment.AppointmentDate.AddDays(14),
+                    Status = DoctorConsultationStatus.Completed,
+                    CreatedAt = DateTime.UtcNow.AddDays(-7),
+                    UpdatedAt = DateTime.UtcNow.AddDays(-7)
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+
+            if (!await _db.DoctorPrescriptions.AnyAsync(x => x.AppointmentId == appointment.AppointmentId, cancellationToken))
+            {
+                var prescription = new DoctorPrescription
+                {
+                    AppointmentId = appointment.AppointmentId,
+                    DoctorId = appointment.DoctorId,
+                    PatientId = appointment.PatientId,
+                    Notes = "Take medicines after meals unless instructed otherwise.",
+                    CreatedAt = DateTime.UtcNow.AddDays(-7)
+                };
+                _db.DoctorPrescriptions.Add(prescription);
+                await _db.SaveChangesAsync(cancellationToken);
+
+                _db.DoctorPrescriptionItems.Add(new DoctorPrescriptionItem
+                {
+                    DoctorPrescriptionId = prescription.DoctorPrescriptionId,
+                    MedicineMasterId = firstMedicine?.MedicineMasterId,
+                    MedicineName = firstMedicine?.MedicineName ?? "Paracetamol",
+                    Dosage = "500 mg",
+                    Frequency = "Twice daily",
+                    Duration = "5 days",
+                    Instructions = "Take after food",
+                    SortOrder = 0
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+
+            if (!await _db.DiagnosticRequests.AnyAsync(x => x.AppointmentId == appointment.AppointmentId, cancellationToken))
+            {
+                _db.DiagnosticRequests.Add(new DiagnosticRequest
+                {
+                    AppointmentId = appointment.AppointmentId,
+                    DoctorId = appointment.DoctorId,
+                    PatientId = appointment.PatientId,
+                    RequestType = DiagnosticRequestType.Lab,
+                    LabTestMasterId = firstLab?.LabTestMasterId,
+                    RequestedItemName = firstLab?.TestName ?? "Complete Blood Count",
+                    Remarks = "Routine review after completed consultation.",
+                    ResultSummary = "Pending report upload",
+                    Status = DiagnosticRequestStatus.Requested,
+                    CreatedAt = DateTime.UtcNow.AddDays(-7)
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+
+            if (!await _db.DoctorAvailabilityExceptions.AnyAsync(x => x.DoctorId == appointment.DoctorId, cancellationToken))
+            {
+                _db.DoctorAvailabilityExceptions.Add(new DoctorAvailabilityException
+                {
+                    DoctorId = appointment.DoctorId,
+                    ExceptionType = DoctorAvailabilityExceptionType.Leave,
+                    StartDate = DateTime.UtcNow.Date.AddDays(7),
+                    EndDate = DateTime.UtcNow.Date.AddDays(7),
+                    Notes = "Scheduled leave",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+        }
     }
 
     private async Task EnsureTokenSettingsAsync(CancellationToken cancellationToken)
@@ -2633,8 +2784,12 @@ public sealed class DatabaseInitializer
             SmsSenderId = "NEXUS",
             EmailProviderName = "SendGrid",
             EmailApiUrl = "https://api.email-provider.local/v3/mail/send",
+            EmailSmtpPort = 587,
+            EmailSmtpUsername = profile?.ContactEmail ?? "notifications@nexushospital.local",
             EmailApiKey = "demo-email-key",
             EmailFromAddress = profile?.ContactEmail ?? "notifications@nexushospital.local",
+            EmailUseSsl = true,
+            DoctorPortalBaseUrl = "http://localhost:4200/auth/login",
             AutoBackupEnabled = true,
             AutoBackupTime = "02:00",
             BackupRetentionCount = 10,

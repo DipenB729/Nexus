@@ -110,6 +110,21 @@ mat-form-field {
   font-weight: 700;
 }
 
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.forgot-link {
+  color: #1d4ed8;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 @media (max-width: 640px) {
   .demo-grid {
     grid-template-columns: 1fr;

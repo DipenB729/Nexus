@@ -1,9 +1,9 @@
 <section class="auth-page">
   <div class="auth-card">
     <div class="intro">
-      <p class="eyebrow">Nexus Portal</p>
-      <h2>Sign in to your dashboard</h2>
-      <p class="subtitle">Use your email as the username. Demo credentials are pre-seeded below for both roles.</p>
+      <p class="eyebrow">Hospital Portal</p>
+      <h2>Sign in to your workspace</h2>
+      <p class="subtitle">Patients, doctors, and admins can use the same portal login to access their dashboard, appointments, and profile settings.</p>
     </div>
 
     <div class="demo-grid">
@@ -26,7 +26,7 @@
         <mat-label>Password</mat-label>
         <input matInput formControlName="password" type="password" autocomplete="current-password" />
         <mat-error *ngIf="form.controls.password.hasError('required')">Password is required.</mat-error>
-        <mat-error *ngIf="form.controls.password.hasError('minlength')">Password must be at least 6 characters.</mat-error>
+        <mat-error *ngIf="form.controls.password.hasError('minlength')">Password must be at least 8 characters.</mat-error>
       </mat-form-field>
 
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
@@ -35,7 +35,10 @@
         {{ isSubmitting ? 'Signing in...' : 'Sign in' }}
       </button>
 
-      <p class="switch-link">Don't have an account? <a routerLink="/auth/register">Create account</a></p>
+      <div class="switch-row">
+        <p class="switch-link">Don't have an account? <a routerLink="/auth/register">Create account</a></p>
+        <a class="forgot-link" routerLink="/auth/forgot-password">Forgot password?</a>
+      </div>
     </form>
   </div>
 </section>

@@ -2,7 +2,18 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, map } from 'rxjs';
-import { ApiResponse, AuthResponse, AuthSession, LoginRequest, RegisterRequest } from '../../models/hms/auth.model';
+import {
+  ApiResponse,
+  AuthResponse,
+  AuthSession,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  LoginRequest,
+  PatientProfile,
+  RegisterRequest,
+  ResetPasswordRequest,
+  UpdatePatientProfileRequest
+} from '../../models/hms/auth.model';
 
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
@@ -34,6 +45,33 @@ export class AuthApiService {
     );
   }
 
+  requestPasswordReset(request: ForgotPasswordRequest): Observable<ForgotPasswordResponse> {
+    return this.http.post<ApiResponse<ForgotPasswordResponse>>(`${this.api}/forgot-password`, request).pipe(
+      map((res) => res.data ?? {})
+    );
+  }
+
+  resetPassword(request: ResetPasswordRequest): Observable<void> {
+    return this.http.post<ApiResponse<unknown>>(`${this.api}/reset-password`, request).pipe(
+      map(() => undefined)
+    );
+  }
+
+  getProfile(): Observable<PatientProfile> {
+    return this.http.get<ApiResponse<PatientProfile>>(`${this.api}/profile`).pipe(
+      map((res) => res.data)
+    );
+  }
+
+  updateProfile(request: UpdatePatientProfileRequest): Observable<PatientProfile> {
+    return this.http.put<ApiResponse<PatientProfile>>(`${this.api}/profile`, request).pipe(
+      map((res) => {
+        this.updateSessionFromProfile(res.data);
+        return res.data;
+      })
+    );
+  }
+
   getToken(): string | null {
     return localStorage.getItem(this.tokenKey);
   }
@@ -56,18 +94,35 @@ export class AuthApiService {
       return '/admin/dashboard';
     }
 
+    if (role === 'Doctor') {
+      return '/doctor/dashboard';
+    }
+
     if (role === 'User') {
-      return '/user/dashboard';
+      return '/patient/doctors';
     }
 
     return '/auth/login';
   }
 
+  getDisplayRole(role = this.getRole()): string {
+    if (role === 'Admin') {
+      return 'Administrator';
+    }
+
+    if (role === 'Doctor') {
+      return 'Doctor';
+    }
+
+    if (role === 'User') {
+      return 'Patient';
+    }
+
+    return 'Guest';
+  }
+
   logout(): void {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.roleKey);
-    localStorage.removeItem(this.sessionKey);
-    this.sessionSubject.next(null);
+    this.clearSessionStorage();
     this.router.navigate(['/auth/login']);
   }
 
@@ -88,7 +143,7 @@ export class AuthApiService {
       const session = JSON.parse(raw) as AuthSession;
       return this.isTokenExpired(session.token) ? null : session;
     } catch {
-      localStorage.removeItem(this.sessionKey);
+      this.clearSessionStorage();
       return null;
     }
   }
@@ -103,10 +158,7 @@ export class AuthApiService {
       return true;
     }
 
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.roleKey);
-    localStorage.removeItem(this.sessionKey);
-    this.sessionSubject.next(null);
+    this.clearSessionStorage();
     return false;
   }
 
@@ -132,5 +184,28 @@ export class AuthApiService {
     } catch {
       return null;
     }
+  }
+
+  private updateSessionFromProfile(profile: PatientProfile): void {
+    const currentSession = this.sessionSubject.value;
+    if (!currentSession) {
+      return;
+    }
+
+    const nextSession: AuthSession = {
+      ...currentSession,
+      fullName: profile.fullName,
+      email: profile.email
+    };
+
+    localStorage.setItem(this.sessionKey, JSON.stringify(nextSession));
+    this.sessionSubject.next(nextSession);
+  }
+
+  private clearSessionStorage(): void {
+    localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.roleKey);
+    localStorage.removeItem(this.sessionKey);
+    this.sessionSubject.next(null);
   }
 }

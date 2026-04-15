@@ -3,8 +3,10 @@ import { NavigationEnd, Router } from '@angular/router';
 import { Observable, Subscription, filter, forkJoin } from 'rxjs';
 import { BranchSettings } from '../../core/models/hms/admin-ops.model';
 import { BedMaster, DepartmentMaster, DoctorMaster, PatientCategoryMaster, StaffMaster, WardMaster } from '../../core/models/hms/master-setup.model';
+import { DoctorScheduleRecord } from '../../core/models/hms/phase3-control.model';
 import { AdminOpsService } from '../../core/services/hms/admin-ops.service';
 import { MasterSetupService } from '../../core/services/hms/master-setup.service';
+import { Phase3ControlService } from '../../core/services/hms/phase3-control.service';
 
 type MasterSection = 'departments' | 'doctors' | 'staff' | 'patientCategories' | 'wards' | 'beds';
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -40,6 +42,16 @@ interface DoctorFormState {
   opdStartTime: string;
   opdEndTime: string;
   consultationFee: number;
+  isActive: boolean;
+}
+
+interface ScheduleFormState {
+  scheduleId: number;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+  maxPatientsPerSlot: number;
   isActive: boolean;
 }
 
@@ -122,6 +134,16 @@ const EMPTY_DOCTOR_FORM: DoctorFormState = {
   isActive: true
 };
 
+const EMPTY_SCHEDULE_FORM: ScheduleFormState = {
+  scheduleId: 0,
+  dayOfWeek: 1,
+  startTime: '09:00',
+  endTime: '12:00',
+  slotDurationMinutes: 30,
+  maxPatientsPerSlot: 1,
+  isActive: true
+};
+
 const EMPTY_STAFF_FORM: StaffFormState = {
   staffId: 0,
   branchId: null,
@@ -188,6 +210,7 @@ export class MasterSetupComponent implements OnInit, OnDestroy {
   branches: BranchSettings[] = [];
   departments: DepartmentMaster[] = [];
   doctors: DoctorMaster[] = [];
+  doctorSchedules: DoctorScheduleRecord[] = [];
   staffMembers: StaffMaster[] = [];
   patientCategories: PatientCategoryMaster[] = [];
   wards: WardMaster[] = [];
@@ -195,16 +218,28 @@ export class MasterSetupComponent implements OnInit, OnDestroy {
 
   departmentForm: DepartmentFormState = { ...EMPTY_DEPARTMENT_FORM };
   doctorForm: DoctorFormState = { ...EMPTY_DOCTOR_FORM };
+  scheduleForm: ScheduleFormState = { ...EMPTY_SCHEDULE_FORM };
   staffForm: StaffFormState = { ...EMPTY_STAFF_FORM };
   patientCategoryForm: PatientCategoryFormState = { ...EMPTY_PATIENT_CATEGORY_FORM };
   wardForm: WardFormState = { ...EMPTY_WARD_FORM };
   bedForm: BedFormState = { ...EMPTY_BED_FORM };
   private routeSub?: Subscription;
+  isSavingSchedule = false;
+  readonly dayOptions = [
+    { value: 1, label: 'Sunday' },
+    { value: 2, label: 'Monday' },
+    { value: 3, label: 'Tuesday' },
+    { value: 4, label: 'Wednesday' },
+    { value: 5, label: 'Thursday' },
+    { value: 6, label: 'Friday' },
+    { value: 7, label: 'Saturday' }
+  ];
 
   constructor(
     private readonly router: Router,
     private readonly adminOps: AdminOpsService,
-    private readonly masterSetup: MasterSetupService
+    private readonly masterSetup: MasterSetupService,
+    private readonly phase3: Phase3ControlService
   ) {}
 
   ngOnInit(): void {
@@ -531,7 +566,7 @@ export class MasterSetupComponent implements OnInit, OnDestroy {
         : this.masterSetup.createDoctor(this.buildDoctorPayload()),
       (item) => {
         this.doctors = this.sortDoctors(this.replaceOrAppend(this.doctors, item, 'doctorId'));
-        this.successMessage = this.doctorForm.doctorId ? 'Doctor updated successfully.' : 'Doctor created successfully.';
+        this.successMessage = item.portalProvisioningNote || (this.doctorForm.doctorId ? 'Doctor updated successfully.' : 'Doctor created successfully.');
         this.goToDetails(item.doctorId);
       }
     );
@@ -752,6 +787,109 @@ export class MasterSetupComponent implements OnInit, OnDestroy {
     return `${item.opdDays || 'Days pending'}${item.opdStartTime ? ` | ${this.toTimeInput(item.opdStartTime)}` : ''}${item.opdEndTime ? ` - ${this.toTimeInput(item.opdEndTime)}` : ''}`;
   }
 
+  scheduleDayLabel(day: number): string {
+    return this.dayOptions.find((option) => option.value === day)?.label ?? 'Unknown';
+  }
+
+  editDoctorSchedule(schedule: DoctorScheduleRecord): void {
+    this.scheduleForm = {
+      scheduleId: schedule.scheduleId,
+      dayOfWeek: schedule.dayOfWeek,
+      startTime: this.toTimeInput(schedule.startTime),
+      endTime: this.toTimeInput(schedule.endTime),
+      slotDurationMinutes: schedule.slotDurationMinutes,
+      maxPatientsPerSlot: schedule.maxPatientsPerSlot,
+      isActive: schedule.isActive
+    };
+  }
+
+  resetDoctorScheduleForm(): void {
+    this.scheduleForm = { ...EMPTY_SCHEDULE_FORM };
+  }
+
+  saveDoctorSchedule(): void {
+    const doctor = this.selectedDoctor;
+    if (!doctor) {
+      this.errorMessage = 'Select a doctor before saving schedules.';
+      return;
+    }
+
+    if (!this.scheduleForm.startTime || !this.scheduleForm.endTime) {
+      this.errorMessage = 'Start and end time are required for doctor availability.';
+      return;
+    }
+
+    if (this.scheduleForm.endTime <= this.scheduleForm.startTime) {
+      this.errorMessage = 'End time must be later than start time.';
+      return;
+    }
+
+    if (this.scheduleForm.slotDurationMinutes < 5) {
+      this.errorMessage = 'Slot duration must be at least 5 minutes.';
+      return;
+    }
+
+    if (this.scheduleForm.maxPatientsPerSlot < 1) {
+      this.errorMessage = 'Max patients per slot must be at least 1.';
+      return;
+    }
+
+    this.isSavingSchedule = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    const payload = {
+      doctorId: doctor.doctorId,
+      dayOfWeek: this.scheduleForm.dayOfWeek,
+      startTime: this.toTimePayload(this.scheduleForm.startTime),
+      endTime: this.toTimePayload(this.scheduleForm.endTime),
+      slotDurationMinutes: this.scheduleForm.slotDurationMinutes,
+      maxPatientsPerSlot: this.scheduleForm.maxPatientsPerSlot,
+      isActive: this.scheduleForm.isActive
+    };
+
+    const request = this.scheduleForm.scheduleId
+      ? this.phase3.updateDoctorSchedule(this.scheduleForm.scheduleId, payload)
+      : this.phase3.createDoctorSchedule(doctor.doctorId, payload);
+
+    request.subscribe({
+      next: () => {
+        this.isSavingSchedule = false;
+        this.successMessage = 'Doctor schedule saved.';
+        this.resetDoctorScheduleForm();
+        this.loadDoctorSchedules(doctor.doctorId);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.isSavingSchedule = false;
+        this.errorMessage = error?.error?.message || 'Unable to save doctor schedule.';
+      }
+    });
+  }
+
+  deleteDoctorSchedule(scheduleId: number): void {
+    const doctor = this.selectedDoctor;
+    if (!doctor) {
+      return;
+    }
+
+    this.isSavingSchedule = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.phase3.deleteDoctorSchedule(scheduleId).subscribe({
+      next: () => {
+        this.isSavingSchedule = false;
+        this.successMessage = 'Doctor schedule deleted.';
+        this.resetDoctorScheduleForm();
+        this.loadDoctorSchedules(doctor.doctorId);
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.isSavingSchedule = false;
+        this.errorMessage = error?.error?.message || 'Unable to delete doctor schedule.';
+      }
+    });
+  }
+
   getStaffMeta(item: StaffMaster): string {
     const parts = [item.branchName, item.departmentName, item.shift].filter(Boolean);
     return parts.length ? parts.join(' | ') : 'No mapping';
@@ -794,6 +932,14 @@ export class MasterSetupComponent implements OnInit, OnDestroy {
       this.statusFilter = 'all';
       this.errorMessage = '';
       this.successMessage = '';
+    }
+
+    if (this.activeSection === 'doctors' && this.viewMode === 'details' && this.selectedRecordId) {
+      this.resetDoctorScheduleForm();
+      this.loadDoctorSchedules(this.selectedRecordId);
+    } else {
+      this.doctorSchedules = [];
+      this.resetDoctorScheduleForm();
     }
   }
 
@@ -1057,6 +1203,10 @@ export class MasterSetupComponent implements OnInit, OnDestroy {
     return value ? value.slice(0, 5) : '';
   }
 
+  private toTimePayload(value: string): string {
+    return value.length === 5 ? `${value}:00` : value;
+  }
+
   private parseId(value: string | null): number | null {
     if (!value) {
       return null;
@@ -1064,6 +1214,18 @@ export class MasterSetupComponent implements OnInit, OnDestroy {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  private loadDoctorSchedules(doctorId: number): void {
+    this.phase3.getDoctorSchedules(doctorId).subscribe({
+      next: (schedules) => {
+        this.doctorSchedules = [...schedules].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+      },
+      error: () => {
+        this.doctorSchedules = [];
+        this.errorMessage = 'Unable to load doctor schedules.';
+      }
+    });
   }
 
   private toSection(value: string | null): MasterSection {

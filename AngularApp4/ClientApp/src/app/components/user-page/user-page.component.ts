@@ -1,8 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { Appointment } from '../../core/models/admin.model';
-import { AuthSession } from '../../core/models/hms/auth.model';
-import { AdminStateService } from '../../core/services/admin-state.service';
+import { AuthSession, PatientAppointment } from '../../core/models/hms/auth.model';
+import { AppointmentService } from '../../core/services/appointment.service';
 import { AuthApiService } from '../../core/services/hms/auth-api.service';
 
 @Component({
@@ -12,13 +11,15 @@ import { AuthApiService } from '../../core/services/hms/auth-api.service';
 })
 export class UserPageComponent implements OnInit, OnDestroy {
   session: AuthSession | null = null;
-  appointments: Appointment[] = [];
+  appointments: PatientAppointment[] = [];
+  isLoading = true;
+  errorMessage = '';
 
   private sessionSub?: Subscription;
-  private bookingsSub?: Subscription;
+  private appointmentsSub?: Subscription;
 
   constructor(
-    private readonly state: AdminStateService,
+    private readonly appointmentsApi: AppointmentService,
     private readonly auth: AuthApiService
   ) {}
 
@@ -29,52 +30,93 @@ export class UserPageComponent implements OnInit, OnDestroy {
       this.session = session;
     });
 
-    this.bookingsSub = this.state.bookings$.subscribe((bookings) => {
-      this.appointments = [...bookings].sort(
-        (a, b) => +new Date(a.appointmentDate) - +new Date(b.appointmentDate)
-      );
-    });
+    this.loadAppointments();
   }
 
   ngOnDestroy(): void {
     this.sessionSub?.unsubscribe();
-    this.bookingsSub?.unsubscribe();
+    this.appointmentsSub?.unsubscribe();
   }
 
   get displayName(): string {
-    return this.session?.fullName ?? 'Nexus User';
+    return this.session?.fullName ?? 'Patient';
   }
 
   get email(): string {
-    return this.session?.email ?? 'user@nexus.local';
+    return this.session?.email ?? 'patient@nexus.local';
   }
 
   get role(): string {
-    return this.session?.role ?? 'User';
+    return this.auth.getDisplayRole(this.session?.role);
   }
 
-  get upcomingAppointments(): Appointment[] {
-    const today = new Date();
-    return this.appointments
-      .filter((item) => new Date(item.appointmentDate) >= today)
+  get upcomingAppointments(): PatientAppointment[] {
+    return [...this.appointments]
+      .filter((appointment) => this.isUpcoming(appointment))
+      .sort((a, b) => this.toDateTime(a).getTime() - this.toDateTime(b).getTime())
       .slice(0, 3);
   }
 
-  get recentAppointments(): Appointment[] {
+  get recentAppointments(): PatientAppointment[] {
     return [...this.appointments]
-      .sort((a, b) => +new Date(b.appointmentDate) - +new Date(a.appointmentDate))
+      .sort((a, b) => this.toDateTime(b).getTime() - this.toDateTime(a).getTime())
       .slice(0, 5);
   }
 
   get totalSpent(): number {
     return this.appointments
-      .filter((item) => item.status === 'Completed')
-      .reduce((sum, item) => sum + item.price, 0);
+      .filter((appointment) => appointment.status === 'Completed')
+      .reduce((sum, appointment) => sum + (appointment.servicePrice ?? 0), 0);
   }
 
-  get loyaltyTier(): 'Silver' | 'Gold' | 'Platinum' {
-    if (this.totalSpent >= 250) return 'Platinum';
-    if (this.totalSpent >= 100) return 'Gold';
-    return 'Silver';
+  get completedAppointmentsCount(): number {
+    return this.appointments.filter((appointment) => appointment.status === 'Completed').length;
+  }
+
+  get pendingAppointmentsCount(): number {
+    return this.appointments.filter((appointment) => ['Pending', 'Approved', 'Rescheduled'].includes(appointment.status)).length;
+  }
+
+  formatSlot(appointment: PatientAppointment): string {
+    return `${this.formatTime(appointment.slotStartTime)} - ${this.formatTime(appointment.slotEndTime)}`;
+  }
+
+  statusClass(status: string): string {
+    return status.toLowerCase();
+  }
+
+  private loadAppointments(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.appointmentsSub = this.appointmentsApi.getMyAppointments().subscribe({
+      next: (appointments) => {
+        this.appointments = appointments;
+        this.isLoading = false;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.errorMessage = 'Unable to load your appointments right now.';
+      }
+    });
+  }
+
+  private isUpcoming(appointment: PatientAppointment): boolean {
+    if (['Cancelled', 'Completed'].includes(appointment.status)) {
+      return false;
+    }
+
+    return this.toDateTime(appointment).getTime() >= Date.now();
+  }
+
+  private toDateTime(appointment: PatientAppointment): Date {
+    return new Date(`${appointment.appointmentDate.slice(0, 10)}T${appointment.slotStartTime}`);
+  }
+
+  private formatTime(value: string): string {
+    const [hours, minutes] = value.split(':');
+    const date = new Date();
+    date.setHours(Number(hours), Number(minutes), 0, 0);
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 }

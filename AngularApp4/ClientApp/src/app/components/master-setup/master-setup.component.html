@@ -444,6 +444,87 @@
           <div><span>Status</span><strong>{{ item.isActive ? 'Active' : 'Inactive' }}</strong></div>
           <div class="full-width"><span>Qualification</span><strong>{{ item.qualification || 'Not set' }}</strong></div>
         </div>
+
+        <section class="schedule-panel">
+          <div class="panel-head">
+            <div>
+              <span class="eyebrow">Doctor schedule</span>
+              <h2>Availability and slot control</h2>
+              <p>Manage OPD windows directly from the doctor detail page.</p>
+            </div>
+          </div>
+
+          <div class="table-card schedule-table-card" *ngIf="doctorSchedules.length > 0; else noDoctorSchedules">
+            <div class="table-shell">
+              <table class="master-table schedule-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th>Window</th>
+                    <th>Slot</th>
+                    <th>Patients</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let schedule of doctorSchedules">
+                    <td>{{ scheduleDayLabel(schedule.dayOfWeek) }}</td>
+                    <td>{{ schedule.startTime | slice:0:5 }} - {{ schedule.endTime | slice:0:5 }}</td>
+                    <td>{{ schedule.slotDurationMinutes }} min</td>
+                    <td>{{ schedule.maxPatientsPerSlot }}</td>
+                    <td><span class="status-pill" [class.inactive]="!schedule.isActive">{{ schedule.isActive ? 'Active' : 'Inactive' }}</span></td>
+                    <td class="actions-cell">
+                      <button mat-button type="button" (click)="editDoctorSchedule(schedule)">Edit</button>
+                      <button mat-button type="button" color="warn" (click)="deleteDoctorSchedule(schedule.scheduleId)">Delete</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="form-grid schedule-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Day</mat-label>
+              <mat-select [(ngModel)]="scheduleForm.dayOfWeek">
+                <mat-option *ngFor="let day of dayOptions" [value]="day.value">{{ day.label }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Start</mat-label>
+              <input matInput type="time" [(ngModel)]="scheduleForm.startTime" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>End</mat-label>
+              <input matInput type="time" [(ngModel)]="scheduleForm.endTime" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Slot duration</mat-label>
+              <input matInput type="number" [(ngModel)]="scheduleForm.slotDurationMinutes" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Max patients</mat-label>
+              <input matInput type="number" [(ngModel)]="scheduleForm.maxPatientsPerSlot" />
+            </mat-form-field>
+
+            <label class="toggle-box">
+              <input type="checkbox" [(ngModel)]="scheduleForm.isActive" />
+              <span>Schedule is active</span>
+            </label>
+          </div>
+
+          <div class="actions-row">
+            <button mat-raised-button color="primary" type="button" [disabled]="isSavingSchedule" (click)="saveDoctorSchedule()">
+              Save doctor schedule
+            </button>
+            <button mat-stroked-button type="button" (click)="resetDoctorScheduleForm()">Reset</button>
+          </div>
+        </section>
       </div>
 
       <div class="details-showcase" *ngIf="selectedStaff as item">
@@ -549,6 +630,10 @@
   <section class="details-panel">
     <div class="empty-state">The selected {{ currentRecordLabel.toLowerCase() }} could not be found.</div>
   </section>
+</ng-template>
+
+<ng-template #noDoctorSchedules>
+  <div class="empty-state schedule-empty-state">No schedules configured for this doctor yet.</div>
 </ng-template>
 
 <ng-template #loadingState>

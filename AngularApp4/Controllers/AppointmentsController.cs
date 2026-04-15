@@ -2,6 +2,7 @@ using System.Security.Claims;
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,14 @@ namespace AngularApp4.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IDoctorAvailabilityService _availability;
+    private readonly IAppNotificationService _notifications;
 
-    public AppointmentsController(AppDbContext db)
+    public AppointmentsController(AppDbContext db, IDoctorAvailabilityService availability, IAppNotificationService notifications)
     {
         _db = db;
+        _availability = availability;
+        _notifications = notifications;
     }
 
     [HttpPost]
@@ -25,25 +30,31 @@ public class AppointmentsController : ControllerBase
     public async Task<ActionResult<ApiResponse<Appointment>>> Create([FromBody] AppointmentCreateDto dto)
     {
         var userId = GetUserId();
-        var patient = await _db.Patients.FirstOrDefaultAsync(x => x.UserId == userId);
+        var patient = await GetPatientAsync(userId);
         if (patient is null) return BadRequest(ApiResponse<Appointment>.Fail("Patient profile not found"));
 
-        var doctorExists = await _db.Doctors.AnyAsync(x => x.DoctorId == dto.DoctorId && x.IsActive);
-        if (!doctorExists) return BadRequest(ApiResponse<Appointment>.Fail("Doctor not found/inactive"));
+        var availabilityError = await ValidateAppointmentSlotAsync(
+            dto.DoctorId,
+            dto.ScheduleId,
+            dto.AppointmentDate.Date,
+            dto.SlotStartTime,
+            dto.SlotEndTime);
+        if (availabilityError is not null)
+        {
+            return BadRequest(ApiResponse<Appointment>.Fail(availabilityError));
+        }
 
-        var isBooked = await _db.Appointments.AnyAsync(x =>
-            x.DoctorId == dto.DoctorId &&
-            x.AppointmentDate.Date == dto.AppointmentDate.Date &&
-            x.SlotStartTime == dto.SlotStartTime &&
-            x.Status != AppointmentStatus.Cancelled);
-
-        if (isBooked) return BadRequest(ApiResponse<Appointment>.Fail("Selected slot is already booked"));
+        var schedule = await _availability.ResolveScheduleForSlotAsync(dto.DoctorId, dto.AppointmentDate.Date, dto.SlotStartTime, dto.SlotEndTime);
+        if (schedule is null)
+        {
+            return BadRequest(ApiResponse<Appointment>.Fail("Doctor is unavailable for the selected date and time"));
+        }
 
         var appointment = new Appointment
         {
             PatientId = patient.PatientId,
             DoctorId = dto.DoctorId,
-            ScheduleId = dto.ScheduleId,
+            ScheduleId = schedule.ScheduleId,
             ServiceId = dto.ServiceId,
             AppointmentDate = dto.AppointmentDate.Date,
             SlotStartTime = dto.SlotStartTime,
@@ -56,22 +67,241 @@ public class AppointmentsController : ControllerBase
 
         _db.Appointments.Add(appointment);
         await _db.SaveChangesAsync();
+        await _notifications.QueueAppointmentBookedAsync(appointment);
         return Ok(ApiResponse<Appointment>.Ok(appointment, "Appointment created"));
+    }
+
+    [HttpPut("{appointmentId:long}/cancel")]
+    [Authorize(Policy = "UserOnly")]
+    public async Task<ActionResult<ApiResponse<Appointment>>> Cancel(long appointmentId)
+    {
+        var appointment = await GetOwnedAppointmentAsync(appointmentId);
+        if (appointment is null)
+        {
+            return NotFound(ApiResponse<Appointment>.Fail("Appointment not found"));
+        }
+
+        if (appointment.Status == AppointmentStatus.Cancelled)
+        {
+            return BadRequest(ApiResponse<Appointment>.Fail("Appointment is already cancelled"));
+        }
+
+        if (appointment.Status == AppointmentStatus.Completed)
+        {
+            return BadRequest(ApiResponse<Appointment>.Fail("Completed appointments cannot be cancelled"));
+        }
+
+        appointment.Status = AppointmentStatus.Cancelled;
+        appointment.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        await _notifications.QueueAppointmentCancelledAsync(appointment);
+        return Ok(ApiResponse<Appointment>.Ok(appointment, "Appointment cancelled"));
+    }
+
+    [HttpPut("{appointmentId:long}/reschedule")]
+    [Authorize(Policy = "UserOnly")]
+    public async Task<ActionResult<ApiResponse<Appointment>>> Reschedule(long appointmentId, [FromBody] AppointmentRescheduleDto dto)
+    {
+        var appointment = await GetOwnedAppointmentAsync(appointmentId);
+        if (appointment is null)
+        {
+            return NotFound(ApiResponse<Appointment>.Fail("Appointment not found"));
+        }
+
+        if (appointment.Status == AppointmentStatus.Cancelled)
+        {
+            return BadRequest(ApiResponse<Appointment>.Fail("Cancelled appointments cannot be rescheduled"));
+        }
+
+        if (appointment.Status == AppointmentStatus.Completed)
+        {
+            return BadRequest(ApiResponse<Appointment>.Fail("Completed appointments cannot be rescheduled"));
+        }
+
+        var availabilityError = await ValidateAppointmentSlotAsync(
+            dto.DoctorId,
+            dto.ScheduleId,
+            dto.AppointmentDate.Date,
+            dto.SlotStartTime,
+            dto.SlotEndTime,
+            appointmentId);
+        if (availabilityError is not null)
+        {
+            return BadRequest(ApiResponse<Appointment>.Fail(availabilityError));
+        }
+
+        var schedule = await _availability.ResolveScheduleForSlotAsync(dto.DoctorId, dto.AppointmentDate.Date, dto.SlotStartTime, dto.SlotEndTime);
+
+        appointment.DoctorId = dto.DoctorId;
+        appointment.ScheduleId = schedule?.ScheduleId;
+        appointment.AppointmentDate = dto.AppointmentDate.Date;
+        appointment.SlotStartTime = dto.SlotStartTime;
+        appointment.SlotEndTime = dto.SlotEndTime;
+        appointment.Reason = dto.Reason;
+        appointment.Status = AppointmentStatus.Rescheduled;
+        appointment.TokenNumber = null;
+        appointment.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        await _notifications.QueueAppointmentRescheduledAsync(appointment);
+        return Ok(ApiResponse<Appointment>.Ok(appointment, "Appointment rescheduled"));
     }
 
     [HttpGet("my")]
     [Authorize(Policy = "UserOnly")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<Appointment>>>> My([FromQuery] AppointmentStatus? status = null)
+    public async Task<ActionResult<ApiResponse<IEnumerable<PatientAppointmentSummaryDto>>>> My([FromQuery] AppointmentStatus? status = null)
     {
         var userId = GetUserId();
         var patient = await _db.Patients.FirstOrDefaultAsync(x => x.UserId == userId);
-        if (patient is null) return Ok(ApiResponse<IEnumerable<Appointment>>.Ok(Array.Empty<Appointment>()));
+        if (patient is null)
+        {
+            return Ok(ApiResponse<IEnumerable<PatientAppointmentSummaryDto>>.Ok(Array.Empty<PatientAppointmentSummaryDto>()));
+        }
 
-        var query = _db.Appointments.Where(x => x.PatientId == patient.PatientId);
-        if (status.HasValue) query = query.Where(x => x.Status == status.Value);
+        var query = BuildPatientAppointmentQuery().Where(x => x.PatientId == patient.PatientId);
+        if (status.HasValue)
+        {
+            var expectedStatus = status.Value.ToString();
+            query = query.Where(x => x.Status == expectedStatus);
+        }
 
-        var items = await query.OrderByDescending(x => x.AppointmentDate).ToListAsync();
-        return Ok(ApiResponse<IEnumerable<Appointment>>.Ok(items));
+        var items = await query
+            .OrderByDescending(x => x.AppointmentDate)
+            .ThenByDescending(x => x.SlotStartTime)
+            .Select(x => new PatientAppointmentSummaryDto
+            {
+                AppointmentId = x.AppointmentId,
+                AppointmentDate = x.AppointmentDate,
+                SlotStartTime = x.SlotStartTime,
+                SlotEndTime = x.SlotEndTime,
+                Status = x.Status,
+                TokenNumber = x.TokenNumber,
+                Reason = x.Reason,
+                AdminRemarks = x.AdminRemarks,
+                DoctorId = x.DoctorId,
+                DoctorName = x.DoctorName,
+                DoctorSpecialization = x.DoctorSpecialization,
+                ServiceId = x.ServiceId,
+                ServiceName = x.ServiceName,
+                ServicePrice = x.ServicePrice
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse<IEnumerable<PatientAppointmentSummaryDto>>.Ok(items));
+    }
+
+    [HttpGet("doctor/my")]
+    [Authorize(Policy = "DoctorOnly")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<DoctorAppointmentSummaryDto>>>> DoctorMy([FromQuery] AppointmentStatus? status = null)
+    {
+        var userId = GetUserId();
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null)
+        {
+            return Unauthorized(ApiResponse<IEnumerable<DoctorAppointmentSummaryDto>>.Fail("Doctor session not found"));
+        }
+
+        var normalizedEmail = user.Email.Trim().ToLowerInvariant();
+        var doctor = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail && x.IsActive);
+        if (doctor is null)
+        {
+            return Ok(ApiResponse<IEnumerable<DoctorAppointmentSummaryDto>>.Ok(Array.Empty<DoctorAppointmentSummaryDto>()));
+        }
+
+        var query = BuildDoctorAppointmentQuery().Where(x => x.DoctorId == doctor.DoctorId);
+        if (status.HasValue)
+        {
+            var expectedStatus = status.Value.ToString();
+            query = query.Where(x => x.Status == expectedStatus);
+        }
+
+        var items = await query
+            .OrderBy(x => x.AppointmentDate)
+            .ThenBy(x => x.SlotStartTime)
+            .Select(x => new DoctorAppointmentSummaryDto
+            {
+                AppointmentId = x.AppointmentId,
+                PatientId = x.PatientId,
+                PatientName = x.PatientName,
+                MedicalRecordNumber = x.MedicalRecordNumber,
+                AppointmentDate = x.AppointmentDate,
+                SlotStartTime = x.SlotStartTime,
+                SlotEndTime = x.SlotEndTime,
+                Status = x.Status,
+                TokenNumber = x.TokenNumber,
+                Reason = x.Reason,
+                AdminRemarks = x.AdminRemarks,
+                DoctorId = x.DoctorId,
+                DoctorName = x.DoctorName,
+                DoctorSpecialization = x.DoctorSpecialization,
+                ServiceId = x.ServiceId,
+                ServiceName = x.ServiceName,
+                ServicePrice = x.ServicePrice
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse<IEnumerable<DoctorAppointmentSummaryDto>>.Ok(items));
+    }
+
+    [HttpPut("doctor/{appointmentId:long}/status")]
+    [Authorize(Policy = "DoctorOnly")]
+    public async Task<ActionResult<ApiResponse<DoctorAppointmentSummaryDto>>> UpdateDoctorAppointmentStatus(long appointmentId, [FromBody] DoctorAppointmentStatusUpdateDto dto)
+    {
+        if (dto.Status is not (AppointmentStatus.Completed or AppointmentStatus.NoShow))
+        {
+            return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctors can only mark appointments as completed or no-show"));
+        }
+
+        var userId = GetUserId();
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null)
+        {
+            return Unauthorized(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctor session not found"));
+        }
+
+        var normalizedEmail = user.Email.Trim().ToLowerInvariant();
+        var doctor = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail && x.IsActive);
+        if (doctor is null)
+        {
+            return NotFound(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctor profile not found"));
+        }
+
+        var appointment = await _db.Appointments.FirstOrDefaultAsync(x => x.AppointmentId == appointmentId && x.DoctorId == doctor.DoctorId);
+        if (appointment is null)
+        {
+            return NotFound(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Appointment not found"));
+        }
+
+        appointment.Status = dto.Status;
+        appointment.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        var payload = await BuildDoctorAppointmentQuery()
+            .Where(x => x.AppointmentId == appointmentId)
+            .Select(x => new DoctorAppointmentSummaryDto
+            {
+                AppointmentId = x.AppointmentId,
+                PatientId = x.PatientId,
+                PatientName = x.PatientName,
+                MedicalRecordNumber = x.MedicalRecordNumber,
+                AppointmentDate = x.AppointmentDate,
+                SlotStartTime = x.SlotStartTime,
+                SlotEndTime = x.SlotEndTime,
+                Status = x.Status,
+                TokenNumber = x.TokenNumber,
+                Reason = x.Reason,
+                AdminRemarks = x.AdminRemarks,
+                DoctorId = x.DoctorId,
+                DoctorName = x.DoctorName,
+                DoctorSpecialization = x.DoctorSpecialization,
+                ServiceId = x.ServiceId,
+                ServiceName = x.ServiceName,
+                ServicePrice = x.ServicePrice
+            })
+            .FirstAsync();
+
+        return Ok(ApiResponse<DoctorAppointmentSummaryDto>.Ok(payload, "Appointment status updated"));
     }
 
     [HttpGet]
@@ -101,4 +331,159 @@ public class AppointmentsController : ControllerBase
     }
 
     private long GetUserId() => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub")!);
+
+    private Task<Patient?> GetPatientAsync(long userId)
+    {
+        return _db.Patients.FirstOrDefaultAsync(x => x.UserId == userId);
+    }
+
+    private async Task<Appointment?> GetOwnedAppointmentAsync(long appointmentId)
+    {
+        var userId = GetUserId();
+        var patient = await GetPatientAsync(userId);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        return await _db.Appointments.FirstOrDefaultAsync(x => x.AppointmentId == appointmentId && x.PatientId == patient.PatientId);
+    }
+
+    private async Task<string?> ValidateAppointmentSlotAsync(
+        long doctorId,
+        long? scheduleId,
+        DateTime appointmentDate,
+        TimeSpan slotStartTime,
+        TimeSpan slotEndTime,
+        long? excludeAppointmentId = null)
+    {
+        if (slotEndTime <= slotStartTime)
+        {
+            return "End time must be after start time";
+        }
+
+        var doctorExists = await _db.Doctors.AnyAsync(x => x.DoctorId == doctorId && x.IsActive);
+        if (!doctorExists)
+        {
+            return "Doctor not found/inactive";
+        }
+
+        var schedule = await _availability.ResolveScheduleForSlotAsync(doctorId, appointmentDate, slotStartTime, slotEndTime);
+        if (schedule is null)
+        {
+            return "Doctor is unavailable for the selected date and time";
+        }
+
+        if (scheduleId.HasValue && schedule.ScheduleId != scheduleId.Value)
+        {
+            return "Selected schedule does not match the requested time slot";
+        }
+
+        var bookedPatients = await _availability.GetBookedPatientCountAsync(
+            doctorId,
+            appointmentDate,
+            slotStartTime,
+            slotEndTime,
+            excludeAppointmentId);
+
+        return bookedPatients >= schedule.MaxPatientsPerSlot
+            ? "Selected slot has reached its booking limit"
+            : null;
+    }
+
+    private IQueryable<PatientAppointmentProjection> BuildPatientAppointmentQuery()
+    {
+        return from appointment in _db.Appointments.AsNoTracking()
+               join doctor in _db.Doctors.AsNoTracking() on appointment.DoctorId equals doctor.DoctorId
+               join service in _db.Services.AsNoTracking() on appointment.ServiceId equals service.Id into serviceGroup
+               from service in serviceGroup.DefaultIfEmpty()
+               select new PatientAppointmentProjection
+               {
+                   AppointmentId = appointment.AppointmentId,
+                   PatientId = appointment.PatientId,
+                   AppointmentDate = appointment.AppointmentDate,
+                   SlotStartTime = appointment.SlotStartTime,
+                   SlotEndTime = appointment.SlotEndTime,
+                   Status = appointment.Status.ToString(),
+                   TokenNumber = appointment.TokenNumber,
+                   Reason = appointment.Reason,
+                   AdminRemarks = appointment.AdminRemarks,
+                   DoctorId = doctor.DoctorId,
+                   DoctorName = doctor.FullName,
+                   DoctorSpecialization = doctor.Specialization,
+                   ServiceId = appointment.ServiceId,
+                   ServiceName = service != null ? service.Name : null,
+                   ServicePrice = service != null ? service.Price : null
+               };
+    }
+
+    private IQueryable<DoctorAppointmentProjection> BuildDoctorAppointmentQuery()
+    {
+        return from appointment in _db.Appointments.AsNoTracking()
+               join patient in _db.Patients.AsNoTracking() on appointment.PatientId equals patient.PatientId
+               join patientUser in _db.Users.AsNoTracking() on patient.UserId equals patientUser.UserId
+               join doctor in _db.Doctors.AsNoTracking() on appointment.DoctorId equals doctor.DoctorId
+               join service in _db.Services.AsNoTracking() on appointment.ServiceId equals service.Id into serviceGroup
+               from service in serviceGroup.DefaultIfEmpty()
+               select new DoctorAppointmentProjection
+               {
+                   AppointmentId = appointment.AppointmentId,
+                   PatientId = appointment.PatientId,
+                   PatientName = patientUser.FullName,
+                   MedicalRecordNumber = patient.MedicalRecordNumber ?? $"MRN-{appointment.PatientId:D5}",
+                   AppointmentDate = appointment.AppointmentDate,
+                   SlotStartTime = appointment.SlotStartTime,
+                   SlotEndTime = appointment.SlotEndTime,
+                   Status = appointment.Status.ToString(),
+                   TokenNumber = appointment.TokenNumber,
+                   Reason = appointment.Reason,
+                   AdminRemarks = appointment.AdminRemarks,
+                   DoctorId = doctor.DoctorId,
+                   DoctorName = doctor.FullName,
+                   DoctorSpecialization = doctor.Specialization,
+                   ServiceId = appointment.ServiceId,
+                   ServiceName = service != null ? service.Name : null,
+                   ServicePrice = service != null ? service.Price : null
+               };
+    }
+
+    private sealed class PatientAppointmentProjection
+    {
+        public long AppointmentId { get; init; }
+        public long PatientId { get; init; }
+        public DateTime AppointmentDate { get; init; }
+        public TimeSpan SlotStartTime { get; init; }
+        public TimeSpan SlotEndTime { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public string? TokenNumber { get; init; }
+        public string? Reason { get; init; }
+        public string? AdminRemarks { get; init; }
+        public long DoctorId { get; init; }
+        public string DoctorName { get; init; } = string.Empty;
+        public string? DoctorSpecialization { get; init; }
+        public long? ServiceId { get; init; }
+        public string? ServiceName { get; init; }
+        public decimal? ServicePrice { get; init; }
+    }
+
+    private sealed class DoctorAppointmentProjection
+    {
+        public long AppointmentId { get; init; }
+        public long PatientId { get; init; }
+        public string PatientName { get; init; } = string.Empty;
+        public string MedicalRecordNumber { get; init; } = string.Empty;
+        public DateTime AppointmentDate { get; init; }
+        public TimeSpan SlotStartTime { get; init; }
+        public TimeSpan SlotEndTime { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public string? TokenNumber { get; init; }
+        public string? Reason { get; init; }
+        public string? AdminRemarks { get; init; }
+        public long DoctorId { get; init; }
+        public string DoctorName { get; init; } = string.Empty;
+        public string? DoctorSpecialization { get; init; }
+        public long? ServiceId { get; init; }
+        public string? ServiceName { get; init; }
+        public decimal? ServicePrice { get; init; }
+    }
 }

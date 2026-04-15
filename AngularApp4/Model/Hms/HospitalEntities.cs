@@ -520,7 +520,8 @@ public enum AppointmentStatus
     Approved,
     Rescheduled,
     Cancelled,
-    Completed
+    Completed,
+    NoShow
 }
 
 public class Appointment

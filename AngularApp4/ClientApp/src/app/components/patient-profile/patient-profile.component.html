@@ -1,0 +1,109 @@
+<section class="patient-profile">
+  <header class="profile-hero">
+    <div>
+      <p class="eyebrow">Patient profile</p>
+      <h1>Keep your portal details current</h1>
+      <p class="subtitle">Your account details are used for appointment requests and patient record matching.</p>
+    </div>
+
+    <div class="hero-meta">
+      <article>
+        <span>MRN</span>
+        <strong>{{ medicalRecordNumber }}</strong>
+      </article>
+      <article>
+        <span>Category</span>
+        <strong>{{ patientCategoryName }}</strong>
+      </article>
+    </div>
+  </header>
+
+  <div class="feedback" *ngIf="isLoading">Loading your profile...</div>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success" *ngIf="statusMessage">{{ statusMessage }}</p>
+
+  <div class="profile-grid" *ngIf="!isLoading">
+    <article class="summary-card">
+      <h2>Portal summary</h2>
+      <dl>
+        <div>
+          <dt>Account type</dt>
+          <dd>Patient portal</dd>
+        </div>
+        <div>
+          <dt>Email</dt>
+          <dd>{{ profile?.email || 'Not available' }}</dd>
+        </div>
+        <div>
+          <dt>Emergency contact</dt>
+          <dd>{{ profile?.emergencyContact || 'Not set' }}</dd>
+        </div>
+      </dl>
+
+      <button mat-stroked-button color="primary" routerLink="/patient/appointments" type="button">
+        View my appointments
+      </button>
+    </article>
+
+    <form class="profile-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <h2>Contact and identity</h2>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Full name</mat-label>
+          <input matInput formControlName="fullName" autocomplete="name" />
+          <mat-error *ngIf="form.controls.fullName.hasError('required')">Full name is required.</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput formControlName="email" type="email" readonly />
+          <mat-hint>Email changes are managed by admin staff.</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput formControlName="phone" type="tel" autocomplete="tel" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Emergency contact</mat-label>
+          <input matInput formControlName="emergencyContact" type="tel" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Gender</mat-label>
+          <mat-select formControlName="gender">
+            <mat-option [value]="''">Not specified</mat-option>
+            <mat-option *ngFor="let option of genderOptions" [value]="option">{{ option }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Date of birth</mat-label>
+          <input matInput formControlName="dateOfBirth" type="date" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Blood group</mat-label>
+          <mat-select formControlName="bloodGroup">
+            <mat-option [value]="''">Not specified</mat-option>
+            <mat-option *ngFor="let group of bloodGroups" [value]="group">{{ group }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Address</mat-label>
+          <textarea matInput formControlName="address" rows="3"></textarea>
+        </mat-form-field>
+      </div>
+
+      <div class="actions">
+        <button mat-stroked-button color="primary" type="button" (click)="loadProfile()" [disabled]="isSaving">Reload</button>
+        <button mat-raised-button color="primary" type="submit" [disabled]="isSaving">
+          {{ isSaving ? 'Saving...' : 'Save profile' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</section>

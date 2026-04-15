@@ -1,8 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { ApiResponse } from '../../models/hms/auth.model';
-import { BedMaster, DepartmentMaster, DoctorMaster, PatientCategoryMaster, StaffMaster, WardMaster } from '../../models/hms/master-setup.model';
+import { BedMaster, DepartmentMaster, DoctorAvailableSlot, DoctorMaster, PatientCategoryMaster, StaffMaster, WardMaster } from '../../models/hms/master-setup.model';
 
 @Injectable({ providedIn: 'root' })
 export class MasterSetupService {
@@ -24,8 +24,24 @@ export class MasterSetupService {
     return this.http.put<ApiResponse<null>>(`/api/departments/${departmentId}/status`, { isActive }).pipe(map(() => void 0));
   }
 
-  getDoctors(): Observable<DoctorMaster[]> {
-    return this.http.get<ApiResponse<DoctorMaster[]>>('/api/doctors').pipe(map((res) => res.data));
+  getDoctors(isActive?: boolean): Observable<DoctorMaster[]> {
+    let params = new HttpParams();
+    if (typeof isActive === 'boolean') {
+      params = params.set('isActive', isActive);
+    }
+
+    return this.http.get<ApiResponse<DoctorMaster[]>>('/api/doctors', { params }).pipe(map((res) => res.data));
+  }
+
+  getDoctor(doctorId: number): Observable<DoctorMaster> {
+    return this.http.get<ApiResponse<DoctorMaster>>(`/api/doctors/${doctorId}`).pipe(map((res) => res.data));
+  }
+
+  getAvailableSlots(doctorId: number, date: string): Observable<DoctorAvailableSlot[]> {
+    const params = new HttpParams().set('date', date);
+    return this.http
+      .get<ApiResponse<DoctorAvailableSlot[]>>(`/api/doctors/${doctorId}/available-slots`, { params })
+      .pipe(map((res) => res.data));
   }
 
   createDoctor(payload: Partial<DoctorMaster>): Observable<DoctorMaster> {

@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angu
 import { NavigationEnd, Router } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 
-type DashboardRole = 'Admin' | 'User';
+type DashboardRole = 'Admin' | 'User' | 'Doctor';
 
 interface NavItem {
   label: string;
@@ -123,17 +123,38 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private readonly userSections: NavSection[] = [
     {
       id: 'workspace',
-      label: 'Workspace',
+      label: 'Patient Portal',
       items: [
-        { label: 'Dashboard', icon: 'space_dashboard', route: '/user/dashboard', exact: true },
-        { label: 'Services', icon: 'widgets', route: '/user/services' },
-        { label: 'Appointments', icon: 'calendar_month', route: '/user/appointments' }
+        { label: 'Dashboard', icon: 'space_dashboard', route: '/patient/dashboard', exact: true },
+        { label: 'Doctors', icon: 'medical_services', route: '/patient/doctors' },
+        { label: 'Book Appointment', icon: 'event_available', route: '/patient/book' },
+        { label: 'Appointments', icon: 'calendar_month', route: '/patient/appointments' },
+        { label: 'Profile', icon: 'person', route: '/patient/profile' }
+      ]
+    }
+  ];
+
+  private readonly doctorSections: NavSection[] = [
+    {
+      id: 'workspace',
+      label: 'Doctor Portal',
+      items: [
+        { label: 'Dashboard', icon: 'space_dashboard', route: '/doctor/dashboard', exact: true },
+        { label: 'Appointments', icon: 'calendar_month', route: '/doctor/appointments' }
       ]
     }
   ];
 
   get navigationSections(): NavSection[] {
-    return this.role === 'Admin' ? this.adminSections : this.userSections;
+    if (this.role === 'Admin') {
+      return this.adminSections;
+    }
+
+    if (this.role === 'Doctor') {
+      return this.doctorSections;
+    }
+
+    return this.userSections;
   }
 
   constructor(private readonly router: Router) {}
@@ -150,11 +171,27 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   get brandText(): string {
-    return this.role === 'Admin' ? 'Nexus Admin' : 'Nexus User';
+    if (this.role === 'Admin') {
+      return 'Nexus Admin';
+    }
+
+    if (this.role === 'Doctor') {
+      return 'Nexus Doctor';
+    }
+
+    return 'Nexus Patient';
   }
 
   get roleSubtitle(): string {
-    return this.role === 'Admin' ? 'Control Center' : 'Member Space';
+    if (this.role === 'Admin') {
+      return 'Control Center';
+    }
+
+    if (this.role === 'Doctor') {
+      return 'Clinical Workspace';
+    }
+
+    return 'Patient Portal';
   }
 
   toggle(): void {

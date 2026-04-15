@@ -817,8 +817,12 @@ public class SettingsController : ControllerBase
             SmsSenderId = settings.SmsSenderId,
             EmailProviderName = settings.EmailProviderName,
             EmailApiUrl = settings.EmailApiUrl,
+            EmailSmtpPort = settings.EmailSmtpPort,
+            EmailSmtpUsername = settings.EmailSmtpUsername,
             EmailApiKey = settings.EmailApiKey,
             EmailFromAddress = settings.EmailFromAddress,
+            EmailUseSsl = settings.EmailUseSsl,
+            DoctorPortalBaseUrl = settings.DoctorPortalBaseUrl,
             AutoBackupEnabled = settings.AutoBackupEnabled,
             AutoBackupTime = settings.AutoBackupTime,
             BackupRetentionCount = settings.BackupRetentionCount,
@@ -926,8 +930,12 @@ public class SettingsController : ControllerBase
         target.SmsSenderId = NormalizeText(source.SmsSenderId);
         target.EmailProviderName = NormalizeText(source.EmailProviderName);
         target.EmailApiUrl = NormalizeText(source.EmailApiUrl);
+        target.EmailSmtpPort = source.EmailSmtpPort > 0 ? source.EmailSmtpPort : 587;
+        target.EmailSmtpUsername = NormalizeText(source.EmailSmtpUsername);
         target.EmailApiKey = NormalizeText(source.EmailApiKey);
         target.EmailFromAddress = NormalizeText(source.EmailFromAddress);
+        target.EmailUseSsl = source.EmailUseSsl;
+        target.DoctorPortalBaseUrl = NormalizeText(source.DoctorPortalBaseUrl);
         target.AutoBackupEnabled = source.AutoBackupEnabled;
         target.AutoBackupTime = string.IsNullOrWhiteSpace(source.AutoBackupTime) ? "02:00" : source.AutoBackupTime.Trim();
         target.BackupRetentionCount = Math.Max(source.BackupRetentionCount, 1);

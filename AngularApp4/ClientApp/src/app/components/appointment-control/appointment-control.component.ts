@@ -24,16 +24,6 @@ interface AppointmentFormState {
   adminRemarks: string;
 }
 
-interface ScheduleFormState {
-  scheduleId: number;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  slotDurationMinutes: number;
-  maxPatientsPerSlot: number;
-  isActive: boolean;
-}
-
 const EMPTY_APPOINTMENT_FORM: AppointmentFormState = {
   doctorId: null,
   scheduleId: null,
@@ -42,16 +32,6 @@ const EMPTY_APPOINTMENT_FORM: AppointmentFormState = {
   slotEndTime: '',
   status: 'Pending',
   adminRemarks: ''
-};
-
-const EMPTY_SCHEDULE_FORM: ScheduleFormState = {
-  scheduleId: 0,
-  dayOfWeek: 1,
-  startTime: '09:00',
-  endTime: '12:00',
-  slotDurationMinutes: 30,
-  maxPatientsPerSlot: 1,
-  isActive: true
 };
 
 @Component({
@@ -63,7 +43,6 @@ export class AppointmentControlComponent implements OnInit, OnDestroy {
   appointments: AppointmentAdminRecord[] = [];
   doctors: DoctorMaster[] = [];
   appointmentSchedules: DoctorScheduleRecord[] = [];
-  schedules: DoctorScheduleRecord[] = [];
   tokenSettings: AppointmentTokenSettings = {
     appointmentTokenSettingId: 0,
     prefix: 'OPD',
@@ -74,9 +53,7 @@ export class AppointmentControlComponent implements OnInit, OnDestroy {
 
   viewMode: ViewMode = 'index';
   selectedAppointmentId: number | null = null;
-  selectedDoctorId: number | null = null;
   appointmentForm: AppointmentFormState = { ...EMPTY_APPOINTMENT_FORM };
-  scheduleForm: ScheduleFormState = { ...EMPTY_SCHEDULE_FORM };
 
   searchTerm = '';
   statusFilter: AppointmentLifecycleStatus | 'All' = 'All';
@@ -85,7 +62,6 @@ export class AppointmentControlComponent implements OnInit, OnDestroy {
   isLoading = true;
   isSavingAppointment = false;
   isSavingTokenSettings = false;
-  isSavingSchedule = false;
   errorMessage = '';
   statusMessage = '';
 
@@ -177,12 +153,6 @@ export class AppointmentControlComponent implements OnInit, OnDestroy {
       : null;
   }
 
-  get scheduleDoctor(): DoctorMaster | null {
-    return this.selectedDoctorId
-      ? this.doctors.find((doctor) => doctor.doctorId === this.selectedDoctorId) ?? null
-      : null;
-  }
-
   backToIndex(): void {
     this.router.navigate(['/admin/bookings']);
   }
@@ -262,84 +232,6 @@ export class AppointmentControlComponent implements OnInit, OnDestroy {
     });
   }
 
-  changeScheduleDoctor(): void {
-    this.scheduleForm = { ...EMPTY_SCHEDULE_FORM };
-    this.loadSchedules();
-  }
-
-  editSchedule(schedule: DoctorScheduleRecord): void {
-    this.scheduleForm = {
-      scheduleId: schedule.scheduleId,
-      dayOfWeek: schedule.dayOfWeek,
-      startTime: this.toTimeInput(schedule.startTime),
-      endTime: this.toTimeInput(schedule.endTime),
-      slotDurationMinutes: schedule.slotDurationMinutes,
-      maxPatientsPerSlot: schedule.maxPatientsPerSlot,
-      isActive: schedule.isActive
-    };
-  }
-
-  resetScheduleForm(): void {
-    this.scheduleForm = { ...EMPTY_SCHEDULE_FORM };
-  }
-
-  saveSchedule(): void {
-    if (!this.selectedDoctorId) {
-      this.errorMessage = 'Select a doctor before saving schedules.';
-      return;
-    }
-
-    this.isSavingSchedule = true;
-    this.errorMessage = '';
-    this.statusMessage = '';
-
-    const payload = {
-      doctorId: this.selectedDoctorId,
-      dayOfWeek: this.scheduleForm.dayOfWeek,
-      startTime: this.toTimePayload(this.scheduleForm.startTime),
-      endTime: this.toTimePayload(this.scheduleForm.endTime),
-      slotDurationMinutes: this.scheduleForm.slotDurationMinutes,
-      maxPatientsPerSlot: this.scheduleForm.maxPatientsPerSlot,
-      isActive: this.scheduleForm.isActive
-    };
-
-    const request = this.scheduleForm.scheduleId
-      ? this.phase3.updateDoctorSchedule(this.scheduleForm.scheduleId, payload)
-      : this.phase3.createDoctorSchedule(this.selectedDoctorId, payload);
-
-    request.subscribe({
-      next: () => {
-        this.isSavingSchedule = false;
-        this.statusMessage = 'Doctor schedule saved.';
-        this.resetScheduleForm();
-        this.loadSchedules();
-      },
-      error: (error: { error?: { message?: string } }) => {
-        this.isSavingSchedule = false;
-        this.errorMessage = error?.error?.message || 'Unable to save doctor schedule.';
-      }
-    });
-  }
-
-  deleteSchedule(scheduleId: number): void {
-    this.isSavingSchedule = true;
-    this.errorMessage = '';
-    this.statusMessage = '';
-
-    this.phase3.deleteDoctorSchedule(scheduleId).subscribe({
-      next: () => {
-        this.isSavingSchedule = false;
-        this.statusMessage = 'Doctor schedule deleted.';
-        this.resetScheduleForm();
-        this.loadSchedules();
-      },
-      error: () => {
-        this.isSavingSchedule = false;
-        this.errorMessage = 'Unable to delete doctor schedule.';
-      }
-    });
-  }
-
   refresh(): void {
     this.loadData(this.selectedAppointmentId);
   }
@@ -385,11 +277,7 @@ export class AppointmentControlComponent implements OnInit, OnDestroy {
         this.tokenSettings = tokenSettings;
         this.selectedAppointmentId = this.resolveSelectedAppointmentId(appointments, preferredAppointmentId);
         this.syncAppointmentForm();
-        this.selectedDoctorId = this.selectedDoctorId && this.doctors.some((doctor) => doctor.doctorId === this.selectedDoctorId)
-          ? this.selectedDoctorId
-          : this.selectedAppointment?.doctorId ?? this.doctors[0]?.doctorId ?? null;
         this.loadAppointmentSchedules(this.appointmentForm.doctorId);
-        this.loadSchedules();
         this.isLoading = false;
       },
       error: () => {
@@ -427,22 +315,6 @@ export class AppointmentControlComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.errorMessage = 'Unable to load appointment schedule options.';
-      }
-    });
-  }
-
-  private loadSchedules(): void {
-    if (!this.selectedDoctorId) {
-      this.schedules = [];
-      return;
-    }
-
-    this.phase3.getDoctorSchedules(this.selectedDoctorId).subscribe({
-      next: (schedules) => {
-        this.schedules = [...schedules].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
-      },
-      error: () => {
-        this.errorMessage = 'Unable to load doctor schedules.';
       }
     });
   }

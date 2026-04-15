@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
 using AngularApp4.Services.Hms;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,19 +19,33 @@ public class AuthController : ControllerBase
     private readonly IJwtTokenService _jwt;
     private readonly IAuditLogService _audit;
     private readonly IPasswordPolicyService _passwordPolicy;
+    private readonly IPasswordResetService _passwordReset;
+    private readonly IWebHostEnvironment _environment;
 
-    public AuthController(AppDbContext db, IJwtTokenService jwt, IAuditLogService audit, IPasswordPolicyService passwordPolicy)
+    public AuthController(
+        AppDbContext db,
+        IJwtTokenService jwt,
+        IAuditLogService audit,
+        IPasswordPolicyService passwordPolicy,
+        IPasswordResetService passwordReset,
+        IWebHostEnvironment environment)
     {
         _db = db;
         _jwt = jwt;
         _audit = audit;
         _passwordPolicy = passwordPolicy;
+        _passwordReset = passwordReset;
+        _environment = environment;
     }
 
     [HttpPost("register")]
     public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Register(RegisterRequestDto dto)
     {
         var email = dto.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(dto.FullName) || string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(ApiResponse<AuthResponseDto>.Fail("Full name and email are required"));
+        }
 
         if (await _db.Users.AnyAsync(x => x.Email == email))
         {
@@ -49,8 +65,9 @@ public class AuthController : ControllerBase
 
         var user = new User
         {
-            FullName = dto.FullName,
+            FullName = dto.FullName.Trim(),
             Email = email,
+            Phone = Normalize(dto.Phone),
             RoleId = role.RoleId,
             PasswordHash = hash,
             PasswordSalt = salt,
@@ -62,7 +79,12 @@ public class AuthController : ControllerBase
 
         if (roleName == "User")
         {
-            _db.Patients.Add(new Patient { UserId = user.UserId, CreatedAt = DateTime.UtcNow });
+            _db.Patients.Add(new Patient
+            {
+                UserId = user.UserId,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            });
             await _db.SaveChangesAsync();
         }
 
@@ -138,6 +160,260 @@ public class AuthController : ControllerBase
         }, "Login successful"));
     }
 
+    [HttpPost("forgot-password")]
+    public async Task<ActionResult<ApiResponse<ForgotPasswordResponseDto>>> ForgotPassword(ForgotPasswordRequestDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var payload = new ForgotPasswordResponseDto();
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            var user = await _db.Users
+                .Include(x => x.Role)
+                .FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
+
+            if (user?.Role?.Name is "User" or "Doctor")
+            {
+                var ticket = _passwordReset.CreateTicket(email);
+                if (_environment.IsDevelopment())
+                {
+                    payload.ResetCodePreview = ticket.Code;
+                    payload.ExpiresAt = ticket.ExpiresAtUtc;
+                }
+
+                await _audit.WriteAsync(new AuditLogRequest
+                {
+                    Category = AuditLogCategories.Authentication,
+                    Action = "PasswordResetRequested",
+                    EntityName = "UserSession",
+                    EntityId = user.UserId,
+                    TargetDisplayName = user.FullName,
+                    Summary = $"{user.FullName} requested a password reset code.",
+                    PerformedByUserId = user.UserId,
+                    PerformedByName = user.FullName,
+                    PerformedByRole = user.Role.Name,
+                    ActorEmail = user.Email
+                });
+            }
+        }
+
+        return Ok(ApiResponse<ForgotPasswordResponseDto>.Ok(payload, "If the account exists, reset instructions are ready."));
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<ActionResult<ApiResponse<object>>> ResetPassword(ResetPasswordRequestDto dto)
+    {
+        var email = dto.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(dto.ResetCode))
+        {
+            return BadRequest(ApiResponse<object>.Fail("Email and reset code are required"));
+        }
+
+        var user = await _db.Users
+            .Include(x => x.Role)
+            .FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
+
+        if (user?.Role?.Name is not ("User" or "Doctor") || !_passwordReset.TryConsume(email, dto.ResetCode))
+        {
+            return BadRequest(ApiResponse<object>.Fail("Invalid or expired reset code"));
+        }
+
+        var policyValidation = await _passwordPolicy.ValidateAsync(dto.NewPassword);
+        if (!policyValidation.IsValid)
+        {
+            return BadRequest(ApiResponse<object>.Fail(policyValidation.Errors.First()));
+        }
+
+        CreatePasswordHash(dto.NewPassword, out var hash, out var salt);
+        user.PasswordHash = hash;
+        user.PasswordSalt = salt;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Authentication,
+            Action = "PasswordResetCompleted",
+            EntityName = "User",
+            EntityId = user.UserId,
+            TargetDisplayName = user.FullName,
+            Summary = $"{user.FullName} completed a password reset.",
+            PerformedByUserId = user.UserId,
+            PerformedByName = user.FullName,
+            PerformedByRole = user.Role.Name,
+            ActorEmail = user.Email
+        });
+
+        return Ok(ApiResponse<object>.Ok(null, "Password reset successful"));
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<object>>> ChangePassword(ChangePasswordRequestDto dto)
+    {
+        var userId = GetUserId();
+        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null)
+        {
+            return NotFound(ApiResponse<object>.Fail("User account not found"));
+        }
+
+        if (!VerifyPassword(dto.CurrentPassword, user.PasswordHash, user.PasswordSalt))
+        {
+            return BadRequest(ApiResponse<object>.Fail("Current password is incorrect"));
+        }
+
+        var policyValidation = await _passwordPolicy.ValidateAsync(dto.NewPassword);
+        if (!policyValidation.IsValid)
+        {
+            return BadRequest(ApiResponse<object>.Fail(policyValidation.Errors.First()));
+        }
+
+        CreatePasswordHash(dto.NewPassword, out var hash, out var salt);
+        user.PasswordHash = hash;
+        user.PasswordSalt = salt;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Authentication,
+            Action = "PasswordChanged",
+            EntityName = "User",
+            EntityId = user.UserId,
+            TargetDisplayName = user.FullName,
+            Summary = $"{user.FullName} changed their password.",
+            PerformedByUserId = user.UserId,
+            PerformedByName = user.FullName,
+            PerformedByRole = user.Role?.Name,
+            ActorEmail = user.Email
+        });
+
+        return Ok(ApiResponse<object>.Ok(null, "Password changed successfully"));
+    }
+
+    [HttpGet("profile")]
+    [Authorize(Policy = "UserOnly")]
+    public async Task<ActionResult<ApiResponse<PatientProfileDto>>> GetProfile()
+    {
+        var profile = await BuildProfileAsync(GetUserId());
+        return profile is null
+            ? NotFound(ApiResponse<PatientProfileDto>.Fail("Patient profile not found"))
+            : Ok(ApiResponse<PatientProfileDto>.Ok(profile));
+    }
+
+    [HttpPut("profile")]
+    [Authorize(Policy = "UserOnly")]
+    public async Task<ActionResult<ApiResponse<PatientProfileDto>>> UpdateProfile(UpdatePatientProfileDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            return BadRequest(ApiResponse<PatientProfileDto>.Fail("Full name is required"));
+        }
+
+        var userId = GetUserId();
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        var patient = await _db.Patients.FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null || patient is null)
+        {
+            return NotFound(ApiResponse<PatientProfileDto>.Fail("Patient profile not found"));
+        }
+
+        user.FullName = dto.FullName.Trim();
+        user.Phone = Normalize(dto.Phone);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        patient.Gender = Normalize(dto.Gender);
+        patient.DateOfBirth = dto.DateOfBirth?.Date;
+        patient.Address = Normalize(dto.Address);
+        patient.BloodGroup = Normalize(dto.BloodGroup);
+        patient.EmergencyContact = Normalize(dto.EmergencyContact);
+        patient.MedicalRecordNumber ??= GenerateMedicalRecordNumber(patient.PatientId);
+        patient.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Authentication,
+            Action = "ProfileUpdated",
+            EntityName = "PatientProfile",
+            EntityId = patient.PatientId,
+            TargetDisplayName = user.FullName,
+            Summary = $"{user.FullName} updated their patient portal profile.",
+            PerformedByUserId = user.UserId,
+            PerformedByName = user.FullName,
+            PerformedByRole = "User",
+            ActorEmail = user.Email
+        });
+
+        var profile = await BuildProfileAsync(userId);
+        return Ok(ApiResponse<PatientProfileDto>.Ok(profile!, "Profile updated"));
+    }
+
+    [HttpGet("doctor-profile")]
+    [Authorize(Policy = "DoctorOnly")]
+    public async Task<ActionResult<ApiResponse<DoctorProfileDto>>> GetDoctorProfile()
+    {
+        var profile = await BuildDoctorProfileAsync(GetUserId());
+        return profile is null
+            ? NotFound(ApiResponse<DoctorProfileDto>.Fail("Doctor profile not found"))
+            : Ok(ApiResponse<DoctorProfileDto>.Ok(profile));
+    }
+
+    [HttpPut("doctor-profile")]
+    [Authorize(Policy = "DoctorOnly")]
+    public async Task<ActionResult<ApiResponse<DoctorProfileDto>>> UpdateDoctorProfile(UpdateDoctorProfileDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.FullName))
+        {
+            return BadRequest(ApiResponse<DoctorProfileDto>.Fail("Full name is required"));
+        }
+
+        var userId = GetUserId();
+        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null)
+        {
+            return NotFound(ApiResponse<DoctorProfileDto>.Fail("Doctor account not found"));
+        }
+
+        var doctor = await _db.Doctors.FirstOrDefaultAsync(x => x.Email == user.Email && x.IsActive);
+        if (doctor is null)
+        {
+            return NotFound(ApiResponse<DoctorProfileDto>.Fail("Doctor profile not found"));
+        }
+
+        user.FullName = dto.FullName.Trim();
+        user.Phone = Normalize(dto.Phone);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        doctor.FullName = dto.FullName.Trim();
+        doctor.Phone = Normalize(dto.Phone);
+        doctor.Specialization = string.IsNullOrWhiteSpace(dto.Specialization) ? doctor.Specialization : dto.Specialization.Trim();
+        doctor.ExperienceYears = Math.Max(dto.ExperienceYears, 0);
+        doctor.Qualification = Normalize(dto.Qualification);
+        doctor.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Authentication,
+            Action = "DoctorProfileUpdated",
+            EntityName = "DoctorProfile",
+            EntityId = doctor.DoctorId,
+            TargetDisplayName = doctor.FullName,
+            Summary = $"{doctor.FullName} updated their doctor portal profile.",
+            PerformedByUserId = user.UserId,
+            PerformedByName = user.FullName,
+            PerformedByRole = user.Role?.Name,
+            ActorEmail = user.Email
+        });
+
+        var profile = await BuildDoctorProfileAsync(userId);
+        return Ok(ApiResponse<DoctorProfileDto>.Ok(profile!, "Doctor profile updated"));
+    }
+
     private static void CreatePasswordHash(string password, out byte[] hash, out byte[] salt)
     {
         using var hmac = new HMACSHA512();
@@ -151,4 +427,75 @@ public class AuthController : ControllerBase
         var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
         return computedHash.SequenceEqual(storedHash);
     }
+
+    private async Task<PatientProfileDto?> BuildProfileAsync(long userId)
+    {
+        return await _db.Patients
+            .AsNoTracking()
+            .Include(x => x.PatientCategory)
+            .Where(x => x.UserId == userId)
+            .Join(
+                _db.Users.AsNoTracking(),
+                patient => patient.UserId,
+                user => user.UserId,
+                (patient, user) => new PatientProfileDto
+                {
+                    PatientId = patient.PatientId,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    Phone = user.Phone,
+                    MedicalRecordNumber = patient.MedicalRecordNumber ?? GenerateMedicalRecordNumber(patient.PatientId),
+                    PatientCategoryName = patient.PatientCategory != null ? patient.PatientCategory.Name : "Unassigned",
+                    Gender = patient.Gender,
+                    DateOfBirth = patient.DateOfBirth,
+                    Address = patient.Address,
+                    BloodGroup = patient.BloodGroup,
+                    EmergencyContact = patient.EmergencyContact
+                })
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<DoctorProfileDto?> BuildDoctorProfileAsync(long userId)
+    {
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var normalizedEmail = user.Email.Trim().ToLowerInvariant();
+
+        return await _db.Doctors
+            .AsNoTracking()
+            .Include(x => x.Branch)
+            .Include(x => x.Department)
+            .Where(x => x.Email == normalizedEmail && x.IsActive)
+            .Select(x => new DoctorProfileDto
+            {
+                DoctorId = x.DoctorId,
+                FullName = x.FullName,
+                Email = x.Email,
+                Phone = x.Phone,
+                Specialization = x.Specialization,
+                ExperienceYears = x.ExperienceYears,
+                Qualification = x.Qualification,
+                ConsultationFee = x.ConsultationFee,
+                BranchName = x.Branch != null ? x.Branch.Name : null,
+                DepartmentName = x.Department != null ? x.Department.Name : null,
+                OpdDays = x.OpdDays,
+                OpdStartTime = x.OpdStartTime,
+                OpdEndTime = x.OpdEndTime
+            })
+            .FirstOrDefaultAsync();
+    }
+
+    private long GetUserId()
+    {
+        var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        return long.Parse(raw!);
+    }
+
+    private static string GenerateMedicalRecordNumber(long patientId) => $"MRN-{patientId:D5}";
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -7,7 +7,7 @@ interface DemoAccount {
   label: string;
   email: string;
   password: string;
-  role: 'Admin' | 'User';
+  role: 'Admin' | 'User' | 'Doctor';
 }
 
 @Component({
@@ -21,12 +21,13 @@ export class LoginComponent {
 
   readonly demoAccounts: DemoAccount[] = [
     { label: 'Admin Demo', email: 'admin@nexus.local', password: 'Admin@123', role: 'Admin' },
-    { label: 'User Demo', email: 'user@nexus.local', password: 'User@123', role: 'User' }
+    { label: 'Doctor Demo', email: 'aryan.shah@nexushospital.local', password: 'Doctor@123', role: 'Doctor' },
+    { label: 'Patient Demo', email: 'mira.patient@nexus.local', password: 'User@123', role: 'User' }
   ];
 
   readonly form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    password: ['', [Validators.required, Validators.minLength(8)]]
   });
 
   constructor(
@@ -56,9 +57,9 @@ export class LoginComponent {
         this.isSubmitting = false;
         this.router.navigateByUrl(this.auth.getDashboardRoute(res.role));
       },
-      error: () => {
+      error: (error: { error?: { message?: string } }) => {
         this.isSubmitting = false;
-        this.errorMessage = 'Invalid email or password.';
+        this.errorMessage = error?.error?.message || 'Invalid email or password.';
       }
     });
   }

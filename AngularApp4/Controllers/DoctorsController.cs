@@ -5,6 +5,8 @@ using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace AngularApp4.Controllers;
 
@@ -14,11 +16,19 @@ public class DoctorsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IAuditLogService _audit;
+    private readonly IDoctorAvailabilityService _availability;
+    private readonly IDoctorPortalEmailService _doctorPortalEmail;
 
-    public DoctorsController(AppDbContext db, IAuditLogService audit)
+    public DoctorsController(
+        AppDbContext db,
+        IAuditLogService audit,
+        IDoctorAvailabilityService availability,
+        IDoctorPortalEmailService doctorPortalEmail)
     {
         _db = db;
         _audit = audit;
+        _availability = availability;
+        _doctorPortalEmail = doctorPortalEmail;
     }
 
     [HttpGet]
@@ -115,13 +125,25 @@ public class DoctorsController : ControllerBase
             return BadRequest(ApiResponse<DoctorMasterDto>.Fail(validation));
         }
 
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        if (await _db.Doctors.AnyAsync(x => x.Email == normalizedEmail))
+        {
+            return BadRequest(ApiResponse<DoctorMasterDto>.Fail("Doctor email already exists"));
+        }
+
+        var portalValidation = await ValidatePortalEmailAvailabilityAsync(normalizedEmail, null);
+        if (portalValidation is not null)
+        {
+            return BadRequest(ApiResponse<DoctorMasterDto>.Fail(portalValidation));
+        }
+
         var doctor = new Doctor
         {
             BranchId = dto.BranchId,
             DepartmentId = dto.DepartmentId,
             FullName = dto.FullName.Trim(),
             Specialization = dto.Specialization.Trim(),
-            Email = dto.Email.Trim().ToLowerInvariant(),
+            Email = normalizedEmail,
             Phone = Normalize(dto.Phone),
             ExperienceYears = dto.ExperienceYears,
             Qualification = Normalize(dto.Qualification),
@@ -135,10 +157,21 @@ public class DoctorsController : ControllerBase
 
         _db.Doctors.Add(doctor);
         await _db.SaveChangesAsync();
+
+        DoctorPortalProvisioningResult provisioning;
+        try
+        {
+            provisioning = await EnsureDoctorPortalAccountAsync(doctor, null, sendCredentials: true);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<DoctorMasterDto>.Fail(ex.Message));
+        }
         await WriteAuditAsync("Created", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was created.");
 
         var payload = await GetDoctorDtoAsync(doctor.DoctorId);
-        return Ok(ApiResponse<DoctorMasterDto>.Ok(payload, "Doctor created"));
+        ApplyProvisioning(payload, provisioning);
+        return Ok(ApiResponse<DoctorMasterDto>.Ok(payload, provisioning.Message));
     }
 
     [HttpPut("{doctorId:long}")]
@@ -157,11 +190,24 @@ public class DoctorsController : ControllerBase
             return BadRequest(ApiResponse<DoctorMasterDto>.Fail(validation));
         }
 
+        var previousEmail = doctor.Email;
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        if (await _db.Doctors.AnyAsync(x => x.DoctorId != doctorId && x.Email == normalizedEmail))
+        {
+            return BadRequest(ApiResponse<DoctorMasterDto>.Fail("Doctor email already exists"));
+        }
+
+        var portalValidation = await ValidatePortalEmailAvailabilityAsync(normalizedEmail, previousEmail);
+        if (portalValidation is not null)
+        {
+            return BadRequest(ApiResponse<DoctorMasterDto>.Fail(portalValidation));
+        }
+
         doctor.BranchId = dto.BranchId;
         doctor.DepartmentId = dto.DepartmentId;
         doctor.FullName = dto.FullName.Trim();
         doctor.Specialization = dto.Specialization.Trim();
-        doctor.Email = dto.Email.Trim().ToLowerInvariant();
+        doctor.Email = normalizedEmail;
         doctor.Phone = Normalize(dto.Phone);
         doctor.ExperienceYears = dto.ExperienceYears;
         doctor.Qualification = Normalize(dto.Qualification);
@@ -173,10 +219,22 @@ public class DoctorsController : ControllerBase
         doctor.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        var shouldSendCredentials = !string.Equals(previousEmail, normalizedEmail, StringComparison.OrdinalIgnoreCase);
+        DoctorPortalProvisioningResult provisioning;
+        try
+        {
+            provisioning = await EnsureDoctorPortalAccountAsync(doctor, previousEmail, shouldSendCredentials);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse<DoctorMasterDto>.Fail(ex.Message));
+        }
         await WriteAuditAsync("Updated", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was updated.");
 
         var payload = await GetDoctorDtoAsync(doctor.DoctorId);
-        return Ok(ApiResponse<DoctorMasterDto>.Ok(payload, "Doctor updated"));
+        ApplyProvisioning(payload, provisioning);
+        return Ok(ApiResponse<DoctorMasterDto>.Ok(payload, provisioning.Message));
     }
 
     [HttpPut("{doctorId:long}/status")]
@@ -191,6 +249,14 @@ public class DoctorsController : ControllerBase
 
         doctor.IsActive = dto.IsActive;
         doctor.UpdatedAt = DateTime.UtcNow;
+
+        var linkedUser = await FindDoctorPortalUserAsync(doctor.Email);
+        if (linkedUser is not null)
+        {
+            linkedUser.IsActive = dto.IsActive;
+            linkedUser.UpdatedAt = DateTime.UtcNow;
+        }
+
         await _db.SaveChangesAsync();
         await WriteAuditAsync(dto.IsActive ? "Activated" : "Deactivated", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was {(dto.IsActive ? "activated" : "deactivated")}.");
 
@@ -206,6 +272,14 @@ public class DoctorsController : ControllerBase
 
         doctor.IsActive = false;
         doctor.UpdatedAt = DateTime.UtcNow;
+
+        var linkedUser = await FindDoctorPortalUserAsync(doctor.Email);
+        if (linkedUser is not null)
+        {
+            linkedUser.IsActive = false;
+            linkedUser.UpdatedAt = DateTime.UtcNow;
+        }
+
         await _db.SaveChangesAsync();
         await WriteAuditAsync("Deleted", doctor.DoctorId, doctor.FullName, $"Doctor {doctor.FullName} was deactivated from the master list.");
         return Ok(ApiResponse<object>.Ok(null, "Doctor deactivated"));
@@ -225,59 +299,35 @@ public class DoctorsController : ControllerBase
     }
 
     [HttpGet("{doctorId:long}/available-slots")]
-    public async Task<ActionResult<ApiResponse<IEnumerable<object>>>> GetAvailableSlots(long doctorId, [FromQuery] DateTime date)
+    public async Task<ActionResult<ApiResponse<IEnumerable<DoctorAvailableSlotDto>>>> GetAvailableSlots(long doctorId, [FromQuery] DateTime date)
     {
-        var dayOfWeek = ((int)date.DayOfWeek + 6) % 7 + 1;
-        var schedule = await _db.DoctorSchedules.FirstOrDefaultAsync(x => x.DoctorId == doctorId && x.DayOfWeek == dayOfWeek && x.IsActive);
-
-        if (schedule is null)
+        var doctorExists = await _db.Doctors.AsNoTracking().AnyAsync(x => x.DoctorId == doctorId && x.IsActive);
+        if (!doctorExists)
         {
-            var doctor = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.DoctorId == doctorId && x.IsActive);
-            if (doctor is null)
-            {
-                return NotFound(ApiResponse<IEnumerable<object>>.Fail("Doctor not found"));
-            }
-
-            if (!IsDoctorAvailableOnDay(doctor.OpdDays, date.DayOfWeek) || !doctor.OpdStartTime.HasValue || !doctor.OpdEndTime.HasValue)
-            {
-                return Ok(ApiResponse<IEnumerable<object>>.Ok(Array.Empty<object>(), "No schedule"));
-            }
-
-            schedule = new DoctorSchedule
-            {
-                DoctorId = doctorId,
-                DayOfWeek = (byte)dayOfWeek,
-                StartTime = doctor.OpdStartTime.Value,
-                EndTime = doctor.OpdEndTime.Value,
-                SlotDurationMinutes = 30,
-                MaxPatientsPerSlot = 1,
-                IsActive = true
-            };
+            return NotFound(ApiResponse<IEnumerable<DoctorAvailableSlotDto>>.Fail("Doctor not found"));
         }
 
-        var booked = await _db.Appointments
-            .Where(x => x.DoctorId == doctorId && x.AppointmentDate.Date == date.Date && x.Status != AppointmentStatus.Cancelled)
-            .Select(x => x.SlotStartTime)
-            .ToListAsync();
-
-        var slots = new List<object>();
-        var cursor = schedule.StartTime;
-        while (cursor + TimeSpan.FromMinutes(schedule.SlotDurationMinutes) <= schedule.EndTime)
+        var slots = await _availability.GetAvailableSlotsAsync(doctorId, date.Date);
+        if (slots.Count == 0)
         {
-            var end = cursor + TimeSpan.FromMinutes(schedule.SlotDurationMinutes);
-            if (!booked.Contains(cursor))
-            {
-                slots.Add(new { StartTime = cursor, EndTime = end });
-            }
-
-            cursor = end;
+            return Ok(ApiResponse<IEnumerable<DoctorAvailableSlotDto>>.Ok(Array.Empty<DoctorAvailableSlotDto>(), "No schedule"));
         }
 
-        return Ok(ApiResponse<IEnumerable<object>>.Ok(slots));
+        return Ok(ApiResponse<IEnumerable<DoctorAvailableSlotDto>>.Ok(slots));
     }
 
     private async Task<string?> ValidateMappingsAsync(long? branchId, long? departmentId)
     {
+        if (branchId.HasValue && branchId <= 0)
+        {
+            return "Branch not found";
+        }
+
+        if (departmentId.HasValue && departmentId <= 0)
+        {
+            return "Department not found";
+        }
+
         if (branchId.HasValue && !await _db.Branches.AnyAsync(x => x.BranchId == branchId.Value))
         {
             return "Branch not found";
@@ -298,6 +348,26 @@ public class DoctorsController : ControllerBase
         }
 
         return null;
+    }
+
+    private async Task<string?> ValidatePortalEmailAvailabilityAsync(string normalizedEmail, string? previousEmail)
+    {
+        var user = await _db.Users
+            .Include(x => x.Role)
+            .FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+
+        if (user is null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(previousEmail) &&
+            string.Equals(previousEmail.Trim(), normalizedEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return user.Role?.Name == "Doctor" ? null : "Email is already used by another portal account.";
     }
 
     private async Task<DoctorMasterDto> GetDoctorDtoAsync(long doctorId)
@@ -329,27 +399,161 @@ public class DoctorsController : ControllerBase
             .FirstAsync();
     }
 
-    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static bool IsDoctorAvailableOnDay(string? opdDays, DayOfWeek dayOfWeek)
+    private async Task<DoctorPortalProvisioningResult> EnsureDoctorPortalAccountAsync(Doctor doctor, string? previousEmail, bool sendCredentials)
     {
-        if (string.IsNullOrWhiteSpace(opdDays))
+        var normalizedEmail = doctor.Email.Trim().ToLowerInvariant();
+        var doctorRole = await _db.Roles.FirstAsync(x => x.Name == "Doctor");
+        var existingUser = await FindDoctorPortalUserAsync(previousEmail ?? normalizedEmail);
+
+        if (existingUser is null)
         {
-            return false;
+            existingUser = await _db.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+            if (existingUser is not null && existingUser.RoleId != doctorRole.RoleId)
+            {
+                throw new InvalidOperationException("Email is already used by another portal account.");
+            }
         }
 
-        var normalized = opdDays.ToLowerInvariant();
-        var token = dayOfWeek switch
+        var accountCreated = false;
+        string? temporaryPassword = null;
+
+        if (existingUser is null)
         {
-            DayOfWeek.Sunday => "sun",
-            DayOfWeek.Monday => "mon",
-            DayOfWeek.Tuesday => "tue",
-            DayOfWeek.Wednesday => "wed",
-            DayOfWeek.Thursday => "thu",
-            DayOfWeek.Friday => "fri",
-            _ => "sat"
+            temporaryPassword = GenerateTemporaryPassword();
+            CreatePasswordHash(temporaryPassword, out var hash, out var salt);
+
+            existingUser = new User
+            {
+                RoleId = doctorRole.RoleId,
+                FullName = doctor.FullName,
+                Email = normalizedEmail,
+                Phone = doctor.Phone,
+                PasswordHash = hash,
+                PasswordSalt = salt,
+                IsActive = doctor.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.Users.Add(existingUser);
+            await _db.SaveChangesAsync();
+            accountCreated = true;
+        }
+        else
+        {
+            existingUser.RoleId = doctorRole.RoleId;
+            existingUser.FullName = doctor.FullName;
+            existingUser.Email = normalizedEmail;
+            existingUser.Phone = doctor.Phone;
+            existingUser.IsActive = doctor.IsActive;
+            existingUser.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        var messageParts = new List<string>
+        {
+            accountCreated ? "Doctor created and portal account provisioned." : "Doctor updated and portal account synced."
         };
 
-        return normalized.Contains(token);
+        var emailSent = false;
+        if (sendCredentials && !string.IsNullOrWhiteSpace(temporaryPassword))
+        {
+            var portalUrl = await GetDoctorPortalUrlAsync();
+            var emailResult = await _doctorPortalEmail.SendCredentialsAsync(
+                normalizedEmail,
+                doctor.FullName,
+                normalizedEmail,
+                temporaryPassword,
+                portalUrl,
+                HttpContext.RequestAborted);
+
+            emailSent = emailResult.Sent;
+            messageParts.Add(emailResult.Message);
+            if (!emailResult.Sent)
+            {
+                messageParts.Add($"Temporary password: {temporaryPassword}");
+            }
+        }
+        else if (accountCreated && !sendCredentials && !string.IsNullOrWhiteSpace(temporaryPassword))
+        {
+            messageParts.Add($"Temporary password: {temporaryPassword}");
+        }
+        else if (!accountCreated && sendCredentials)
+        {
+            messageParts.Add("Existing doctor portal account kept its current password.");
+        }
+
+        return new DoctorPortalProvisioningResult
+        {
+            AccountCreated = accountCreated,
+            EmailSent = sendCredentials ? emailSent : null,
+            Message = string.Join(" ", messageParts.Where(x => !string.IsNullOrWhiteSpace(x)))
+        };
+    }
+
+    private async Task<string> GetDoctorPortalUrlAsync()
+    {
+        var configuredUrl = await _db.SystemControlSettings
+            .AsNoTracking()
+            .OrderBy(x => x.SystemControlSettingId)
+            .Select(x => x.DoctorPortalBaseUrl)
+            .FirstOrDefaultAsync();
+
+        if (!string.IsNullOrWhiteSpace(configuredUrl))
+        {
+            return configuredUrl.Trim();
+        }
+
+        return $"{Request.Scheme}://{Request.Host}/auth/login";
+    }
+
+    private async Task<User?> FindDoctorPortalUserAsync(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return null;
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        return await _db.Users
+            .Include(x => x.Role)
+            .FirstOrDefaultAsync(x => x.Email == normalizedEmail && x.Role != null && x.Role.Name == "Doctor");
+    }
+
+    private static void ApplyProvisioning(DoctorMasterDto dto, DoctorPortalProvisioningResult provisioning)
+    {
+        dto.PortalAccountCreated = provisioning.AccountCreated;
+        dto.PortalEmailSent = provisioning.EmailSent;
+        dto.PortalProvisioningNote = provisioning.Message;
+    }
+
+    private static string GenerateTemporaryPassword()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+        var buffer = new byte[12];
+        RandomNumberGenerator.Fill(buffer);
+        var password = new char[12];
+        for (var index = 0; index < password.Length; index++)
+        {
+            password[index] = chars[buffer[index] % chars.Length];
+        }
+
+        return new string(password);
+    }
+
+    private static void CreatePasswordHash(string password, out byte[] hash, out byte[] salt)
+    {
+        using var hmac = new HMACSHA512();
+        salt = hmac.Key;
+        hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
+    }
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private sealed class DoctorPortalProvisioningResult
+    {
+        public bool AccountCreated { get; init; }
+        public bool? EmailSent { get; init; }
+        public string Message { get; init; } = string.Empty;
     }
 }

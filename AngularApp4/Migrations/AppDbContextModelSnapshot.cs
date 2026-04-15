@@ -70,6 +70,72 @@ namespace AngularApp4.Migrations
                     b.ToTable("AdmissionTransfers");
                 });
 
+            modelBuilder.Entity("AngularApp4.Model.Hms.AppNotification", b =>
+                {
+                    b.Property<long>("AppNotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("AppNotificationId"), 1L, 1);
+
+                    b.Property<string>("ActionUrl")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDismissed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("NotificationType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("ReadAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("RecipientUserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("RelatedEntityId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RelatedEntityName")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("ScheduledForUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.HasKey("AppNotificationId");
+
+                    b.HasIndex("RelatedEntityName", "RelatedEntityId");
+
+                    b.HasIndex("RecipientUserId", "IsRead", "ScheduledForUtc");
+
+                    b.ToTable("AppNotifications");
+                });
+
             modelBuilder.Entity("AngularApp4.Model.Hms.Appointment", b =>
                 {
                     b.Property<long>("AppointmentId")
@@ -225,13 +291,13 @@ namespace AngularApp4.Migrations
 
                     b.HasKey("AuditLogEntryId");
 
-                    b.HasIndex("Action", "CreatedAt");
-
-                    b.HasIndex("Category", "CreatedAt");
-
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("PerformedByUserId");
+
+                    b.HasIndex("Action", "CreatedAt");
+
+                    b.HasIndex("Category", "CreatedAt");
 
                     b.ToTable("AuditLogEntries");
                 });
@@ -257,12 +323,12 @@ namespace AngularApp4.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("RestoredAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("RestoredByName")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
-
-                    b.Property<DateTime?>("RestoredAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("SnapshotJson")
                         .HasColumnType("nvarchar(max)");
@@ -286,215 +352,13 @@ namespace AngularApp4.Migrations
 
                     b.HasKey("BackupLogId");
 
-                    b.HasIndex("BackupType", "CreatedAt");
-
                     b.HasIndex("CreatedAt");
+
+                    b.HasIndex("BackupType", "CreatedAt");
 
                     b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("BackupLogs");
-                });
-
-            modelBuilder.Entity("AngularApp4.Model.Hms.NotificationSetting", b =>
-                {
-                    b.Property<long>("NotificationSettingId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NotificationSettingId"), 1L, 1);
-
-                    b.Property<string>("AppointmentReminderChannels")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<int>("AppointmentReminderHoursBefore")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("AppointmentRemindersEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("ExpiryAlertChannels")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<int>("ExpiryAlertDays")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("ExpiryAlertsEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("LowStockAlertChannels")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<bool>("LowStockAlertsEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("LowStockReminderFrequencyHours")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PaymentDueAlertChannels")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<bool>("PaymentDueAlertsEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("PaymentDueReminderDaysBefore")
-                        .HasColumnType("int");
-
-                    b.Property<string>("RecipientEmails")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("NotificationSettingId");
-
-                    b.ToTable("NotificationSettings");
-                });
-
-            modelBuilder.Entity("AngularApp4.Model.Hms.SecuritySetting", b =>
-                {
-                    b.Property<long>("SecuritySettingId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SecuritySettingId"), 1L, 1);
-
-                    b.Property<string>("LastPermissionReviewedByName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<DateTime?>("LastPermissionReviewAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("MinPasswordLength")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PasswordExpiryDays")
-                        .HasColumnType("int");
-
-                    b.Property<int>("PermissionReviewIntervalDays")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("RequireDigit")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("RequireLowercase")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("RequireSpecialCharacter")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("RequireUppercase")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("SessionTimeoutMinutes")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("SecuritySettingId");
-
-                    b.ToTable("SecuritySettings");
-                });
-
-            modelBuilder.Entity("AngularApp4.Model.Hms.SystemControlSetting", b =>
-                {
-                    b.Property<long>("SystemControlSettingId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SystemControlSettingId"), 1L, 1);
-
-                    b.Property<bool>("AutoBackupEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("AutoBackupTime")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<int>("BackupRetentionCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("BackupStoragePath")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<string>("DefaultCurrencyCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<string>("EmailApiKey")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("EmailApiUrl")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<string>("EmailFromAddress")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("EmailProviderName")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<string>("InvoicePrefix")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int>("NextInvoiceNumber")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SmsApiKey")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("SmsApiUrl")
-                        .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("nvarchar(250)");
-
-                    b.Property<string>("SmsProviderName")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<string>("SmsSenderId")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<string>("TimeZoneId")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("SystemControlSettingId");
-
-                    b.ToTable("SystemControlSettings");
                 });
 
             modelBuilder.Entity("AngularApp4.Model.Hms.Bed", b =>
@@ -1365,6 +1229,82 @@ namespace AngularApp4.Migrations
                     b.ToTable("HospitalServices");
                 });
 
+            modelBuilder.Entity("AngularApp4.Model.Hms.InventoryCategory", b =>
+                {
+                    b.Property<long>("InventoryCategoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("InventoryCategoryId"), 1L, 1);
+
+                    b.Property<string>("CategoryType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("InventoryCategoryId");
+
+                    b.HasIndex("CategoryType", "Name")
+                        .IsUnique();
+
+                    b.ToTable("InventoryCategories");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.InventoryUnit", b =>
+                {
+                    b.Property<long>("InventoryUnitId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("InventoryUnitId"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ShortName")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("InventoryUnitId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("InventoryUnits");
+                });
+
             modelBuilder.Entity("AngularApp4.Model.Hms.LabTestMaster", b =>
                 {
                     b.Property<long>("LabTestMasterId")
@@ -1465,6 +1405,133 @@ namespace AngularApp4.Migrations
                     b.HasIndex("BranchId");
 
                     b.ToTable("MedicineInventoryItems");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.MedicineMaster", b =>
+                {
+                    b.Property<long>("MedicineMasterId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("MedicineMasterId"), 1L, 1);
+
+                    b.Property<bool>("BatchRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Brand")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GenericName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<long?>("InventoryCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("InventoryUnitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("MaximumStock")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MedicineName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("MinimumStock")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Strength")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("MedicineMasterId");
+
+                    b.HasIndex("InventoryCategoryId");
+
+                    b.HasIndex("InventoryUnitId");
+
+                    b.HasIndex("MedicineName", "Brand", "Strength")
+                        .IsUnique()
+                        .HasFilter("[Brand] IS NOT NULL AND [Strength] IS NOT NULL");
+
+                    b.ToTable("MedicineMasters");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.NotificationSetting", b =>
+                {
+                    b.Property<long>("NotificationSettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NotificationSettingId"), 1L, 1);
+
+                    b.Property<string>("AppointmentReminderChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("AppointmentReminderHoursBefore")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("AppointmentRemindersEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ExpiryAlertChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("ExpiryAlertDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ExpiryAlertsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LowStockAlertChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("LowStockAlertsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LowStockReminderFrequencyHours")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentDueAlertChannels")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("PaymentDueAlertsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PaymentDueReminderDaysBefore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RecipientEmails")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("NotificationSettingId");
+
+                    b.ToTable("NotificationSettings");
                 });
 
             modelBuilder.Entity("AngularApp4.Model.Hms.Patient", b =>
@@ -1661,6 +1728,343 @@ namespace AngularApp4.Migrations
                     b.ToTable("PatientCategories");
                 });
 
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseInvoice", b =>
+                {
+                    b.Property<long>("PurchaseInvoiceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("PurchaseInvoiceId"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("InvoiceDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<decimal>("PaidAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long>("PurchaseOrderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("StockLocationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PurchaseInvoiceId");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.HasIndex("StockLocationId");
+
+                    b.HasIndex("SupplierId", "InvoiceNumber")
+                        .IsUnique();
+
+                    b.ToTable("PurchaseInvoices");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseInvoiceLine", b =>
+                {
+                    b.Property<long>("PurchaseInvoiceLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("PurchaseInvoiceLineId"), 1L, 1);
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long?>("MedicineMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<long>("PurchaseInvoiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("PurchaseOrderLineId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long?>("StockItemMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("UnitName")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("PurchaseInvoiceLineId");
+
+                    b.HasIndex("MedicineMasterId");
+
+                    b.HasIndex("PurchaseInvoiceId");
+
+                    b.HasIndex("PurchaseOrderLineId");
+
+                    b.HasIndex("StockItemMasterId");
+
+                    b.ToTable("PurchaseInvoiceLines");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseOrder", b =>
+                {
+                    b.Property<long>("PurchaseOrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("PurchaseOrderId"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpectedDeliveryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<DateTime>("OrderDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("StockLocationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PurchaseOrderId");
+
+                    b.HasIndex("OrderNumber")
+                        .IsUnique();
+
+                    b.HasIndex("StockLocationId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("PurchaseOrders");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseOrderLine", b =>
+                {
+                    b.Property<long>("PurchaseOrderLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("PurchaseOrderLineId"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<long?>("MedicineMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<decimal>("OrderedQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long>("PurchaseOrderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long?>("StockItemMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("UnitName")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PurchaseOrderLineId");
+
+                    b.HasIndex("MedicineMasterId");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.HasIndex("StockItemMasterId");
+
+                    b.ToTable("PurchaseOrderLines");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseReturn", b =>
+                {
+                    b.Property<long>("PurchaseReturnId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("PurchaseReturnId"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<long>("PurchaseInvoiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("ReturnDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReturnNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<long>("SupplierId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("PurchaseReturnId");
+
+                    b.HasIndex("PurchaseInvoiceId");
+
+                    b.HasIndex("ReturnNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("PurchaseReturns");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseReturnLine", b =>
+                {
+                    b.Property<long>("PurchaseReturnLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("PurchaseReturnLineId"), 1L, 1);
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long?>("MedicineMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("PurchaseInvoiceLineId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("PurchaseReturnId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long?>("StockItemMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("PurchaseReturnLineId");
+
+                    b.HasIndex("MedicineMasterId");
+
+                    b.HasIndex("PurchaseInvoiceLineId");
+
+                    b.HasIndex("PurchaseReturnId");
+
+                    b.HasIndex("StockItemMasterId");
+
+                    b.ToTable("PurchaseReturnLines");
+                });
+
             modelBuilder.Entity("AngularApp4.Model.Hms.Role", b =>
                 {
                     b.Property<long>("RoleId")
@@ -1737,6 +2141,53 @@ namespace AngularApp4.Migrations
                         .IsUnique();
 
                     b.ToTable("RolePermissions");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.SecuritySetting", b =>
+                {
+                    b.Property<long>("SecuritySettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SecuritySettingId"), 1L, 1);
+
+                    b.Property<DateTime?>("LastPermissionReviewAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastPermissionReviewedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("MinPasswordLength")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PasswordExpiryDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PermissionReviewIntervalDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequireDigit")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequireLowercase")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequireSpecialCharacter")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RequireUppercase")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SessionTimeoutMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SecuritySettingId");
+
+                    b.ToTable("SecuritySettings");
                 });
 
             modelBuilder.Entity("AngularApp4.Model.Hms.ServicePackage", b =>
@@ -1855,6 +2306,518 @@ namespace AngularApp4.Migrations
                         .IsUnique();
 
                     b.ToTable("Staff");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockAdjustment", b =>
+                {
+                    b.Property<long>("StockAdjustmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StockAdjustmentId"), 1L, 1);
+
+                    b.Property<DateTime>("AdjustmentDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AdjustmentNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("StockLocationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("StockAdjustmentId");
+
+                    b.HasIndex("AdjustmentNumber")
+                        .IsUnique();
+
+                    b.HasIndex("StockLocationId");
+
+                    b.ToTable("StockAdjustments");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockAdjustmentLine", b =>
+                {
+                    b.Property<long>("StockAdjustmentLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StockAdjustmentLineId"), 1L, 1);
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<decimal>("QuantityDelta")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long>("StockAdjustmentId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StockBatchId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("StockAdjustmentLineId");
+
+                    b.HasIndex("StockAdjustmentId");
+
+                    b.HasIndex("StockBatchId");
+
+                    b.ToTable("StockAdjustmentLines");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockBatch", b =>
+                {
+                    b.Property<long>("StockBatchId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StockBatchId"), 1L, 1);
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastMovementAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("MedicineMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("QuantityOnHand")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long?>("StockItemMasterId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StockLocationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("StockBatchId");
+
+                    b.HasIndex("MedicineMasterId");
+
+                    b.HasIndex("StockItemMasterId");
+
+                    b.HasIndex("StockLocationId");
+
+                    b.ToTable("StockBatches");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockItemMaster", b =>
+                {
+                    b.Property<long>("StockItemMasterId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StockItemMasterId"), 1L, 1);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("InventoryCategoryId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("InventoryUnitId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("MaximumStock")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MinimumStock")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Specification")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("StockItemMasterId");
+
+                    b.HasIndex("InventoryCategoryId");
+
+                    b.HasIndex("InventoryUnitId");
+
+                    b.HasIndex("ItemName", "ItemType")
+                        .IsUnique();
+
+                    b.ToTable("StockItemMasters");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockLocation", b =>
+                {
+                    b.Property<long>("StockLocationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StockLocationId"), 1L, 1);
+
+                    b.Property<long?>("BranchId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LocationType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("StockLocationId");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("StockLocations");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockTransfer", b =>
+                {
+                    b.Property<long>("StockTransferId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StockTransferId"), 1L, 1);
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("FromStockLocationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("ToStockLocationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("TransferDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TransferNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("StockTransferId");
+
+                    b.HasIndex("FromStockLocationId");
+
+                    b.HasIndex("ToStockLocationId");
+
+                    b.HasIndex("TransferNumber")
+                        .IsUnique();
+
+                    b.ToTable("StockTransfers");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockTransferLine", b =>
+                {
+                    b.Property<long>("StockTransferLineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("StockTransferLineId"), 1L, 1);
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<long>("StockBatchId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StockTransferId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("StockTransferLineId");
+
+                    b.HasIndex("StockBatchId");
+
+                    b.HasIndex("StockTransferId");
+
+                    b.ToTable("StockTransferLines");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.Supplier", b =>
+                {
+                    b.Property<long>("SupplierId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SupplierId"), 1L, 1);
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("ContactEmail")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("ContactPerson")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int>("PaymentTermsDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SupplierCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SupplierId");
+
+                    b.HasIndex("SupplierCode")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierName")
+                        .IsUnique();
+
+                    b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.SystemControlSetting", b =>
+                {
+                    b.Property<long>("SystemControlSettingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SystemControlSettingId"), 1L, 1);
+
+                    b.Property<bool>("AutoBackupEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AutoBackupTime")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("BackupRetentionCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BackupStoragePath")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("DefaultCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("DoctorPortalBaseUrl")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("EmailApiKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EmailApiUrl")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("EmailFromAddress")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("EmailProviderName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("EmailSmtpPort")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmailSmtpUsername")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("EmailUseSsl")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("InvoicePrefix")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("NextInvoiceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SmsApiKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SmsApiUrl")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("SmsProviderName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("SmsSenderId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SystemControlSettingId");
+
+                    b.ToTable("SystemControlSettings");
                 });
 
             modelBuilder.Entity("AngularApp4.Model.Hms.User", b =>
@@ -2230,6 +3193,24 @@ namespace AngularApp4.Migrations
                     b.Navigation("Branch");
                 });
 
+            modelBuilder.Entity("AngularApp4.Model.Hms.MedicineMaster", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.InventoryCategory", "InventoryCategory")
+                        .WithMany()
+                        .HasForeignKey("InventoryCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.InventoryUnit", "InventoryUnit")
+                        .WithMany()
+                        .HasForeignKey("InventoryUnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("InventoryCategory");
+
+                    b.Navigation("InventoryUnit");
+                });
+
             modelBuilder.Entity("AngularApp4.Model.Hms.Patient", b =>
                 {
                     b.HasOne("AngularApp4.Model.Hms.Patient", null)
@@ -2294,6 +3275,160 @@ namespace AngularApp4.Migrations
                     b.Navigation("Ward");
                 });
 
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseInvoice", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.PurchaseOrder", "PurchaseOrder")
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.StockLocation", "StockLocation")
+                        .WithMany()
+                        .HasForeignKey("StockLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseOrder");
+
+                    b.Navigation("StockLocation");
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseInvoiceLine", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.MedicineMaster", "MedicineMaster")
+                        .WithMany()
+                        .HasForeignKey("MedicineMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.PurchaseInvoice", "PurchaseInvoice")
+                        .WithMany()
+                        .HasForeignKey("PurchaseInvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.PurchaseOrderLine", "PurchaseOrderLine")
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.StockItemMaster", "StockItemMaster")
+                        .WithMany()
+                        .HasForeignKey("StockItemMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MedicineMaster");
+
+                    b.Navigation("PurchaseInvoice");
+
+                    b.Navigation("PurchaseOrderLine");
+
+                    b.Navigation("StockItemMaster");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseOrder", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.StockLocation", "StockLocation")
+                        .WithMany()
+                        .HasForeignKey("StockLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StockLocation");
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseOrderLine", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.MedicineMaster", "MedicineMaster")
+                        .WithMany()
+                        .HasForeignKey("MedicineMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.PurchaseOrder", "PurchaseOrder")
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.StockItemMaster", "StockItemMaster")
+                        .WithMany()
+                        .HasForeignKey("StockItemMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MedicineMaster");
+
+                    b.Navigation("PurchaseOrder");
+
+                    b.Navigation("StockItemMaster");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseReturn", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.PurchaseInvoice", "PurchaseInvoice")
+                        .WithMany()
+                        .HasForeignKey("PurchaseInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PurchaseInvoice");
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.PurchaseReturnLine", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.MedicineMaster", "MedicineMaster")
+                        .WithMany()
+                        .HasForeignKey("MedicineMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.PurchaseInvoiceLine", "PurchaseInvoiceLine")
+                        .WithMany()
+                        .HasForeignKey("PurchaseInvoiceLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.PurchaseReturn", "PurchaseReturn")
+                        .WithMany()
+                        .HasForeignKey("PurchaseReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.StockItemMaster", "StockItemMaster")
+                        .WithMany()
+                        .HasForeignKey("StockItemMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MedicineMaster");
+
+                    b.Navigation("PurchaseInvoiceLine");
+
+                    b.Navigation("PurchaseReturn");
+
+                    b.Navigation("StockItemMaster");
+                });
+
             modelBuilder.Entity("AngularApp4.Model.Hms.RolePermission", b =>
                 {
                     b.HasOne("AngularApp4.Model.Hms.Role", "Role")
@@ -2320,6 +3455,127 @@ namespace AngularApp4.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("DepartmentMaster");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockAdjustment", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.StockLocation", "StockLocation")
+                        .WithMany()
+                        .HasForeignKey("StockLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StockLocation");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockAdjustmentLine", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.StockAdjustment", "StockAdjustment")
+                        .WithMany()
+                        .HasForeignKey("StockAdjustmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.StockBatch", "StockBatch")
+                        .WithMany()
+                        .HasForeignKey("StockBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("StockAdjustment");
+
+                    b.Navigation("StockBatch");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockBatch", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.MedicineMaster", "MedicineMaster")
+                        .WithMany()
+                        .HasForeignKey("MedicineMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.StockItemMaster", "StockItemMaster")
+                        .WithMany()
+                        .HasForeignKey("StockItemMasterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.StockLocation", "StockLocation")
+                        .WithMany()
+                        .HasForeignKey("StockLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("MedicineMaster");
+
+                    b.Navigation("StockItemMaster");
+
+                    b.Navigation("StockLocation");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockItemMaster", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.InventoryCategory", "InventoryCategory")
+                        .WithMany()
+                        .HasForeignKey("InventoryCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AngularApp4.Model.Hms.InventoryUnit", "InventoryUnit")
+                        .WithMany()
+                        .HasForeignKey("InventoryUnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("InventoryCategory");
+
+                    b.Navigation("InventoryUnit");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockLocation", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockTransfer", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.StockLocation", "FromStockLocation")
+                        .WithMany()
+                        .HasForeignKey("FromStockLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.StockLocation", "ToStockLocation")
+                        .WithMany()
+                        .HasForeignKey("ToStockLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FromStockLocation");
+
+                    b.Navigation("ToStockLocation");
+                });
+
+            modelBuilder.Entity("AngularApp4.Model.Hms.StockTransferLine", b =>
+                {
+                    b.HasOne("AngularApp4.Model.Hms.StockBatch", "StockBatch")
+                        .WithMany()
+                        .HasForeignKey("StockBatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AngularApp4.Model.Hms.StockTransfer", "StockTransfer")
+                        .WithMany()
+                        .HasForeignKey("StockTransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StockBatch");
+
+                    b.Navigation("StockTransfer");
                 });
 
             modelBuilder.Entity("AngularApp4.Model.Hms.User", b =>

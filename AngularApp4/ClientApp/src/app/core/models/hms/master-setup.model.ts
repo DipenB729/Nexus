@@ -25,6 +25,18 @@ export interface DoctorMaster {
   opdEndTime?: string | null;
   consultationFee: number;
   isActive: boolean;
+  portalAccountCreated?: boolean | null;
+  portalEmailSent?: boolean | null;
+  portalProvisioningNote?: string | null;
+}
+
+export interface DoctorAvailableSlot {
+  scheduleId?: number | null;
+  startTime: string;
+  endTime: string;
+  maxPatientsPerSlot: number;
+  bookedPatients: number;
+  remainingPatients: number;
 }
 
 export interface StaffMaster {

@@ -1,6 +1,7 @@
 using AngularApp4.Data;
 using AngularApp4.Dtos.Hms;
 using AngularApp4.Model.Hms;
+using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,14 @@ namespace AngularApp4.Controllers;
 public class AdminAppointmentsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IDoctorAvailabilityService _availability;
+    private readonly IAppNotificationService _notifications;
 
-    public AdminAppointmentsController(AppDbContext db)
+    public AdminAppointmentsController(AppDbContext db, IDoctorAvailabilityService availability, IAppNotificationService notifications)
     {
         _db = db;
+        _availability = availability;
+        _notifications = notifications;
     }
 
     [HttpGet]
@@ -96,33 +101,35 @@ public class AdminAppointmentsController : ControllerBase
             return BadRequest(ApiResponse<AppointmentAdminDto>.Fail("Selected doctor is unavailable"));
         }
 
-        if (nextScheduleId.HasValue)
+        ResolvedDoctorSchedule? resolvedSchedule = null;
+        if (nextStatus != AppointmentStatus.Cancelled)
         {
-            var scheduleExists = await _db.DoctorSchedules.AnyAsync(x =>
-                x.ScheduleId == nextScheduleId.Value &&
-                x.DoctorId == nextDoctorId &&
-                x.IsActive);
+            resolvedSchedule = await _availability.ResolveScheduleForSlotAsync(nextDoctorId, nextDate, nextStart, nextEnd);
+            if (resolvedSchedule is null)
+            {
+                return BadRequest(ApiResponse<AppointmentAdminDto>.Fail("Selected doctor is unavailable for the chosen date and time"));
+            }
 
-            if (!scheduleExists)
+            if (nextScheduleId.HasValue && resolvedSchedule.ScheduleId != nextScheduleId.Value)
             {
                 return BadRequest(ApiResponse<AppointmentAdminDto>.Fail("Selected schedule is not valid for this doctor"));
             }
+
+            var bookedPatients = await _availability.GetBookedPatientCountAsync(nextDoctorId, nextDate, nextStart, nextEnd, appointmentId);
+            if (bookedPatients >= resolvedSchedule.MaxPatientsPerSlot)
+            {
+                return BadRequest(ApiResponse<AppointmentAdminDto>.Fail("The selected slot has reached its booking limit"));
+            }
         }
 
-        var slotTaken = await _db.Appointments.AnyAsync(x =>
-            x.AppointmentId != appointmentId &&
-            x.DoctorId == nextDoctorId &&
-            x.AppointmentDate.Date == nextDate &&
-            x.SlotStartTime == nextStart &&
-            x.Status != AppointmentStatus.Cancelled);
-
-        if (slotTaken)
-        {
-            return BadRequest(ApiResponse<AppointmentAdminDto>.Fail("The selected slot is already booked"));
-        }
+        var previousStatus = appointment.Status;
+        var previousDoctorId = appointment.DoctorId;
+        var previousDate = appointment.AppointmentDate;
+        var previousStart = appointment.SlotStartTime;
+        var previousEnd = appointment.SlotEndTime;
 
         appointment.DoctorId = nextDoctorId;
-        appointment.ScheduleId = nextScheduleId;
+        appointment.ScheduleId = resolvedSchedule?.ScheduleId ?? nextScheduleId ?? appointment.ScheduleId;
         appointment.AppointmentDate = nextDate;
         appointment.SlotStartTime = nextStart;
         appointment.SlotEndTime = nextEnd;
@@ -138,6 +145,24 @@ public class AdminAppointmentsController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+
+        var timingChanged = previousDoctorId != appointment.DoctorId
+            || previousDate != appointment.AppointmentDate
+            || previousStart != appointment.SlotStartTime
+            || previousEnd != appointment.SlotEndTime;
+
+        if (nextStatus == AppointmentStatus.Cancelled && previousStatus != AppointmentStatus.Cancelled)
+        {
+            await _notifications.QueueAppointmentCancelledAsync(appointment);
+        }
+        else if (nextStatus == AppointmentStatus.Rescheduled || timingChanged)
+        {
+            await _notifications.QueueAppointmentRescheduledAsync(appointment);
+        }
+        else if (nextStatus == AppointmentStatus.Approved && previousStatus != AppointmentStatus.Approved)
+        {
+            await _notifications.QueueAppointmentApprovedAsync(appointment);
+        }
 
         var payload = (await BuildAppointmentListAsync()).First(x => x.AppointmentId == appointmentId);
         return Ok(ApiResponse<AppointmentAdminDto>.Ok(payload, "Appointment updated"));

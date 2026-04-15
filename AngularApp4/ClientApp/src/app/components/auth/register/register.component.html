@@ -2,15 +2,15 @@
   <div class="auth-card">
     <div class="intro">
       <p class="eyebrow">Create account</p>
-      <h2>Register as a user</h2>
-      <p class="subtitle">Every self-service registration is created as a standard user account. Admin access cannot be selected here.</p>
+      <h2>Create your patient portal login</h2>
+      <p class="subtitle">Register once to book appointments later, review upcoming visits, and keep your own profile details in one place.</p>
     </div>
 
     <div class="user-role-note">
       <mat-icon>verified_user</mat-icon>
       <div>
-        <strong>Role assignment</strong>
-        <span>Your account will be created with the <b>User</b> role automatically.</span>
+        <strong>Patient access</strong>
+        <span>Your account is created with the self-service <b>Patient</b> portal role automatically.</span>
       </div>
     </div>
 
@@ -29,10 +29,15 @@
       </mat-form-field>
 
       <mat-form-field appearance="outline">
+        <mat-label>Phone</mat-label>
+        <input matInput formControlName="phone" type="tel" autocomplete="tel" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
         <mat-label>Password</mat-label>
         <input matInput formControlName="password" type="password" autocomplete="new-password" />
         <mat-error *ngIf="form.controls.password.hasError('required')">Password is required.</mat-error>
-        <mat-error *ngIf="form.controls.password.hasError('minlength')">Password must be at least 6 characters.</mat-error>
+        <mat-error *ngIf="form.controls.password.hasError('minlength')">Password must be at least 8 characters.</mat-error>
       </mat-form-field>
 
       <mat-form-field appearance="outline">

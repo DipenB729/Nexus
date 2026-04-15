@@ -1,10 +1,11 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
-import { AuthSession } from './core/models/hms/auth.model';
+import { AppNotification, AuthSession } from './core/models/hms/auth.model';
 import { AuthApiService } from './core/services/hms/auth-api.service';
+import { NotificationsService } from './core/services/notifications.service';
 
-type DashboardRole = 'Admin' | 'User';
+type DashboardRole = 'Admin' | 'User' | 'Doctor';
 
 @Component({
   selector: 'app-root',
@@ -18,11 +19,18 @@ export class AppComponent implements OnInit, OnDestroy {
   pageTitle = 'Nexus Portal';
   currentRole: DashboardRole | null = null;
   currentSession: AuthSession | null = null;
+  notifications: AppNotification[] = [];
 
   private routeSub?: Subscription;
   private sessionSub?: Subscription;
+  private notificationsSub?: Subscription;
+  private notificationsRefreshSub?: Subscription;
 
-  constructor(private readonly router: Router, private readonly auth: AuthApiService) {}
+  constructor(
+    private readonly router: Router,
+    private readonly auth: AuthApiService,
+    private readonly notificationsApi: NotificationsService
+  ) {}
 
   ngOnInit(): void {
     this.currentSession = this.auth.getSession();
@@ -34,12 +42,29 @@ export class AppComponent implements OnInit, OnDestroy {
 
     this.sessionSub = this.auth.session$.subscribe((session) => {
       this.currentSession = session;
+      if (session) {
+        this.loadNotifications();
+      } else {
+        this.notifications = [];
+      }
     });
+
+    this.notificationsRefreshSub = this.notificationsApi.refresh$.subscribe(() => {
+      if (this.currentSession) {
+        this.loadNotifications();
+      }
+    });
+
+    if (this.currentSession) {
+      this.loadNotifications();
+    }
   }
 
   ngOnDestroy(): void {
     this.routeSub?.unsubscribe();
     this.sessionSub?.unsubscribe();
+    this.notificationsSub?.unsubscribe();
+    this.notificationsRefreshSub?.unsubscribe();
   }
 
   toggleSidebar(): void {
@@ -51,7 +76,19 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get userDisplayName(): string {
-    return this.currentSession?.fullName ?? (this.currentRole === 'Admin' ? 'System Admin' : 'Portal User');
+    if (this.currentSession?.fullName) {
+      return this.currentSession.fullName;
+    }
+
+    if (this.currentRole === 'Admin') {
+      return 'System Admin';
+    }
+
+    if (this.currentRole === 'Doctor') {
+      return 'Doctor Portal';
+    }
+
+    return 'Patient Portal';
   }
 
   get userInitial(): string {
@@ -59,19 +96,98 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get workspaceLabel(): string {
-    return this.currentRole === 'Admin' ? 'Admin Workspace' : 'User Workspace';
+    if (this.currentRole === 'Admin') {
+      return 'Admin Workspace';
+    }
+
+    if (this.currentRole === 'Doctor') {
+      return 'Doctor Workspace';
+    }
+
+    return 'Patient Workspace';
   }
 
   get primaryMenuRoute(): string {
-    return this.currentRole === 'Admin' ? '/admin/dashboard' : '/user/dashboard';
+    if (this.currentRole === 'Admin') {
+      return '/admin/dashboard';
+    }
+
+    if (this.currentRole === 'Doctor') {
+      return '/doctor/dashboard';
+    }
+
+    return '/patient/dashboard';
   }
 
   get secondaryMenuRoute(): string {
-    return this.currentRole === 'Admin' ? '/admin/settings' : '/user/services';
+    if (this.currentRole === 'Admin') {
+      return '/admin/settings';
+    }
+
+    if (this.currentRole === 'Doctor') {
+      return '/doctor/appointments';
+    }
+
+    return '/patient/book';
   }
 
   get secondaryMenuLabel(): string {
-    return this.currentRole === 'Admin' ? 'Settings' : 'Services';
+    if (this.currentRole === 'Admin') {
+      return 'Settings';
+    }
+
+    if (this.currentRole === 'Doctor') {
+      return 'Appointments';
+    }
+
+    return 'Book Appointment';
+  }
+
+  get sessionRoleLabel(): string {
+    return this.auth.getDisplayRole(this.currentSession?.role ?? this.currentRole ?? undefined);
+  }
+
+  get unreadNotificationsCount(): number {
+    return this.notifications.filter((item) => !item.isRead).length;
+  }
+
+  loadNotifications(): void {
+    this.notificationsSub?.unsubscribe();
+    this.notificationsSub = this.notificationsApi.getNotifications().subscribe({
+      next: (items) => {
+        this.notifications = items;
+      },
+      error: () => {
+        this.notifications = [];
+      }
+    });
+  }
+
+  markNotificationAsRead(notification: AppNotification): void {
+    if (notification.isRead) {
+      if (notification.actionUrl) {
+        void this.router.navigateByUrl(notification.actionUrl);
+      }
+      return;
+    }
+
+    this.notificationsApi.markAsRead(notification.appNotificationId).subscribe({
+      next: () => {
+        this.notifications = this.notifications.map((item) =>
+          item.appNotificationId === notification.appNotificationId ? { ...item, isRead: true } : item);
+        if (notification.actionUrl) {
+          void this.router.navigateByUrl(notification.actionUrl);
+        }
+      }
+    });
+  }
+
+  markAllNotificationsAsRead(): void {
+    this.notificationsApi.markAllAsRead().subscribe({
+      next: () => {
+        this.notifications = this.notifications.map((item) => ({ ...item, isRead: true }));
+      }
+    });
   }
 
   private updateLayoutState(url: string): void {
@@ -80,7 +196,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isAuthRoute = currentPath.startsWith('/auth');
     this.currentRole = currentPath.startsWith('/admin')
       ? 'Admin'
-      : currentPath.startsWith('/user')
+      : currentPath.startsWith('/doctor')
+        ? 'Doctor'
+      : currentPath.startsWith('/user') || currentPath.startsWith('/patient')
         ? 'User'
         : null;
     this.isDashboardRoute = this.currentRole !== null;
@@ -209,14 +327,26 @@ export class AppComponent implements OnInit, OnDestroy {
       return settingsTitles[settingsSection] ?? 'Hospital Settings';
     }
 
+    if (path.startsWith('/patient/doctors/')) {
+      return 'Doctor Details';
+    }
+
+    if (path.startsWith('/doctor/appointments')) {
+      return 'Doctor Appointments';
+    }
+
     const titles: Record<string, string> = {
       '/admin/dashboard': 'Admin Dashboard',
       '/admin/services': 'Service Management',
       '/admin/roles': 'Roles & Permissions',
       '/admin/users': 'Roles & Permissions',
-      '/user/dashboard': 'User Dashboard',
-      '/user/services': 'Service Catalog',
-      '/user/appointments': 'My Appointments'
+      '/patient/dashboard': 'Patient Dashboard',
+      '/patient/book': 'Book Appointment',
+      '/patient/doctors': 'Doctor Listing',
+      '/patient/services': 'Doctor Listing',
+      '/patient/appointments': 'My Appointments',
+      '/patient/profile': 'Patient Profile',
+      '/doctor/dashboard': 'Doctor Dashboard'
     };
 
     return titles[path] ?? 'Nexus Portal';

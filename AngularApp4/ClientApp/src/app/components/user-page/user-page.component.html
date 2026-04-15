@@ -5,84 +5,91 @@
       <div>
         <p class="eyebrow">Welcome back</p>
         <h1>{{ displayName }}</h1>
-        <p class="meta">{{ email }} · {{ role }} Account</p>
+        <p class="meta">{{ email }} · {{ role }}</p>
       </div>
     </div>
 
     <div class="hero-actions">
-      <button mat-stroked-button color="primary" routerLink="/user/services">
-        <mat-icon>medical_services</mat-icon>
-        Explore Services
+      <button mat-stroked-button color="primary" routerLink="/patient/profile" type="button">
+        <mat-icon>person</mat-icon>
+        Update Profile
       </button>
-      <button mat-raised-button color="primary" routerLink="/user/appointments">
-        <mat-icon>event</mat-icon>
-        View Appointments
+      <button mat-raised-button color="primary" routerLink="/patient/doctors" type="button">
+        <mat-icon>medical_services</mat-icon>
+        Find Doctors
       </button>
     </div>
   </header>
 
+  <p class="feedback" *ngIf="isLoading">Loading your appointment summary...</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
   <div class="stats-grid">
     <article class="stat-card highlight">
-      <p>Loyalty Tier</p>
-      <strong>{{ loyaltyTier }}</strong>
-      <small>Based on completed bookings</small>
-    </article>
-    <article class="stat-card">
-      <p>Upcoming Appointments</p>
+      <p>Upcoming visits</p>
       <strong>{{ upcomingAppointments.length }}</strong>
-      <small>Scheduled in your calendar</small>
+      <small>Future appointments on your account</small>
     </article>
     <article class="stat-card">
-      <p>Total Spent</p>
+      <p>Pending requests</p>
+      <strong>{{ pendingAppointmentsCount }}</strong>
+      <small>Pending, approved, or rescheduled</small>
+    </article>
+    <article class="stat-card">
+      <p>Completed visits</p>
+      <strong>{{ completedAppointmentsCount }}</strong>
+      <small>Appointments marked complete</small>
+    </article>
+    <article class="stat-card">
+      <p>Total spend</p>
       <strong>{{ totalSpent | currency: 'USD' }}</strong>
-      <small>Completed sessions only</small>
-    </article>
-    <article class="stat-card">
-      <p>Current Role</p>
-      <strong>{{ role }}</strong>
-      <small>{{ email }}</small>
+      <small>Completed appointment charges only</small>
     </article>
   </div>
 
   <div class="content-grid">
     <article class="panel upcoming-panel">
-      <h2>Upcoming Schedule</h2>
+      <h2>Upcoming schedule</h2>
       <div class="upcoming-list" *ngIf="upcomingAppointments.length; else noUpcoming">
         <div class="upcoming-item" *ngFor="let appointment of upcomingAppointments">
           <div>
-            <h3>{{ appointment.serviceName }}</h3>
-            <p>{{ appointment.appointmentDate | date: 'EEEE, MMM d' }} at {{ appointment.time }}</p>
+            <h3>{{ appointment.serviceName || 'General consultation' }}</h3>
+            <p>{{ appointment.doctorName }} · {{ appointment.appointmentDate | date: 'EEEE, MMM d' }}</p>
+            <small>{{ formatSlot(appointment) }}</small>
           </div>
-          <span class="status" [class]="appointment.status.toLowerCase()">{{ appointment.status }}</span>
+          <span class="status" [class]="statusClass(appointment.status)">{{ appointment.status }}</span>
         </div>
       </div>
       <ng-template #noUpcoming>
-        <p class="empty">No upcoming appointments right now.</p>
+        <p class="empty">No upcoming appointments yet. Use the doctor listing to request your first slot.</p>
       </ng-template>
     </article>
 
     <article class="panel history-panel">
-      <h2>Recent Activity</h2>
-      <div class="table-wrap">
+      <h2>Recent activity</h2>
+      <div class="table-wrap" *ngIf="recentAppointments.length; else noHistory">
         <table>
           <thead>
             <tr>
               <th>Service</th>
-              <th>Date</th>
+              <th>Doctor</th>
+              <th>Schedule</th>
               <th>Status</th>
-              <th>Amount</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let appointment of recentAppointments">
-              <td>{{ appointment.serviceName }}</td>
-              <td>{{ appointment.appointmentDate | date: 'mediumDate' }}</td>
-              <td><span class="status" [class]="appointment.status.toLowerCase()">{{ appointment.status }}</span></td>
-              <td>{{ appointment.price | currency: 'USD' }}</td>
+              <td>{{ appointment.serviceName || 'General consultation' }}</td>
+              <td>{{ appointment.doctorName }}</td>
+              <td>{{ appointment.appointmentDate | date: 'mediumDate' }} · {{ formatSlot(appointment) }}</td>
+              <td><span class="status" [class]="statusClass(appointment.status)">{{ appointment.status }}</span></td>
             </tr>
           </tbody>
         </table>
       </div>
+      <ng-template #noHistory>
+        <p class="empty">No appointment history is available for this patient account yet.</p>
+      </ng-template>
     </article>
   </div>
 </section>

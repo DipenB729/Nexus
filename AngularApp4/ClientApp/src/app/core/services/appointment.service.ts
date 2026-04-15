@@ -1,35 +1,61 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { Service } from '../models/booking.model';
 import { Appointment } from '../models/appointment.model';
+import { ApiResponse, DoctorAppointment, PatientAppointment, PatientAppointmentPayload } from '../models/hms/auth.model';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AppointmentService {
-  // .NET API URL (Matches your Program.cs port)
-  private apiUrl = 'https://localhost:44432/api/services';
-  private baseurl = 'https://localhost:44432/api/appointments';
+  private readonly servicesApi = '/api/services';
+  private readonly appointmentsApi = '/api/appointments';
 
   constructor(private http: HttpClient) { }
 
   getServices(): Observable<Service[]> {
-    return this.http.get<Service[]>(this.apiUrl);
+    return this.http.get<Service[]>(this.servicesApi);
   }
 
   addService(service: Service): Observable<Service> {
-    return this.http.post<Service>(this.apiUrl, service);
+    return this.http.post<Service>(this.servicesApi, service);
   }
 
 
   getAppointments(): Observable<Appointment[]> {
-    // This calls your new AppointmentsController in .NET
-    return this.http.get<Appointment[]>(`${this.baseurl}`);
+    return this.http.get<ApiResponse<Appointment[]>>(`${this.appointmentsApi}`).pipe(
+      map((res) => res.data ?? [])
+    );
   }
 
-  // We will need this later when we build the Booking Wizard
-  createAppointment(appointment: any): Observable<any> {
-    return this.http.post<any>(`${this.baseurl}`, appointment);
+  getMyAppointments(): Observable<PatientAppointment[]> {
+    return this.http.get<ApiResponse<PatientAppointment[]>>(`${this.appointmentsApi}/my`).pipe(
+      map((res) => res.data ?? [])
+    );
+  }
+
+  getDoctorAppointments(): Observable<DoctorAppointment[]> {
+    return this.http.get<ApiResponse<DoctorAppointment[]>>(`${this.appointmentsApi}/doctor/my`).pipe(
+      map((res) => res.data ?? [])
+    );
+  }
+
+  createAppointment(appointment: PatientAppointmentPayload): Observable<PatientAppointment> {
+    return this.http.post<ApiResponse<PatientAppointment>>(`${this.appointmentsApi}`, appointment).pipe(
+      map((res) => res.data)
+    );
+  }
+
+  rescheduleAppointment(appointmentId: number, appointment: PatientAppointmentPayload): Observable<void> {
+    return this.http.put<ApiResponse<unknown>>(`${this.appointmentsApi}/${appointmentId}/reschedule`, appointment).pipe(
+      map(() => undefined)
+    );
+  }
+
+  cancelAppointment(appointmentId: number): Observable<void> {
+    return this.http.put<ApiResponse<unknown>>(`${this.appointmentsApi}/${appointmentId}/cancel`, {}).pipe(
+      map(() => undefined)
+    );
   }
 }

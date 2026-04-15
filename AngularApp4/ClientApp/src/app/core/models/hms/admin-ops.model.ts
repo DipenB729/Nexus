@@ -149,8 +149,12 @@ export interface SystemSettings {
   smsSenderId: string;
   emailProviderName: string;
   emailApiUrl: string;
+  emailSmtpPort: number;
+  emailSmtpUsername: string;
   emailApiKey: string;
   emailFromAddress: string;
+  emailUseSsl: boolean;
+  doctorPortalBaseUrl: string;
   autoBackupEnabled: boolean;
   autoBackupTime: string;
   backupRetentionCount: number;

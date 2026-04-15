@@ -24,6 +24,7 @@ import { MatSortModule } from '@angular/material/sort';
 
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Component Imports
 import { AppComponent } from './app.component';
@@ -39,6 +40,9 @@ import { MasterSetupComponent } from './components/master-setup/master-setup.com
 import { UserPageComponent } from './components/user-page/user-page.component';
 import { LoginComponent } from './components/auth/login/login.component';
 import { RegisterComponent } from './components/auth/register/register.component';
+import { ForgotPasswordComponent } from './components/auth/forgot-password/forgot-password.component';
+import { DoctorDetailComponent } from './components/doctor-detail/doctor-detail.component';
+import { DoctorListingComponent } from './components/doctor-listing/doctor-listing.component';
 import { PatientRegistryComponent } from './components/patient-registry/patient-registry.component';
 import { AppointmentControlComponent } from './components/appointment-control/appointment-control.component';
 import { AdmissionControlComponent } from './components/admission-control/admission-control.component';
@@ -46,6 +50,8 @@ import { BillingFinanceComponent } from './components/billing-finance/billing-fi
 import { InventoryAdminComponent } from './components/inventory-admin/inventory-admin.component';
 import { LabServiceAdminComponent } from './components/lab-service-admin/lab-service-admin.component';
 import { MonitoringAdminComponent } from './components/monitoring-admin/monitoring-admin.component';
+import { PatientProfileComponent } from './components/patient-profile/patient-profile.component';
+import { DoctorDashboardComponent } from './components/doctor-dashboard/doctor-dashboard.component';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { AuthInterceptor } from './core/services/hms/auth.interceptor';
@@ -65,13 +71,18 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     UserPageComponent,
     LoginComponent,
     RegisterComponent,
+    ForgotPasswordComponent,
+    DoctorDetailComponent,
+    DoctorListingComponent,
     PatientRegistryComponent,
     AppointmentControlComponent,
     AdmissionControlComponent,
     BillingFinanceComponent,
     InventoryAdminComponent,
     LabServiceAdminComponent,
-    MonitoringAdminComponent
+    MonitoringAdminComponent,
+    PatientProfileComponent,
+    DoctorDashboardComponent
   ],
   imports: [
     BrowserModule,
@@ -84,6 +95,7 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: '', pathMatch: 'full', redirectTo: 'auth/login' },
       { path: 'auth/login', component: LoginComponent },
       { path: 'auth/register', component: RegisterComponent },
+      { path: 'auth/forgot-password', component: ForgotPasswordComponent },
       { path: 'admin', pathMatch: 'full', redirectTo: 'admin/dashboard' },
       { path: 'admin/dashboard', component: HomeComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/patients', component: PatientRegistryComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
@@ -125,10 +137,23 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'admin/masters/:section', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/settings', pathMatch: 'full', redirectTo: 'admin/settings/organization' },
       { path: 'admin/settings/:section', component: AdminSettingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
-      { path: 'user', pathMatch: 'full', redirectTo: 'user/dashboard' },
-      { path: 'user/dashboard', component: UserPageComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
-      { path: 'user/services', component: ServiceListComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
-      { path: 'user/appointments', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'doctor', pathMatch: 'full', redirectTo: 'doctor/dashboard' },
+      { path: 'doctor/dashboard', component: DoctorDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
+      { path: 'doctor/appointments', component: DoctorDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
+      { path: 'doctor/appointments/:appointmentId', component: DoctorDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
+      { path: 'patient', pathMatch: 'full', redirectTo: 'patient/doctors' },
+      { path: 'patient/dashboard', component: UserPageComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patient/doctors', component: DoctorListingComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patient/doctors/:doctorId', component: DoctorDetailComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patient/book', component: BookingComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patient/services', pathMatch: 'full', redirectTo: 'patient/doctors' },
+      { path: 'patient/appointments', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patient/appointments/:id', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patient/profile', component: PatientProfileComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'user', pathMatch: 'full', redirectTo: 'patient/dashboard' },
+      { path: 'user/dashboard', pathMatch: 'full', redirectTo: 'patient/dashboard' },
+      { path: 'user/services', pathMatch: 'full', redirectTo: 'patient/doctors' },
+      { path: 'user/appointments', pathMatch: 'full', redirectTo: 'patient/appointments' },
       { path: 'patients', pathMatch: 'full', redirectTo: 'admin/patients' },
       { path: 'services', pathMatch: 'full', redirectTo: 'admin/services' },
       { path: 'admissions', pathMatch: 'full', redirectTo: 'admin/admissions' },
@@ -139,8 +164,8 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'settings', pathMatch: 'full', redirectTo: 'admin/settings' },
       { path: 'masters', pathMatch: 'full', redirectTo: 'admin/masters/departments' },
       { path: 'users', pathMatch: 'full', redirectTo: 'admin/roles' },
-      { path: 'my-appointments', pathMatch: 'full', redirectTo: 'user/appointments' },
-      { path: 'book', pathMatch: 'full', redirectTo: 'user/services' },
+      { path: 'my-appointments', pathMatch: 'full', redirectTo: 'patient/appointments' },
+      { path: 'book', pathMatch: 'full', redirectTo: 'patient/book' },
       { path: '**', redirectTo: 'auth/login' }
     ]),
     // Material Modules
@@ -159,7 +184,8 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     MatDialogModule,
     MatSelectModule,
     MatTableModule,
-    MatSortModule
+    MatSortModule,
+    MatTooltipModule
   ],
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }

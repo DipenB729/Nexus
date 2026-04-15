@@ -1,6 +1,7 @@
 using System.Text;
 using AngularApp4.Data;
 using AngularApp4.Middleware;
+using AngularApp4.Serialization;
 using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -22,8 +24,12 @@ builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IDoctorAvailabilityService, DoctorAvailabilityService>();
+builder.Services.AddScoped<IDoctorPortalEmailService, DoctorPortalEmailService>();
 builder.Services.AddScoped<IInventoryAdminService, InventoryAdminService>();
 builder.Services.AddScoped<IPasswordPolicyService, PasswordPolicyService>();
+builder.Services.AddScoped<IAppNotificationService, AppNotificationService>();
+builder.Services.AddSingleton<IPasswordResetService, PasswordResetService>();
 
 builder.Services.AddCors(options =>
 {
@@ -33,7 +39,13 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod());
 });
 
-builder.Services.AddControllersWithViews();
+builder.Services
+    .AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new FlexibleTimeSpanJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new NullableFlexibleTimeSpanJsonConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -58,6 +70,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
     options.AddPolicy("UserOnly", p => p.RequireRole("User"));
+    options.AddPolicy("DoctorOnly", p => p.RequireRole("Doctor"));
 });
 
 builder.Services.AddSwaggerGen(c =>

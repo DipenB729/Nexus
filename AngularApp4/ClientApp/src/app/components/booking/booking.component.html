@@ -1,3 +1,191 @@
-<h2 style="color: red; padding: 20px; border: 5px solid red;">
-  IF YOU SEE THIS, THE BOOKING COMPONENT IS LOADING!
-</h2>
+<section class="booking-page">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Appointment booking page</p>
+      <h1>{{ isRescheduleMode ? 'Reschedule your appointment' : 'Confirm your appointment' }}</h1>
+      <p class="subtitle">{{ isRescheduleMode ? 'Choose a new doctor, date, slot, and reason details to reschedule the appointment.' : 'Choose the doctor, select a date, pick an available slot, add the reason for visit, and confirm the request.' }}</p>
+    </div>
+
+    <div class="hero-note">
+      <span>Patient action</span>
+      <strong>Booking stays linked to your patient account</strong>
+    </div>
+  </header>
+
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success" *ngIf="successMessage">{{ successMessage }}</p>
+  <p class="feedback" *ngIf="isLoadingDoctors">Loading doctors...</p>
+  <p class="feedback" *ngIf="!isLoadingDoctors && isLoadingAppointment">Loading appointment details...</p>
+
+  <div class="content-grid" *ngIf="!isLoadingDoctors">
+    <section class="selection-card">
+      <div class="section-head">
+        <p class="eyebrow">Step 1</p>
+        <h2>Choose doctor and date</h2>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Doctor</mat-label>
+          <mat-select [(ngModel)]="selectedDoctorId" (selectionChange)="onDoctorChange()">
+            <mat-option [value]="null">Choose doctor</mat-option>
+            <mat-option *ngFor="let doctor of doctors; trackBy: trackByDoctor" [value]="doctor.doctorId">
+              {{ doctor.fullName }} | {{ doctor.specialization }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Appointment date</mat-label>
+          <input matInput type="date" [(ngModel)]="selectedDate" [min]="today" (change)="onDateChange()" />
+        </mat-form-field>
+      </div>
+
+      <div class="doctor-summary" *ngIf="selectedDoctor as doctor; else noDoctorSelected">
+        <div>
+          <span>Doctor</span>
+          <strong>{{ doctor.fullName }}</strong>
+        </div>
+        <div>
+          <span>Specialty</span>
+          <strong>{{ doctor.specialization }}</strong>
+        </div>
+        <div>
+          <span>Department</span>
+          <strong>{{ doctor.departmentName || 'General practice' }}</strong>
+        </div>
+        <div>
+          <span>Consultation fee</span>
+          <strong>{{ doctor.consultationFee | currency:'USD' }}</strong>
+        </div>
+        <div>
+          <span>Available days</span>
+          <strong>{{ formatDays(doctor.opdDays) }}</strong>
+        </div>
+        <div>
+          <span>OPD time</span>
+          <strong>{{ formatTimeRange(doctor.opdStartTime, doctor.opdEndTime) }}</strong>
+        </div>
+      </div>
+
+      <ng-template #noDoctorSelected>
+        <div class="empty-card">Choose a doctor to unlock available slots and confirmation details.</div>
+      </ng-template>
+    </section>
+
+    <section class="selection-card">
+      <div class="section-head">
+        <p class="eyebrow">Step 2</p>
+        <h2>Choose available slot</h2>
+      </div>
+
+      <div class="date-chip" *ngIf="selectedDoctor">
+        <span>Booking for</span>
+        <strong>{{ selectedDateLabel }}</strong>
+      </div>
+
+      <p class="feedback compact" *ngIf="selectedDoctor && isLoadingAvailability">Loading available slots...</p>
+
+      <div class="slots-wrap" *ngIf="selectedDoctor && !isLoadingAvailability && availableSlots.length; else slotState">
+        <button
+          type="button"
+          class="slot-chip"
+          *ngFor="let slot of availableSlots; trackBy: trackBySlot"
+          [class.selected]="selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime"
+          (click)="selectSlot(slot)">
+          <span>{{ formatSlot(slot) }}</span>
+          <small>{{ formatSlotCapacity(slot) }}</small>
+        </button>
+      </div>
+
+      <ng-template #slotState>
+        <div class="empty-card" *ngIf="!selectedDoctor">Choose a doctor first, then available slots will appear here.</div>
+        <div class="empty-card" *ngIf="selectedDoctor && !isLoadingAvailability && !availableSlots.length">No open slots for {{ selectedDateLabel }}.</div>
+      </ng-template>
+    </section>
+
+    <section class="confirmation-card full-span">
+      <div class="section-head">
+        <p class="eyebrow">Step 3</p>
+        <h2>Add reason and confirm</h2>
+      </div>
+
+      <div class="confirmation-grid">
+        <div class="summary-panel">
+          <div>
+            <span>Doctor</span>
+            <strong>{{ selectedDoctor?.fullName || 'Choose doctor' }}</strong>
+          </div>
+          <div>
+            <span>Date</span>
+            <strong>{{ selectedDoctor ? selectedDateLabel : 'Choose doctor and date' }}</strong>
+          </div>
+          <div>
+            <span>Selected slot</span>
+            <strong>{{ selectedSlot ? formatSlot(selectedSlot) : 'Choose a slot' }}</strong>
+          </div>
+          <div>
+            <span>Reason status</span>
+            <strong>{{ reason.trim() ? 'Added' : 'Add the reason for visit' }}</strong>
+          </div>
+        </div>
+
+        <div class="reason-panel">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Reason for visit</mat-label>
+            <textarea
+              matInput
+              rows="4"
+              [(ngModel)]="reason"
+              placeholder="Describe symptoms, follow-up purpose, or the reason for consultation"></textarea>
+          </mat-form-field>
+
+          <div class="actions-row">
+            <a mat-stroked-button color="primary" routerLink="/patient/doctors">
+              Choose Another Doctor
+            </a>
+            <button
+              mat-raised-button
+              color="primary"
+              type="button"
+              [disabled]="!canConfirm"
+              (click)="confirmAppointment()">
+              {{ isBooking ? (isRescheduleMode ? 'Rescheduling...' : 'Confirming...') : (isRescheduleMode ? 'Reschedule Appointment' : 'Confirm Appointment') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="confirmation-result full-span" *ngIf="confirmationSummary as summary">
+      <div class="section-head">
+        <p class="eyebrow">Confirmed</p>
+        <h2>{{ summary.mode === 'rescheduled' ? 'Appointment updated' : 'Appointment request submitted' }}</h2>
+      </div>
+
+      <div class="result-grid">
+        <div>
+          <span>Doctor</span>
+          <strong>{{ summary.doctorName }}</strong>
+        </div>
+        <div>
+          <span>Date</span>
+          <strong>{{ summary.dateLabel }}</strong>
+        </div>
+        <div>
+          <span>Slot</span>
+          <strong>{{ summary.slotLabel }}</strong>
+        </div>
+        <div>
+          <span>Reason</span>
+          <strong>{{ summary.reason }}</strong>
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <a mat-stroked-button color="primary" routerLink="/patient/appointments">View My Appointments</a>
+        <a mat-raised-button color="primary" routerLink="/patient/doctors">{{ summary.mode === 'rescheduled' ? 'Find Another Doctor' : 'Book Another Visit' }}</a>
+      </div>
+    </section>
+  </div>
+</section>
