@@ -5,6 +5,11 @@ import { Service } from '../models/booking.model';
 import { Appointment } from '../models/appointment.model';
 import { ApiResponse, DoctorAppointment, PatientAppointment, PatientAppointmentPayload } from '../models/hms/auth.model';
 
+export interface DoctorAppointmentStatusPayload {
+  status: string;
+  adminRemarks?: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -38,6 +43,12 @@ export class AppointmentService {
   getDoctorAppointments(): Observable<DoctorAppointment[]> {
     return this.http.get<ApiResponse<DoctorAppointment[]>>(`${this.appointmentsApi}/doctor/my`).pipe(
       map((res) => res.data ?? [])
+    );
+  }
+
+  updateDoctorAppointmentStatus(appointmentId: number, payload: DoctorAppointmentStatusPayload): Observable<DoctorAppointment> {
+    return this.http.put<ApiResponse<DoctorAppointment>>(`${this.appointmentsApi}/doctor/${appointmentId}/status`, payload).pipe(
+      map((res) => res.data)
     );
   }
 

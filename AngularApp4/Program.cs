@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using AngularApp4.Data;
 using AngularApp4.Middleware;
 using AngularApp4.Serialization;
@@ -45,6 +46,7 @@ builder.Services
     {
         options.JsonSerializerOptions.Converters.Add(new FlexibleTimeSpanJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new NullableFlexibleTimeSpanJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 builder.Services.AddEndpointsApiExplorer();
 

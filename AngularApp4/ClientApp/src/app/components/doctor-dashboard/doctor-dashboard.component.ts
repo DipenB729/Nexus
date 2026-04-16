@@ -55,6 +55,8 @@ interface DiagnosticRequestFormState {
   remarks: string;
 }
 
+type DoctorAppointmentStatusView = Pick<DoctorAppointment, 'appointmentId' | 'status'>;
+
 const EMPTY_SCHEDULE_FORM: ScheduleFormState = {
   scheduleId: 0,
   dayOfWeek: 1,
@@ -522,6 +524,44 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   formatTime(value?: string | null): string {
     return value ? value.slice(0, 5) : '';
+  }
+
+  canApproveAppointment(appointment: DoctorAppointmentStatusView): boolean {
+    return appointment.status === 'Pending' || appointment.status === 'Rescheduled';
+  }
+
+  canCancelAppointment(appointment: DoctorAppointmentStatusView): boolean {
+    return appointment.status !== 'Cancelled' && appointment.status !== 'Completed';
+  }
+
+  canCompleteAppointment(appointment: DoctorAppointmentStatusView): boolean {
+    return appointment.status === 'Approved' || appointment.status === 'Rescheduled';
+  }
+
+  updateAppointmentStatus(appointment: DoctorAppointmentStatusView, status: 'Approved' | 'Cancelled' | 'Completed' | 'NoShow'): void {
+    this.errorMessage = '';
+    this.statusMessage = '';
+
+    this.appointmentsApi.updateDoctorAppointmentStatus(appointment.appointmentId, { status }).subscribe({
+      next: (updated) => {
+        this.appointments = this.appointments.map((item) =>
+          item.appointmentId === updated.appointmentId ? updated : item);
+
+        if (this.selectedDetail?.appointmentId === updated.appointmentId) {
+          this.selectedDetail = {
+            ...this.selectedDetail,
+            status: updated.status,
+            tokenNumber: updated.tokenNumber ?? this.selectedDetail.tokenNumber,
+            adminRemarks: updated.adminRemarks ?? this.selectedDetail.adminRemarks
+          };
+        }
+
+        this.statusMessage = `Appointment ${status.toLowerCase()} successfully.`;
+      },
+      error: (error: { error?: { message?: string } }) => {
+        this.errorMessage = error?.error?.message || 'Unable to update appointment status.';
+      }
+    });
   }
 
   private syncRoute(): void {

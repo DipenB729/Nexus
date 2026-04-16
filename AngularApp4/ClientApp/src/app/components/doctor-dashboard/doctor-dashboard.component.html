@@ -80,7 +80,33 @@
                 </td>
                 <td><span class="status" [class]="appointment.status.toLowerCase()">{{ appointment.status }}</span></td>
                 <td>{{ appointment.tokenNumber || 'Pending' }}</td>
-                <td><button mat-button type="button" (click)="openAppointment(appointment.appointmentId)">Open</button></td>
+                <td class="action-cell">
+                  <button mat-button type="button" (click)="openAppointment(appointment.appointmentId)">Open</button>
+                  <button
+                    mat-button
+                    color="primary"
+                    type="button"
+                    *ngIf="canApproveAppointment(appointment)"
+                    (click)="updateAppointmentStatus(appointment, 'Approved')">
+                    Approve
+                  </button>
+                  <button
+                    mat-button
+                    color="accent"
+                    type="button"
+                    *ngIf="canCompleteAppointment(appointment)"
+                    (click)="updateAppointmentStatus(appointment, 'Completed')">
+                    Complete
+                  </button>
+                  <button
+                    mat-button
+                    color="warn"
+                    type="button"
+                    *ngIf="canCancelAppointment(appointment)"
+                    (click)="updateAppointmentStatus(appointment, 'Cancelled')">
+                    Cancel
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -216,12 +242,36 @@
   </ng-container>
 
   <section class="detail-page" *ngIf="selectedDetail as detail">
-    <div class="detail-toolbar">
+      <div class="detail-toolbar">
       <button mat-stroked-button type="button" (click)="backToAppointments()">
         <mat-icon>arrow_back</mat-icon>
         Back to appointments
       </button>
       <div class="toolbar-actions">
+        <button
+          mat-stroked-button
+          color="primary"
+          type="button"
+          *ngIf="canApproveAppointment(detail)"
+          (click)="updateAppointmentStatus(detail, 'Approved')">
+          Approve appointment
+        </button>
+        <button
+          mat-stroked-button
+          color="accent"
+          type="button"
+          *ngIf="canCompleteAppointment(detail)"
+          (click)="updateAppointmentStatus(detail, 'Completed')">
+          Mark completed
+        </button>
+        <button
+          mat-stroked-button
+          color="warn"
+          type="button"
+          *ngIf="canCancelAppointment(detail)"
+          (click)="updateAppointmentStatus(detail, 'Cancelled')">
+          Cancel appointment
+        </button>
         <button mat-stroked-button type="button" (click)="printPrescription()">Print prescription</button>
         <button mat-raised-button color="primary" type="button" (click)="downloadPrescription()">Download prescription</button>
       </div>
