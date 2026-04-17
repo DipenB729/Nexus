@@ -41,7 +41,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
         { label: 'Patients', icon: 'groups', route: '/admin/patients' },
         { label: 'Services', icon: 'medical_services', route: '/admin/services' },
         { label: 'Appointments', icon: 'event_note', route: '/admin/bookings' },
-        { label: 'Admissions', icon: 'local_hotel', route: '/admin/admissions' }
+        { label: 'Admissions', icon: 'local_hotel', route: '/admin/admissions' },
+        { label: 'Notifications', icon: 'notifications', route: '/admin/notifications' }
       ]
     },
     {
@@ -129,6 +130,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
         { label: 'Doctors', icon: 'medical_services', route: '/patient/doctors' },
         { label: 'Book Appointment', icon: 'event_available', route: '/patient/book' },
         { label: 'Appointments', icon: 'calendar_month', route: '/patient/appointments' },
+        { label: 'Notifications', icon: 'notifications', route: '/patient/notifications' },
         { label: 'Profile', icon: 'person', route: '/patient/profile' }
       ]
     }
@@ -140,7 +142,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
       label: 'Doctor Portal',
       items: [
         { label: 'Dashboard', icon: 'space_dashboard', route: '/doctor/dashboard', exact: true },
-        { label: 'Appointments', icon: 'calendar_month', route: '/doctor/appointments' }
+        { label: 'Appointments', icon: 'calendar_month', route: '/doctor/appointments' },
+        { label: 'Notifications', icon: 'notifications', route: '/doctor/notifications' },
+        { label: 'Availability', icon: 'schedule', route: '/doctor/availability' },
+        { label: 'Profile', icon: 'badge', route: '/doctor/profile' }
       ]
     }
   ];

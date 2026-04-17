@@ -1,7 +1,7 @@
 <aside class="sidebar" [class.collapsed]="!isExpanded" [class.user-theme]="role === 'User'">
   <div class="sidebar-header">
     <div class="logo-box">
-      <div class="logo-mark">{{ role === 'Admin' ? 'A' : 'P' }}</div>
+      <div class="logo-mark">{{ role === 'Admin' ? 'A' : role === 'Doctor' ? 'D' : 'P' }}</div>
       <div class="brand-copy" *ngIf="isExpanded">
         <strong>{{ brandText }}</strong>
         <span>{{ roleSubtitle }}</span>

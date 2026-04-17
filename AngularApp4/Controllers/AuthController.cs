@@ -365,9 +365,9 @@ public class AuthController : ControllerBase
     [Authorize(Policy = "DoctorOnly")]
     public async Task<ActionResult<ApiResponse<DoctorProfileDto>>> UpdateDoctorProfile(UpdateDoctorProfileDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.FullName))
+        if (string.IsNullOrWhiteSpace(dto.FullName) || string.IsNullOrWhiteSpace(dto.Email))
         {
-            return BadRequest(ApiResponse<DoctorProfileDto>.Fail("Full name is required"));
+            return BadRequest(ApiResponse<DoctorProfileDto>.Fail("Full name and email are required"));
         }
 
         var userId = GetUserId();
@@ -383,15 +383,34 @@ public class AuthController : ControllerBase
             return NotFound(ApiResponse<DoctorProfileDto>.Fail("Doctor profile not found"));
         }
 
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+        var emailInUse = await _db.Users.AnyAsync(x => x.UserId != userId && x.Email == normalizedEmail);
+        if (emailInUse)
+        {
+            return BadRequest(ApiResponse<DoctorProfileDto>.Fail("Email is already used by another account"));
+        }
+
+        if (dto.DepartmentId.HasValue && !await _db.Departments.AnyAsync(x => x.DepartmentId == dto.DepartmentId.Value && x.IsActive))
+        {
+            return BadRequest(ApiResponse<DoctorProfileDto>.Fail("Selected department was not found"));
+        }
+
         user.FullName = dto.FullName.Trim();
+        user.Email = normalizedEmail;
         user.Phone = Normalize(dto.Phone);
         user.UpdatedAt = DateTime.UtcNow;
 
         doctor.FullName = dto.FullName.Trim();
+        doctor.Email = normalizedEmail;
         doctor.Phone = Normalize(dto.Phone);
+        doctor.DepartmentId = dto.DepartmentId;
         doctor.Specialization = string.IsNullOrWhiteSpace(dto.Specialization) ? doctor.Specialization : dto.Specialization.Trim();
         doctor.ExperienceYears = Math.Max(dto.ExperienceYears, 0);
         doctor.Qualification = Normalize(dto.Qualification);
+        doctor.LicenseNumber = Normalize(dto.LicenseNumber);
+        doctor.ConsultationFee = Math.Max(dto.ConsultationFee, 0);
+        doctor.Bio = Normalize(dto.Bio);
+        doctor.Address = Normalize(dto.Address);
         doctor.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
@@ -412,6 +431,95 @@ public class AuthController : ControllerBase
 
         var profile = await BuildDoctorProfileAsync(userId);
         return Ok(ApiResponse<DoctorProfileDto>.Ok(profile!, "Doctor profile updated"));
+    }
+
+    [HttpGet("doctor-profile/options")]
+    [Authorize(Policy = "DoctorOnly")]
+    public async Task<ActionResult<ApiResponse<IEnumerable<DoctorProfileDepartmentOptionDto>>>> GetDoctorProfileOptions()
+    {
+        var departments = await _db.Departments
+            .AsNoTracking()
+            .Include(x => x.Branch)
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Branch!.Name)
+            .ThenBy(x => x.Name)
+            .Select(x => new DoctorProfileDepartmentOptionDto
+            {
+                DepartmentId = x.DepartmentId,
+                Name = x.Name,
+                BranchName = x.Branch != null ? x.Branch.Name : string.Empty
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse<IEnumerable<DoctorProfileDepartmentOptionDto>>.Ok(departments));
+    }
+
+    [HttpPost("doctor-profile/photo")]
+    [Authorize(Policy = "DoctorOnly")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<ActionResult<ApiResponse<DoctorProfilePhotoDto>>> UploadDoctorPhoto(IFormFile? file)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(ApiResponse<DoctorProfilePhotoDto>.Fail("Select a photo to upload"));
+        }
+
+        var allowed = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowed.Contains(extension))
+        {
+            return BadRequest(ApiResponse<DoctorProfilePhotoDto>.Fail("Only JPG, PNG, or WebP images are supported"));
+        }
+
+        var userId = GetUserId();
+        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null)
+        {
+            return NotFound(ApiResponse<DoctorProfilePhotoDto>.Fail("Doctor account not found"));
+        }
+
+        var doctor = await _db.Doctors.FirstOrDefaultAsync(x => x.Email == user.Email && x.IsActive);
+        if (doctor is null)
+        {
+            return NotFound(ApiResponse<DoctorProfilePhotoDto>.Fail("Doctor profile not found"));
+        }
+
+        var uploadsRoot = Path.Combine(_environment.WebRootPath, "uploads", "doctor-profiles");
+        Directory.CreateDirectory(uploadsRoot);
+
+        var fileName = $"doctor-{doctor.DoctorId}-{Guid.NewGuid():N}{extension}";
+        var absolutePath = Path.Combine(uploadsRoot, fileName);
+
+        await using (var stream = System.IO.File.Create(absolutePath))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        var previousPhotoPath = doctor.PhotoUrl;
+        doctor.PhotoUrl = $"/uploads/doctor-profiles/{fileName}";
+        doctor.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        DeleteDoctorPhotoFile(previousPhotoPath);
+
+        await _audit.WriteAsync(new AuditLogRequest
+        {
+            Category = AuditLogCategories.Authentication,
+            Action = "DoctorPhotoUpdated",
+            EntityName = "DoctorProfile",
+            EntityId = doctor.DoctorId,
+            TargetDisplayName = doctor.FullName,
+            Summary = $"{doctor.FullName} updated their profile photo.",
+            PerformedByUserId = user.UserId,
+            PerformedByName = user.FullName,
+            PerformedByRole = user.Role?.Name,
+            ActorEmail = user.Email
+        });
+
+        return Ok(ApiResponse<DoctorProfilePhotoDto>.Ok(new DoctorProfilePhotoDto
+        {
+            PhotoUrl = doctor.PhotoUrl
+        }, "Doctor photo uploaded"));
     }
 
     private static void CreatePasswordHash(string password, out byte[] hash, out byte[] salt)
@@ -473,15 +581,20 @@ public class AuthController : ControllerBase
             .Select(x => new DoctorProfileDto
             {
                 DoctorId = x.DoctorId,
+                DepartmentId = x.DepartmentId,
                 FullName = x.FullName,
+                PhotoUrl = x.PhotoUrl,
                 Email = x.Email,
                 Phone = x.Phone,
                 Specialization = x.Specialization,
+                LicenseNumber = x.LicenseNumber,
                 ExperienceYears = x.ExperienceYears,
                 Qualification = x.Qualification,
                 ConsultationFee = x.ConsultationFee,
                 BranchName = x.Branch != null ? x.Branch.Name : null,
                 DepartmentName = x.Department != null ? x.Department.Name : null,
+                Bio = x.Bio,
+                Address = x.Address,
                 OpdDays = x.OpdDays,
                 OpdStartTime = x.OpdStartTime,
                 OpdEndTime = x.OpdEndTime
@@ -498,4 +611,19 @@ public class AuthController : ControllerBase
     private static string GenerateMedicalRecordNumber(long patientId) => $"MRN-{patientId:D5}";
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private void DeleteDoctorPhotoFile(string? currentPhotoUrl)
+    {
+        if (string.IsNullOrWhiteSpace(currentPhotoUrl) || !currentPhotoUrl.StartsWith("/uploads/doctor-profiles/", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var relativePath = currentPhotoUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+        var absolutePath = Path.Combine(_environment.WebRootPath, relativePath);
+        if (System.IO.File.Exists(absolutePath))
+        {
+            System.IO.File.Delete(absolutePath);
+        }
+    }
 }

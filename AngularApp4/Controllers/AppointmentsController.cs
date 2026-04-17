@@ -223,8 +223,11 @@ public class AppointmentsController : ControllerBase
             {
                 AppointmentId = x.AppointmentId,
                 PatientId = x.PatientId,
+                ScheduleId = x.ScheduleId,
                 PatientName = x.PatientName,
                 MedicalRecordNumber = x.MedicalRecordNumber,
+                PatientGender = x.PatientGender,
+                PatientDateOfBirth = x.PatientDateOfBirth,
                 AppointmentDate = x.AppointmentDate,
                 SlotStartTime = x.SlotStartTime,
                 SlotEndTime = x.SlotEndTime,
@@ -283,8 +286,11 @@ public class AppointmentsController : ControllerBase
             {
                 AppointmentId = x.AppointmentId,
                 PatientId = x.PatientId,
+                ScheduleId = x.ScheduleId,
                 PatientName = x.PatientName,
                 MedicalRecordNumber = x.MedicalRecordNumber,
+                PatientGender = x.PatientGender,
+                PatientDateOfBirth = x.PatientDateOfBirth,
                 AppointmentDate = x.AppointmentDate,
                 SlotStartTime = x.SlotStartTime,
                 SlotEndTime = x.SlotEndTime,
@@ -302,6 +308,138 @@ public class AppointmentsController : ControllerBase
             .FirstAsync();
 
         return Ok(ApiResponse<DoctorAppointmentSummaryDto>.Ok(payload, "Appointment status updated"));
+    }
+
+    [HttpPut("doctor/{appointmentId:long}/manage")]
+    [Authorize(Policy = "DoctorOnly")]
+    public async Task<ActionResult<ApiResponse<DoctorAppointmentSummaryDto>>> ManageDoctorAppointment(long appointmentId, [FromBody] DoctorManageAppointmentDto dto)
+    {
+        if (dto.Status is not (AppointmentStatus.Approved or AppointmentStatus.Rescheduled or AppointmentStatus.Cancelled or AppointmentStatus.Completed or AppointmentStatus.NoShow))
+        {
+            return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Unsupported doctor appointment action"));
+        }
+
+        var userId = GetUserId();
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        if (user is null)
+        {
+            return Unauthorized(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctor session not found"));
+        }
+
+        var normalizedEmail = user.Email.Trim().ToLowerInvariant();
+        var doctor = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail && x.IsActive);
+        if (doctor is null)
+        {
+            return NotFound(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctor profile not found"));
+        }
+
+        var appointment = await _db.Appointments.FirstOrDefaultAsync(x => x.AppointmentId == appointmentId && x.DoctorId == doctor.DoctorId);
+        if (appointment is null)
+        {
+            return NotFound(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Appointment not found"));
+        }
+
+        if (appointment.Status == AppointmentStatus.Completed && dto.Status is not AppointmentStatus.Completed)
+        {
+            return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Completed appointments cannot be changed"));
+        }
+
+        var nextDate = dto.AppointmentDate?.Date ?? appointment.AppointmentDate.Date;
+        var nextStart = dto.SlotStartTime ?? appointment.SlotStartTime;
+        var nextEnd = dto.SlotEndTime ?? appointment.SlotEndTime;
+        var nextScheduleId = dto.ScheduleId ?? appointment.ScheduleId;
+        var timingChanged = nextDate != appointment.AppointmentDate || nextStart != appointment.SlotStartTime || nextEnd != appointment.SlotEndTime;
+
+        ResolvedDoctorSchedule? resolvedSchedule = null;
+        if (dto.Status != AppointmentStatus.Cancelled)
+        {
+            if (timingChanged && nextEnd <= nextStart)
+            {
+                return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("End time must be after start time"));
+            }
+
+            resolvedSchedule = await _availability.ResolveScheduleForSlotAsync(doctor.DoctorId, nextDate, nextStart, nextEnd);
+            if (resolvedSchedule is null)
+            {
+                return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctor is unavailable for the selected date and time"));
+            }
+
+            if (nextScheduleId.HasValue && resolvedSchedule.ScheduleId != nextScheduleId.Value)
+            {
+                return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Selected schedule does not match the requested time slot"));
+            }
+
+            var bookedPatients = await _availability.GetBookedPatientCountAsync(
+                doctor.DoctorId,
+                nextDate,
+                nextStart,
+                nextEnd,
+                appointmentId);
+
+            if (bookedPatients >= resolvedSchedule.MaxPatientsPerSlot)
+            {
+                return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Selected slot has reached its booking limit"));
+            }
+        }
+
+        var previousStatus = appointment.Status;
+
+        appointment.ScheduleId = resolvedSchedule?.ScheduleId ?? nextScheduleId ?? appointment.ScheduleId;
+        appointment.AppointmentDate = nextDate;
+        appointment.SlotStartTime = nextStart;
+        appointment.SlotEndTime = nextEnd;
+        appointment.Reason = string.IsNullOrWhiteSpace(dto.Reason) ? appointment.Reason : dto.Reason.Trim();
+        appointment.AdminRemarks = Normalize(dto.AdminRemarks);
+        appointment.Status = dto.Status;
+        appointment.UpdatedAt = DateTime.UtcNow;
+
+        if (dto.Status is AppointmentStatus.Approved or AppointmentStatus.Rescheduled or AppointmentStatus.Completed)
+        {
+            appointment.TokenNumber = await GenerateTokenNumberAsync(doctor.DoctorId, nextDate, appointmentId);
+        }
+
+        await _db.SaveChangesAsync();
+
+        if (dto.Status == AppointmentStatus.Cancelled && previousStatus != AppointmentStatus.Cancelled)
+        {
+            await _notifications.QueueAppointmentCancelledAsync(appointment);
+        }
+        else if (dto.Status == AppointmentStatus.Rescheduled || timingChanged)
+        {
+            await _notifications.QueueAppointmentRescheduledAsync(appointment);
+        }
+        else if (dto.Status == AppointmentStatus.Approved && previousStatus != AppointmentStatus.Approved)
+        {
+            await _notifications.QueueAppointmentApprovedAsync(appointment);
+        }
+
+        var payload = await BuildDoctorAppointmentQuery()
+            .Where(x => x.AppointmentId == appointmentId)
+            .Select(x => new DoctorAppointmentSummaryDto
+            {
+                AppointmentId = x.AppointmentId,
+                PatientId = x.PatientId,
+                PatientName = x.PatientName,
+                MedicalRecordNumber = x.MedicalRecordNumber,
+                PatientGender = x.PatientGender,
+                PatientDateOfBirth = x.PatientDateOfBirth,
+                AppointmentDate = x.AppointmentDate,
+                SlotStartTime = x.SlotStartTime,
+                SlotEndTime = x.SlotEndTime,
+                Status = x.Status,
+                TokenNumber = x.TokenNumber,
+                Reason = x.Reason,
+                AdminRemarks = x.AdminRemarks,
+                DoctorId = x.DoctorId,
+                DoctorName = x.DoctorName,
+                DoctorSpecialization = x.DoctorSpecialization,
+                ServiceId = x.ServiceId,
+                ServiceName = x.ServiceName,
+                ServicePrice = x.ServicePrice
+            })
+            .FirstAsync();
+
+        return Ok(ApiResponse<DoctorAppointmentSummaryDto>.Ok(payload, "Appointment updated"));
     }
 
     [HttpGet]
@@ -429,8 +567,11 @@ public class AppointmentsController : ControllerBase
                {
                    AppointmentId = appointment.AppointmentId,
                    PatientId = appointment.PatientId,
+                   ScheduleId = appointment.ScheduleId,
                    PatientName = patientUser.FullName,
                    MedicalRecordNumber = patient.MedicalRecordNumber ?? $"MRN-{appointment.PatientId:D5}",
+                   PatientGender = patient.Gender,
+                   PatientDateOfBirth = patient.DateOfBirth,
                    AppointmentDate = appointment.AppointmentDate,
                    SlotStartTime = appointment.SlotStartTime,
                    SlotEndTime = appointment.SlotEndTime,
@@ -446,6 +587,63 @@ public class AppointmentsController : ControllerBase
                    ServicePrice = service != null ? service.Price : null
                };
     }
+
+    private async Task<string> GenerateTokenNumberAsync(long doctorId, DateTime appointmentDate, long appointmentId)
+    {
+        var settings = await GetOrCreateTokenSettingsAsync();
+
+        var query = _db.Appointments
+            .AsNoTracking()
+            .Where(x =>
+                x.AppointmentId != appointmentId &&
+                x.DoctorId == doctorId &&
+                x.Status != AppointmentStatus.Cancelled &&
+                x.TokenNumber != null);
+
+        if (settings.ResetDaily)
+        {
+            query = query.Where(x => x.AppointmentDate.Date == appointmentDate.Date);
+        }
+
+        var existingTokens = await query.Select(x => x.TokenNumber!).ToListAsync();
+        var maxNumber = existingTokens
+            .Select(ExtractSequence)
+            .DefaultIfEmpty(settings.StartingNumber - 1)
+            .Max();
+
+        var nextNumber = Math.Max(settings.StartingNumber, maxNumber + 1);
+        return $"{settings.Prefix}-{appointmentDate:yyyyMMdd}-{nextNumber.ToString($"D{settings.NumberPadding}")}";
+    }
+
+    private async Task<AppointmentTokenSetting> GetOrCreateTokenSettingsAsync()
+    {
+        var settings = await _db.AppointmentTokenSettings.OrderBy(x => x.AppointmentTokenSettingId).FirstOrDefaultAsync();
+        if (settings is not null)
+        {
+            return settings;
+        }
+
+        settings = new AppointmentTokenSetting
+        {
+            Prefix = "OPD",
+            StartingNumber = 1,
+            NumberPadding = 3,
+            ResetDaily = true,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _db.AppointmentTokenSettings.Add(settings);
+        await _db.SaveChangesAsync();
+        return settings;
+    }
+
+    private static int ExtractSequence(string tokenNumber)
+    {
+        var parts = tokenNumber.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 0 || !int.TryParse(parts[^1], out var value) ? 0 : value;
+    }
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private sealed class PatientAppointmentProjection
     {
@@ -470,8 +668,11 @@ public class AppointmentsController : ControllerBase
     {
         public long AppointmentId { get; init; }
         public long PatientId { get; init; }
+        public long? ScheduleId { get; init; }
         public string PatientName { get; init; } = string.Empty;
         public string MedicalRecordNumber { get; init; } = string.Empty;
+        public string? PatientGender { get; init; }
+        public DateTime? PatientDateOfBirth { get; init; }
         public DateTime AppointmentDate { get; init; }
         public TimeSpan SlotStartTime { get; init; }
         public TimeSpan SlotEndTime { get; init; }

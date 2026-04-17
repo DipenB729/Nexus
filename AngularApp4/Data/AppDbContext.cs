@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<DoctorSchedule> DoctorSchedules => Set<DoctorSchedule>();
     public DbSet<DoctorAvailabilityException> DoctorAvailabilityExceptions => Set<DoctorAvailabilityException>();
+    public DbSet<DoctorBlockedSlot> DoctorBlockedSlots => Set<DoctorBlockedSlot>();
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<HospitalService> HospitalServices => Set<HospitalService>();
     public DbSet<LabTestMaster> LabTestMasters => Set<LabTestMaster>();
@@ -86,6 +87,7 @@ public class AppDbContext : DbContext
             .HasFilter("[MedicalRecordNumber] IS NOT NULL");
         modelBuilder.Entity<Doctor>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<DoctorAvailabilityException>().HasIndex(x => new { x.DoctorId, x.StartDate, x.EndDate, x.ExceptionType });
+        modelBuilder.Entity<DoctorBlockedSlot>().HasIndex(x => new { x.DoctorId, x.BlockDate, x.StartTime, x.EndTime });
         modelBuilder.Entity<Staff>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<HospitalService>().HasIndex(x => x.ServiceName).IsUnique();
         modelBuilder.Entity<LabTestMaster>().HasIndex(x => new { x.DepartmentName, x.TestName }).IsUnique();
@@ -159,6 +161,12 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<DoctorAvailabilityException>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DoctorBlockedSlot>()
             .HasOne(x => x.Doctor)
             .WithMany()
             .HasForeignKey(x => x.DoctorId)

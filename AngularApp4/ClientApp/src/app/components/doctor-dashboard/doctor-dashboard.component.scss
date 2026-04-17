@@ -89,7 +89,7 @@
 }
 
 .stats-grid {
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: repeat(6, minmax(160px, 1fr));
 }
 
 .workspace-grid,
@@ -128,7 +128,9 @@
 .report-card span,
 .report-card small,
 .history-card span,
-.history-card small {
+.history-card small,
+.notification-card p,
+.notification-card span {
   color: #64748b;
 }
 
@@ -147,12 +149,20 @@
 .section-head,
 .detail-toolbar,
 .actions-row,
-.search-row {
+.search-row,
+.filter-row,
+.manage-head,
+.date-group-head,
+.row-actions {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.actions-row-tight {
+  margin-bottom: 1rem;
 }
 
 .toolbar-actions {
@@ -167,7 +177,9 @@
 
 .availability-layout,
 .history-section,
-.prescription-item {
+.prescription-item,
+.date-groups,
+.manage-panel {
   display: grid;
   gap: 1rem;
 }
@@ -198,17 +210,113 @@
 
 .report-list,
 .prescription-history,
-.chip-results {
+.chip-results,
+.notification-stack,
+.category-strip,
+.slot-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
+.filter-row {
+  align-items: stretch;
+}
+
+.filter-row > * {
+  flex: 1 1 180px;
+}
+
+.date-group-card {
+  border: 1px solid #dbe5f4;
+  border-radius: 18px;
+  padding: 1rem;
+  background: #fff;
+}
+
+.date-group-head h3,
+.manage-head strong {
+  margin: 0;
+}
+
+.date-group-head span,
+.manage-head span {
+  color: #64748b;
+}
+
+.row-actions {
+  gap: 0.35rem;
+}
+
+.manage-row td {
+  background: #f8fafc;
+}
+
+.manage-panel {
+  border: 1px solid #dbe5f4;
+  border-radius: 16px;
+  padding: 1rem;
+  background: linear-gradient(180deg, #fcfffe, #f8fafc);
+}
+
+.manage-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.slot-pill {
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.7rem 0.9rem;
+  color: #0f172a;
+  cursor: pointer;
+  display: grid;
+  gap: 0.15rem;
+  text-align: left;
+}
+
+.slot-pill span {
+  color: #64748b;
+}
+
+.slot-pill.active {
+  border-color: #0f766e;
+  background: #ecfdf5;
+}
+
 .report-card,
-.history-card {
+.history-card,
+.notification-card {
   text-decoration: none;
   color: inherit;
   min-width: 220px;
+}
+
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  min-width: 170px;
+  padding: 0.7rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid #dbe5f4;
+  background: #f8fafc;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.category-pill span,
+.category-pill strong {
+  color: inherit;
+}
+
+.category-pill.active {
+  background: linear-gradient(135deg, #0f766e, #0f172a);
+  border-color: #0f766e;
+  color: #fff;
 }
 
 .chip-result {
@@ -282,9 +390,43 @@
   color: #166534;
 }
 
-.noshow {
+.no-show {
   background: #e2e8f0;
   color: #334155;
+}
+
+.notification-stack {
+  flex-direction: column;
+}
+
+.notification-card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 1rem;
+  cursor: pointer;
+}
+
+.notification-card.unread {
+  border-color: #99f6e4;
+  background: #ecfdf5;
+}
+
+.notification-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.notification-card p {
+  margin: 0;
+}
+
+.compact-cards {
+  margin-bottom: 1rem;
 }
 
 .toggle-box {
@@ -341,7 +483,8 @@
   .exception-grid,
   .meta-grid,
   .form-grid,
-  .stack-grid {
+  .stack-grid,
+  .manage-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -32,14 +32,24 @@
         <small>Appointments scheduled for today</small>
       </article>
       <article class="stat-card">
-        <p>Active queue</p>
-        <strong>{{ activeQueueCount }}</strong>
-        <small>Pending, approved, or rescheduled</small>
+        <p>Upcoming</p>
+        <strong>{{ upcomingAppointmentsCount }}</strong>
+        <small>Future bookings still in queue</small>
       </article>
       <article class="stat-card">
         <p>Completed</p>
         <strong>{{ completedAppointmentsCount }}</strong>
         <small>Consultations already closed</small>
+      </article>
+      <article class="stat-card">
+        <p>Cancelled</p>
+        <strong>{{ cancelledAppointmentsCount }}</strong>
+        <small>Appointments cancelled before visit</small>
+      </article>
+      <article class="stat-card">
+        <p>No-show</p>
+        <strong>{{ noShowAppointmentsCount }}</strong>
+        <small>Patients who did not attend</small>
       </article>
     </div>
 
@@ -48,21 +58,154 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">Appointments</p>
-            <h2>Booked patients</h2>
+            <h2>Upcoming and booked patients</h2>
           </div>
+        </div>
+
+        <div class="filter-row">
           <mat-form-field appearance="outline" class="search-field">
-            <mat-label>Search appointments</mat-label>
+            <mat-label>Search patient</mat-label>
             <input matInput [(ngModel)]="searchTerm" placeholder="Patient, MRN, token, service" />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Filter date</mat-label>
+            <input matInput type="date" [(ngModel)]="appointmentDateFilter" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Filter status</mat-label>
+            <mat-select [(ngModel)]="appointmentStatusFilter">
+              <mat-option *ngFor="let status of appointmentStatusFilters" [value]="status">{{ status }}</mat-option>
+            </mat-select>
+          </mat-form-field>
         </div>
 
-        <div class="table-wrap">
+        <div class="category-strip">
+          <button
+            type="button"
+            class="category-pill"
+            *ngFor="let category of appointmentCategories"
+            [class.active]="activeAppointmentCategory === category.key"
+            (click)="setAppointmentCategory(category.key)">
+            <span>{{ category.label }}</span>
+            <strong>{{ categoryCount(category.key) }}</strong>
+          </button>
+        </div>
+
+        <div class="date-groups" *ngIf="activeAppointmentCategory === 'upcoming' && upcomingDateGroups.length > 0; else noUpcomingAppointments">
+          <article class="date-group-card" *ngFor="let group of upcomingDateGroups">
+            <div class="date-group-head">
+              <h3>{{ group.date | date:'fullDate' }}</h3>
+              <span>{{ group.items.length }} booking{{ group.items.length === 1 ? '' : 's' }}</span>
+            </div>
+
+            <div class="table-wrap">
+              <table class="phase-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>Age / Gender</th>
+                    <th>Time</th>
+                    <th>Reason for visit</th>
+                    <th>Status</th>
+                    <th>Token</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <ng-container *ngFor="let appointment of group.items">
+                    <tr>
+                      <td>
+                        <strong>{{ appointment.patientName }}</strong>
+                        <small>{{ appointment.medicalRecordNumber }}</small>
+                      </td>
+                      <td>{{ patientAgeGender(appointment) }}</td>
+                      <td>{{ formatSlot(appointment) }}</td>
+                      <td>
+                        <strong>{{ appointment.reason || 'General consultation' }}</strong>
+                        <small>{{ appointment.serviceName || 'Service not mapped' }}</small>
+                      </td>
+                      <td><span class="status" [ngClass]="appointmentStatusClass(appointment.status)">{{ appointment.status }}</span></td>
+                      <td>{{ appointment.tokenNumber || 'Pending' }}</td>
+                      <td>
+                        <div class="row-actions">
+                          <button mat-button type="button" (click)="openAppointment(appointment.appointmentId)">View</button>
+                          <button mat-button color="primary" type="button" *ngIf="appointment.status === 'Pending'" [disabled]="isManagingUpcomingAppointment" (click)="approveAppointment(appointment)">Accept</button>
+                          <button mat-button type="button" [disabled]="isManagingUpcomingAppointment" (click)="startUpcomingAction(appointment)">Manage</button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    <tr class="manage-row" *ngIf="isManagingAppointment(appointment.appointmentId)">
+                      <td colspan="7">
+                        <div class="manage-panel">
+                          <div class="manage-head">
+                            <div>
+                              <strong>Manage future booking</strong>
+                              <span>{{ appointment.patientName }} | {{ group.date | date:'mediumDate' }} | {{ formatSlot(appointment) }}</span>
+                            </div>
+                            <button mat-button type="button" (click)="closeUpcomingAction()">Close</button>
+                          </div>
+
+                          <div class="manage-grid">
+                            <mat-form-field appearance="outline">
+                              <mat-label>Reschedule date</mat-label>
+                              <input matInput type="date" [(ngModel)]="rescheduleForm.appointmentDate" (ngModelChange)="onRescheduleDateChange(appointment)" />
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>Visit reason</mat-label>
+                              <input matInput [(ngModel)]="rescheduleForm.reason" />
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>Remarks / cancellation reason</mat-label>
+                              <textarea matInput rows="2" [(ngModel)]="cancelReason"></textarea>
+                            </mat-form-field>
+                            <mat-form-field appearance="outline" class="full-width">
+                              <mat-label>Reschedule note</mat-label>
+                              <textarea matInput rows="2" [(ngModel)]="rescheduleForm.adminRemarks"></textarea>
+                            </mat-form-field>
+                          </div>
+
+                          <div class="slot-strip" *ngIf="rescheduleSlots.length > 0">
+                            <button
+                              type="button"
+                              class="slot-pill"
+                              *ngFor="let slot of rescheduleSlots"
+                              [class.active]="rescheduleForm.slotStartTime === formatTime(slot.startTime) && rescheduleForm.slotEndTime === formatTime(slot.endTime)"
+                              (click)="applyRescheduleSlot(slot)">
+                              <strong>{{ formatTime(slot.startTime) }} - {{ formatTime(slot.endTime) }}</strong>
+                              <span>{{ slot.remainingPatients }} left</span>
+                            </button>
+                          </div>
+
+                          <p class="muted" *ngIf="isLoadingRescheduleSlots">Loading available slots...</p>
+                          <p class="muted" *ngIf="!isLoadingRescheduleSlots && rescheduleForm.appointmentDate && rescheduleSlots.length === 0">No open slots available on the selected date.</p>
+
+                          <div class="actions-row">
+                            <button mat-stroked-button color="primary" type="button" *ngIf="appointment.status === 'Pending'" [disabled]="isManagingUpcomingAppointment" (click)="approveAppointment(appointment)">Accept</button>
+                            <button mat-stroked-button color="warn" type="button" *ngIf="appointment.status === 'Pending'" [disabled]="isManagingUpcomingAppointment" (click)="rejectAppointment(appointment)">Reject</button>
+                            <button mat-stroked-button type="button" [disabled]="isManagingUpcomingAppointment" (click)="saveReschedule(appointment)">Reschedule</button>
+                            <button mat-stroked-button color="warn" type="button" [disabled]="isManagingUpcomingAppointment" (click)="cancelAppointment(appointment)">Cancel with reason</button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </ng-container>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <div class="table-wrap" *ngIf="activeAppointmentCategory !== 'upcoming'">
           <table class="phase-table" *ngIf="filteredAppointments.length > 0; else noAppointments">
             <thead>
               <tr>
                 <th>Patient</th>
-                <th>Visit</th>
+                <th>Age / Gender</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Reason for visit</th>
                 <th>Status</th>
                 <th>Token</th>
                 <th>Action</th>
@@ -74,13 +217,16 @@
                   <strong>{{ appointment.patientName }}</strong>
                   <small>{{ appointment.medicalRecordNumber }}</small>
                 </td>
+                <td>{{ patientAgeGender(appointment) }}</td>
+                <td>{{ appointment.appointmentDate | date:'mediumDate' }}</td>
+                <td>{{ formatSlot(appointment) }}</td>
                 <td>
-                  <strong>{{ appointment.appointmentDate | date:'mediumDate' }}</strong>
-                  <small>{{ formatSlot(appointment) }}</small>
+                  <strong>{{ appointment.reason || 'General consultation' }}</strong>
+                  <small>{{ appointment.serviceName || 'Service not mapped' }}</small>
                 </td>
-                <td><span class="status" [class]="appointment.status.toLowerCase()">{{ appointment.status }}</span></td>
+                <td><span class="status" [ngClass]="appointmentStatusClass(appointment.status)">{{ appointment.status }}</span></td>
                 <td>{{ appointment.tokenNumber || 'Pending' }}</td>
-                <td><button mat-button type="button" (click)="openAppointment(appointment.appointmentId)">Open</button></td>
+                <td><button mat-button type="button" (click)="openAppointment(appointment.appointmentId)">View appointment</button></td>
               </tr>
             </tbody>
           </table>
@@ -102,8 +248,10 @@
                 <tr>
                   <th>Day</th>
                   <th>Time</th>
+                  <th>Break</th>
                   <th>Slot</th>
                   <th>Max</th>
+                  <th>Online booking</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -111,8 +259,10 @@
                 <tr *ngFor="let schedule of schedules">
                   <td>{{ scheduleDayLabel(schedule.dayOfWeek) }}</td>
                   <td>{{ formatTime(schedule.startTime) }} - {{ formatTime(schedule.endTime) }}</td>
+                  <td>{{ schedule.breakStartTime ? (formatTime(schedule.breakStartTime) + ' - ' + formatTime(schedule.breakEndTime)) : 'No break' }}</td>
                   <td>{{ schedule.slotDurationMinutes }} min</td>
                   <td>{{ schedule.maxPatientsPerSlot }}</td>
+                  <td>{{ schedule.onlineBookingEnabled ? 'Enabled' : 'Disabled' }}</td>
                   <td>
                     <button mat-button type="button" (click)="editSchedule(schedule)">Edit</button>
                     <button mat-button color="warn" type="button" (click)="deleteSchedule(schedule.scheduleId)">Delete</button>
@@ -138,6 +288,14 @@
               <input matInput type="time" [(ngModel)]="scheduleForm.endTime" />
             </mat-form-field>
             <mat-form-field appearance="outline">
+              <mat-label>Break start</mat-label>
+              <input matInput type="time" [(ngModel)]="scheduleForm.breakStartTime" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Break end</mat-label>
+              <input matInput type="time" [(ngModel)]="scheduleForm.breakEndTime" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
               <mat-label>Slot duration</mat-label>
               <input matInput type="number" [(ngModel)]="scheduleForm.slotDurationMinutes" />
             </mat-form-field>
@@ -145,6 +303,10 @@
               <mat-label>Max patients per slot</mat-label>
               <input matInput type="number" [(ngModel)]="scheduleForm.maxPatientsPerSlot" />
             </mat-form-field>
+            <label class="toggle-box">
+              <input type="checkbox" [(ngModel)]="scheduleForm.onlineBookingEnabled" />
+              <span>Enable online booking</span>
+            </label>
             <label class="toggle-box">
               <input type="checkbox" [(ngModel)]="scheduleForm.isActive" />
               <span>Schedule is active</span>
@@ -187,6 +349,7 @@
                 <mat-select [(ngModel)]="availabilityExceptionForm.exceptionType">
                   <mat-option value="Leave">Leave</mat-option>
                   <mat-option value="Unavailable">Unavailable</mat-option>
+                  <mat-option value="Holiday">Holiday</mat-option>
                 </mat-select>
               </mat-form-field>
               <mat-form-field appearance="outline">
@@ -210,6 +373,82 @@
               </div>
             </div>
           </div>
+
+          <div class="exception-grid blocked-grid">
+            <div>
+              <h3>Blocked specific time slots</h3>
+              <div class="table-wrap compact-wrap">
+                <table class="phase-table" *ngIf="blockedSlots.length > 0; else noBlockedSlots">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th>Reason</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of blockedSlots">
+                      <td>{{ item.blockDate | date:'mediumDate' }}</td>
+                      <td>{{ formatTime(item.startTime) }} - {{ formatTime(item.endTime) }}</td>
+                      <td>{{ item.reason || 'No reason' }}</td>
+                      <td><button mat-button color="warn" type="button" (click)="deleteBlockedSlot(item.doctorBlockedSlotId)">Delete</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="form-grid compact-form">
+              <mat-form-field appearance="outline">
+                <mat-label>Date</mat-label>
+                <input matInput type="date" [(ngModel)]="blockedSlotForm.blockDate" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Start time</mat-label>
+                <input matInput type="time" [(ngModel)]="blockedSlotForm.startTime" />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>End time</mat-label>
+                <input matInput type="time" [(ngModel)]="blockedSlotForm.endTime" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Reason</mat-label>
+                <textarea matInput rows="3" [(ngModel)]="blockedSlotForm.reason"></textarea>
+              </mat-form-field>
+              <label class="toggle-box">
+                <input type="checkbox" [(ngModel)]="blockedSlotForm.isActive" />
+                <span>Blocked slot is active</span>
+              </label>
+              <div class="full-width">
+                <button mat-stroked-button type="button" [disabled]="isSavingSchedule" (click)="saveBlockedSlot()">Save blocked slot</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Notifications</p>
+            <h2>Doctor alerts</h2>
+          </div>
+        </div>
+
+        <div class="notification-stack" *ngIf="notifications.length > 0; else noDoctorNotifications">
+          <button
+            type="button"
+            class="notification-card"
+            *ngFor="let notification of notifications"
+            [class.unread]="!notification.isRead"
+            (click)="markNotificationAsRead(notification)">
+            <div class="notification-meta">
+              <strong>{{ notification.title }}</strong>
+              <span>{{ notification.createdAt | date:'medium' }}</span>
+            </div>
+            <p>{{ notification.message }}</p>
+          </button>
         </div>
       </section>
     </div>
@@ -222,6 +461,11 @@
         Back to appointments
       </button>
       <div class="toolbar-actions">
+        <button mat-stroked-button type="button" (click)="startConsultation()">Start consultation</button>
+        <button mat-stroked-button type="button" (click)="jumpToNotes()">Add note</button>
+        <button mat-stroked-button type="button" (click)="jumpToDiagnostics()">Request lab</button>
+        <button mat-stroked-button type="button" (click)="jumpToPrescription()">Create prescription</button>
+        <button mat-stroked-button color="primary" type="button" [disabled]="isUpdatingAppointmentStatus" (click)="updateAppointmentStatus('Completed')">Mark completed</button>
         <button mat-stroked-button type="button" (click)="printPrescription()">Print prescription</button>
         <button mat-raised-button color="primary" type="button" (click)="downloadPrescription()">Download prescription</button>
       </div>
@@ -231,11 +475,11 @@
       <section class="panel patient-summary">
         <div class="section-head">
           <div>
-            <p class="eyebrow">Appointment details</p>
+            <p class="eyebrow">Patient info</p>
             <h2>{{ detail.patientName }}</h2>
             <p class="muted">{{ detail.medicalRecordNumber }} | {{ detail.appointmentDate | date:'mediumDate' }} | {{ formatTime(detail.slotStartTime) }} - {{ formatTime(detail.slotEndTime) }}</p>
           </div>
-          <span class="status" [class]="detail.status.toLowerCase()">{{ detail.status }}</span>
+          <span class="status" [ngClass]="appointmentStatusClass(detail.status)">{{ detail.status }}</span>
         </div>
 
         <div class="meta-grid">
@@ -245,11 +489,46 @@
           <div><span>Admin remarks</span><strong>{{ detail.adminRemarks || 'No admin remarks' }}</strong></div>
           <div><span>Email</span><strong>{{ detail.patientEmail || 'Not available' }}</strong></div>
           <div><span>Phone</span><strong>{{ detail.patientPhone || 'Not available' }}</strong></div>
-          <div><span>Gender</span><strong>{{ detail.gender || 'Not recorded' }}</strong></div>
+          <div><span>Age / Gender</span><strong>{{ detailAgeGender(detail) }}</strong></div>
           <div><span>Date of birth</span><strong>{{ detail.dateOfBirth ? (detail.dateOfBirth | date:'mediumDate') : 'Not recorded' }}</strong></div>
           <div><span>Blood group</span><strong>{{ detail.bloodGroup || 'Not recorded' }}</strong></div>
           <div><span>Emergency contact</span><strong>{{ detail.emergencyContact || 'Not recorded' }}</strong></div>
           <div class="full-width"><span>Address</span><strong>{{ detail.address || 'Not recorded' }}</strong></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Appointment info</p>
+            <h2>Before consultation</h2>
+          </div>
+        </div>
+        <div class="meta-grid">
+          <div><span>Appointment date</span><strong>{{ detail.appointmentDate | date:'fullDate' }}</strong></div>
+          <div><span>Appointment time</span><strong>{{ formatTime(detail.slotStartTime) }} - {{ formatTime(detail.slotEndTime) }}</strong></div>
+          <div><span>Booking status</span><strong>{{ detail.status }}</strong></div>
+          <div><span>Token number</span><strong>{{ detail.tokenNumber || 'Pending' }}</strong></div>
+          <div><span>Reason for visit</span><strong>{{ detail.reason || 'No reason recorded' }}</strong></div>
+          <div><span>Previous lab reports</span><strong>{{ detail.diagnosticRequests.length }} request{{ detail.diagnosticRequests.length === 1 ? '' : 's' }}</strong></div>
+        </div>
+      </section>
+
+      <section class="panel" *ngIf="detail.status === 'Pending'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Approval</p>
+            <h2>Accept Or Reject Appointment</h2>
+          </div>
+        </div>
+        <p class="muted">Review the booking and either accept it for consultation or reject it with a reason.</p>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Rejection / approval remark</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="cancelReason" placeholder="Add a note for the patient or staff team"></textarea>
+        </mat-form-field>
+        <div class="actions-row">
+          <button mat-raised-button color="primary" type="button" [disabled]="isManagingUpcomingAppointment" (click)="approveSelectedAppointment()">Accept patient</button>
+          <button mat-stroked-button color="warn" type="button" [disabled]="isManagingUpcomingAppointment" (click)="rejectSelectedAppointment()">Reject patient</button>
         </div>
       </section>
 
@@ -293,12 +572,16 @@
     </div>
 
     <div class="detail-grid consultation-grid">
-      <section class="panel">
+      <section class="panel" id="consultation-section">
         <div class="section-head">
           <div>
             <p class="eyebrow">Consultation</p>
             <h2>Clinical notes</h2>
           </div>
+        </div>
+        <div class="actions-row actions-row-tight">
+          <button mat-stroked-button type="button" [disabled]="isUpdatingAppointmentStatus" (click)="updateAppointmentStatus('Completed')">Mark completed</button>
+          <button mat-stroked-button color="warn" type="button" [disabled]="isUpdatingAppointmentStatus" (click)="updateAppointmentStatus('NoShow')">Mark no-show</button>
         </div>
         <div class="form-grid">
           <mat-form-field appearance="outline" class="full-width">
@@ -337,7 +620,7 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="prescription-section">
         <div class="section-head">
           <div>
             <p class="eyebrow">Prescription</p>
@@ -393,7 +676,7 @@
     </div>
 
     <div class="detail-grid">
-      <section class="panel">
+      <section class="panel" id="diagnostics-section">
         <div class="section-head">
           <div>
             <p class="eyebrow">Diagnostics</p>
@@ -433,6 +716,32 @@
         </div>
 
         <div class="history-section">
+          <h3>Previous lab reports</h3>
+          <div class="table-wrap" *ngIf="detail.diagnosticRequests.length > 0; else noRequests">
+            <table class="phase-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Item</th>
+                  <th>Status</th>
+                  <th>Report / remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let request of detail.diagnosticRequests">
+                  <td>{{ request.createdAt | date:'mediumDate' }}</td>
+                  <td>{{ request.requestType }}</td>
+                  <td>{{ request.requestedItemName }}</td>
+                  <td>{{ request.status }}</td>
+                  <td>{{ request.resultSummary || request.remarks || 'Pending report' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="history-section">
           <h3>Tracked requests</h3>
           <div class="table-wrap">
             <table class="phase-table" *ngIf="detail.diagnosticRequests.length > 0; else noRequests">
@@ -461,8 +770,14 @@
         <div class="section-head">
           <div>
             <p class="eyebrow">History</p>
-            <h2>Past visits and admissions</h2>
+            <h2>Patient history page</h2>
           </div>
+        </div>
+        <div class="stack-grid compact-cards">
+          <article *ngFor="let item of latestPatientHistory">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </article>
         </div>
         <div class="history-section">
           <h3>Past appointment history</h3>
@@ -528,7 +843,11 @@
 </section>
 
 <ng-template #noAppointments>
-  <div class="empty-state">No appointments are assigned to this doctor yet.</div>
+  <div class="empty-state">No appointments match the selected bucket right now.</div>
+</ng-template>
+
+<ng-template #noUpcomingAppointments>
+  <div class="empty-state" *ngIf="activeAppointmentCategory === 'upcoming'">No future bookings match the current search or filters.</div>
 </ng-template>
 
 <ng-template #noSchedules>
@@ -536,7 +855,11 @@
 </ng-template>
 
 <ng-template #noExceptions>
-  <div class="empty-state compact-state">No leave or unavailable dates recorded.</div>
+  <div class="empty-state compact-state">No leave, unavailable, or holiday dates recorded.</div>
+</ng-template>
+
+<ng-template #noBlockedSlots>
+  <div class="empty-state compact-state">No blocked time slots recorded.</div>
 </ng-template>
 
 <ng-template #noReports>
@@ -557,4 +880,8 @@
 
 <ng-template #noAdmissions>
   <div class="empty-state compact-state">No admission history found.</div>
+</ng-template>
+
+<ng-template #noDoctorNotifications>
+  <div class="empty-state compact-state">No doctor notifications are available right now.</div>
 </ng-template>

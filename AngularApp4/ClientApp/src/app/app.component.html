@@ -41,27 +41,40 @@
             <mat-menu #notificationsMenu="matMenu" class="notifications-menu">
               <div class="notifications-panel" (click)="$event.stopPropagation()">
                 <div class="notifications-head">
-                  <strong>Notifications</strong>
-                  <button mat-button type="button" (click)="markAllNotificationsAsRead()" [disabled]="unreadNotificationsCount === 0">
-                    Mark all read
+                  <div class="notifications-heading">
+                    <strong>Notifications</strong>
+                  </div>
+                  <div class="notifications-actions">
+                    <button
+                      mat-button
+                      type="button"
+                      [routerLink]="[notificationCenterRoute]">
+                      View all
+                    </button>
+                  </div>
+                </div>
+
+                <div class="notification-scroll" *ngIf="notifications.length > 0; else noNotificationItems">
+                  <button
+                    mat-menu-item
+                    class="notification-item"
+                    *ngFor="let notification of notifications"
+                    [class.unread]="!notification.isRead"
+                    (click)="markNotificationAsRead(notification)">
+                    <div class="notification-copy">
+                      <span class="notification-title">{{ notification.title }}</span>
+                      <span class="notification-message">{{ notification.message }}</span>
+                      <span class="notification-time">{{ notificationTimeLabel(notification) }}</span>
+                    </div>
                   </button>
                 </div>
 
-                <button
-                  mat-menu-item
-                  class="notification-item"
-                  *ngFor="let notification of notifications"
-                  [class.unread]="!notification.isRead"
-                  (click)="markNotificationAsRead(notification)">
-                  <div class="notification-copy">
-                    <span class="notification-title">{{ notification.title }}</span>
-                    <span class="notification-message">{{ notification.message }}</span>
+                <ng-template #noNotificationItems>
+                  <div class="notification-empty">
+                    <strong>No notifications yet</strong>
+                    <span>New booking alerts, approval updates, and reminders will appear here.</span>
                   </div>
-                </button>
-
-                <div class="notification-empty" *ngIf="notifications.length === 0">
-                  No notifications yet.
-                </div>
+                </ng-template>
               </div>
             </mat-menu>
 

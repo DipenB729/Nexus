@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { ApiResponse } from '../../models/hms/auth.model';
 import {
   DoctorAvailabilityExceptionRecord,
+  DoctorBlockedSlotRecord,
   DoctorAvailabilityWorkspace,
   DoctorScheduleRecord,
   DoctorWorkspaceAppointmentDetail,
@@ -15,6 +16,7 @@ import {
   SaveConsultationPayload,
   SaveDiagnosticRequestPayload,
   SaveDoctorAvailabilityExceptionPayload,
+  SaveDoctorBlockedSlotPayload,
   SavePrescriptionPayload
 } from '../../models/hms/doctor-workspace.model';
 
@@ -46,6 +48,14 @@ export class DoctorWorkspaceService {
 
   deleteAvailabilityException(exceptionId: number): Observable<void> {
     return this.http.delete<ApiResponse<unknown>>(`${this.api}/exceptions/${exceptionId}`).pipe(map(() => undefined));
+  }
+
+  createBlockedSlot(payload: SaveDoctorBlockedSlotPayload): Observable<DoctorBlockedSlotRecord> {
+    return this.http.post<ApiResponse<DoctorBlockedSlotRecord>>(`${this.api}/blocked-slots`, payload).pipe(map((res) => res.data));
+  }
+
+  deleteBlockedSlot(blockedSlotId: number): Observable<void> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.api}/blocked-slots/${blockedSlotId}`).pipe(map(() => undefined));
   }
 
   getAppointmentDetail(appointmentId: number): Observable<DoctorWorkspaceAppointmentDetail> {

@@ -46,8 +46,11 @@ public class DoctorWorkspaceController : ControllerBase
                 DayOfWeek = x.DayOfWeek,
                 StartTime = x.StartTime,
                 EndTime = x.EndTime,
+                BreakStartTime = x.BreakStartTime,
+                BreakEndTime = x.BreakEndTime,
                 SlotDurationMinutes = x.SlotDurationMinutes,
                 MaxPatientsPerSlot = x.MaxPatientsPerSlot,
+                OnlineBookingEnabled = x.OnlineBookingEnabled,
                 IsActive = x.IsActive,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
@@ -70,10 +73,27 @@ public class DoctorWorkspaceController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
+        var blockedSlots = await _db.DoctorBlockedSlots
+            .AsNoTracking()
+            .Where(x => x.DoctorId == doctor.DoctorId)
+            .OrderByDescending(x => x.BlockDate)
+            .ThenBy(x => x.StartTime)
+            .Select(x => new DoctorBlockedSlotDto
+            {
+                DoctorBlockedSlotId = x.DoctorBlockedSlotId,
+                BlockDate = x.BlockDate,
+                StartTime = x.StartTime,
+                EndTime = x.EndTime,
+                Reason = x.Reason,
+                IsActive = x.IsActive
+            })
+            .ToListAsync(cancellationToken);
+
         return Ok(ApiResponse<DoctorAvailabilityWorkspaceDto>.Ok(new DoctorAvailabilityWorkspaceDto
         {
             Schedules = schedules,
-            Exceptions = exceptions
+            Exceptions = exceptions,
+            BlockedSlots = blockedSlots
         }));
     }
 
@@ -98,8 +118,11 @@ public class DoctorWorkspaceController : ControllerBase
             DayOfWeek = dto.DayOfWeek,
             StartTime = dto.StartTime,
             EndTime = dto.EndTime,
+            BreakStartTime = dto.BreakStartTime,
+            BreakEndTime = dto.BreakEndTime,
             SlotDurationMinutes = dto.SlotDurationMinutes,
             MaxPatientsPerSlot = dto.MaxPatientsPerSlot,
+            OnlineBookingEnabled = dto.OnlineBookingEnabled,
             IsActive = dto.IsActive,
             CreatedAt = DateTime.UtcNow
         };
@@ -135,8 +158,11 @@ public class DoctorWorkspaceController : ControllerBase
         schedule.DayOfWeek = dto.DayOfWeek;
         schedule.StartTime = dto.StartTime;
         schedule.EndTime = dto.EndTime;
+        schedule.BreakStartTime = dto.BreakStartTime;
+        schedule.BreakEndTime = dto.BreakEndTime;
         schedule.SlotDurationMinutes = dto.SlotDurationMinutes;
         schedule.MaxPatientsPerSlot = dto.MaxPatientsPerSlot;
+        schedule.OnlineBookingEnabled = dto.OnlineBookingEnabled;
         schedule.IsActive = dto.IsActive;
         schedule.UpdatedAt = DateTime.UtcNow;
 
@@ -144,6 +170,59 @@ public class DoctorWorkspaceController : ControllerBase
         await _availability.SyncDoctorAvailabilitySummaryAsync(doctor.DoctorId, cancellationToken);
 
         return Ok(ApiResponse<DoctorScheduleDto>.Ok(MapSchedule(schedule), "Schedule updated"));
+    }
+
+    [HttpPost("blocked-slots")]
+    public async Task<ActionResult<ApiResponse<DoctorBlockedSlotDto>>> CreateBlockedSlot([FromBody] SaveDoctorBlockedSlotDto dto, CancellationToken cancellationToken)
+    {
+        var doctor = await GetCurrentDoctorAsync(cancellationToken);
+        if (doctor is null)
+        {
+            return NotFound(ApiResponse<DoctorBlockedSlotDto>.Fail("Doctor profile not found"));
+        }
+
+        var validation = await ValidateBlockedSlotAsync(doctor.DoctorId, dto, null, cancellationToken);
+        if (validation is not null)
+        {
+            return BadRequest(ApiResponse<DoctorBlockedSlotDto>.Fail(validation));
+        }
+
+        var item = new DoctorBlockedSlot
+        {
+            DoctorId = doctor.DoctorId,
+            BlockDate = dto.BlockDate.Date,
+            StartTime = dto.StartTime,
+            EndTime = dto.EndTime,
+            Reason = Normalize(dto.Reason),
+            IsActive = dto.IsActive,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.DoctorBlockedSlots.Add(item);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return Ok(ApiResponse<DoctorBlockedSlotDto>.Ok(MapBlockedSlot(item), "Blocked slot saved"));
+    }
+
+    [HttpDelete("blocked-slots/{blockedSlotId:long}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteBlockedSlot(long blockedSlotId, CancellationToken cancellationToken)
+    {
+        var doctor = await GetCurrentDoctorAsync(cancellationToken);
+        if (doctor is null)
+        {
+            return NotFound(ApiResponse<object>.Fail("Doctor profile not found"));
+        }
+
+        var item = await _db.DoctorBlockedSlots
+            .FirstOrDefaultAsync(x => x.DoctorBlockedSlotId == blockedSlotId && x.DoctorId == doctor.DoctorId, cancellationToken);
+        if (item is null)
+        {
+            return NotFound(ApiResponse<object>.Fail("Blocked slot not found"));
+        }
+
+        _db.DoctorBlockedSlots.Remove(item);
+        await _db.SaveChangesAsync(cancellationToken);
+        return Ok(ApiResponse<object>.Ok(null, "Blocked slot deleted"));
     }
 
     [HttpDelete("schedules/{scheduleId:long}")]
@@ -713,6 +792,24 @@ public class DoctorWorkspaceController : ControllerBase
             return "End time must be after start time";
         }
 
+        if (dto.BreakStartTime.HasValue != dto.BreakEndTime.HasValue)
+        {
+            return "Break start and end time must both be provided";
+        }
+
+        if (dto.BreakStartTime.HasValue && dto.BreakEndTime.HasValue)
+        {
+            if (dto.BreakEndTime <= dto.BreakStartTime)
+            {
+                return "Break end time must be after break start time";
+            }
+
+            if (dto.BreakStartTime <= dto.StartTime || dto.BreakEndTime >= dto.EndTime)
+            {
+                return "Break time must fall inside the working schedule";
+            }
+        }
+
         if (dto.SlotDurationMinutes < 5)
         {
             return "Slot duration must be at least 5 minutes";
@@ -727,6 +824,32 @@ public class DoctorWorkspaceController : ControllerBase
         if (totalMinutes < dto.SlotDurationMinutes || totalMinutes % dto.SlotDurationMinutes != 0)
         {
             return "Schedule window must divide evenly into the slot duration";
+        }
+
+        if (dto.BreakStartTime.HasValue && dto.BreakEndTime.HasValue)
+        {
+            var beforeBreak = (dto.BreakStartTime.Value - dto.StartTime).TotalMinutes;
+            var afterBreak = (dto.EndTime - dto.BreakEndTime.Value).TotalMinutes;
+
+            if (beforeBreak > 0 && beforeBreak < dto.SlotDurationMinutes)
+            {
+                return "Time before the break is too short for the slot duration";
+            }
+
+            if (afterBreak > 0 && afterBreak < dto.SlotDurationMinutes)
+            {
+                return "Time after the break is too short for the slot duration";
+            }
+
+            if (beforeBreak > 0 && beforeBreak % dto.SlotDurationMinutes != 0)
+            {
+                return "Time before the break must divide evenly into the slot duration";
+            }
+
+            if (afterBreak > 0 && afterBreak % dto.SlotDurationMinutes != 0)
+            {
+                return "Time after the break must divide evenly into the slot duration";
+            }
         }
 
         if (!dto.IsActive)
@@ -755,8 +878,11 @@ public class DoctorWorkspaceController : ControllerBase
             DayOfWeek = schedule.DayOfWeek,
             StartTime = schedule.StartTime,
             EndTime = schedule.EndTime,
+            BreakStartTime = schedule.BreakStartTime,
+            BreakEndTime = schedule.BreakEndTime,
             SlotDurationMinutes = schedule.SlotDurationMinutes,
             MaxPatientsPerSlot = schedule.MaxPatientsPerSlot,
+            OnlineBookingEnabled = schedule.OnlineBookingEnabled,
             IsActive = schedule.IsActive,
             CreatedAt = schedule.CreatedAt,
             UpdatedAt = schedule.UpdatedAt
@@ -774,6 +900,44 @@ public class DoctorWorkspaceController : ControllerBase
             Notes = item.Notes,
             IsActive = item.IsActive
         };
+    }
+
+    private static DoctorBlockedSlotDto MapBlockedSlot(DoctorBlockedSlot item)
+    {
+        return new DoctorBlockedSlotDto
+        {
+            DoctorBlockedSlotId = item.DoctorBlockedSlotId,
+            BlockDate = item.BlockDate,
+            StartTime = item.StartTime,
+            EndTime = item.EndTime,
+            Reason = item.Reason,
+            IsActive = item.IsActive
+        };
+    }
+
+    private async Task<string?> ValidateBlockedSlotAsync(long doctorId, SaveDoctorBlockedSlotDto dto, long? existingBlockedSlotId, CancellationToken cancellationToken)
+    {
+        if (dto.EndTime <= dto.StartTime)
+        {
+            return "Blocked slot end time must be after the start time";
+        }
+
+        var schedule = await _availability.GetSchedulesForDateAsync(doctorId, dto.BlockDate.Date, cancellationToken);
+        if (!schedule.Any(x => dto.StartTime >= x.StartTime && dto.EndTime <= x.EndTime))
+        {
+            return "Blocked slot must fit within a working schedule on that date";
+        }
+
+        var overlap = await _db.DoctorBlockedSlots.AnyAsync(x =>
+            x.DoctorId == doctorId &&
+            x.DoctorBlockedSlotId != existingBlockedSlotId &&
+            x.BlockDate.Date == dto.BlockDate.Date &&
+            x.IsActive &&
+            dto.StartTime < x.EndTime &&
+            x.StartTime < dto.EndTime,
+            cancellationToken);
+
+        return overlap ? "Blocked slot overlap detected" : null;
     }
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

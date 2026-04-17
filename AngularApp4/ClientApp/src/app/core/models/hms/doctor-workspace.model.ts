@@ -120,6 +120,7 @@ export interface DoctorAvailabilityExceptionRecord {
 export interface DoctorAvailabilityWorkspace {
   schedules: DoctorScheduleRecord[];
   exceptions: DoctorAvailabilityExceptionRecord[];
+  blockedSlots: DoctorBlockedSlotRecord[];
 }
 
 export interface DoctorScheduleRecord {
@@ -128,8 +129,11 @@ export interface DoctorScheduleRecord {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
   slotDurationMinutes: number;
   maxPatientsPerSlot: number;
+  onlineBookingEnabled: boolean;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string | null;
@@ -162,6 +166,23 @@ export interface SaveDoctorAvailabilityExceptionPayload {
   startDate: string;
   endDate: string;
   notes?: string | null;
+  isActive: boolean;
+}
+
+export interface DoctorBlockedSlotRecord {
+  doctorBlockedSlotId: number;
+  blockDate: string;
+  startTime: string;
+  endTime: string;
+  reason?: string | null;
+  isActive: boolean;
+}
+
+export interface SaveDoctorBlockedSlotPayload {
+  blockDate: string;
+  startTime: string;
+  endTime: string;
+  reason?: string | null;
   isActive: boolean;
 }
 

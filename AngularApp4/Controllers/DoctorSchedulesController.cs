@@ -43,8 +43,11 @@ public class DoctorSchedulesController : ControllerBase
                 DayOfWeek = x.DayOfWeek,
                 StartTime = x.StartTime,
                 EndTime = x.EndTime,
+                BreakStartTime = x.BreakStartTime,
+                BreakEndTime = x.BreakEndTime,
                 SlotDurationMinutes = x.SlotDurationMinutes,
                 MaxPatientsPerSlot = x.MaxPatientsPerSlot,
+                OnlineBookingEnabled = x.OnlineBookingEnabled,
                 IsActive = x.IsActive,
                 CreatedAt = x.CreatedAt,
                 UpdatedAt = x.UpdatedAt
@@ -75,8 +78,11 @@ public class DoctorSchedulesController : ControllerBase
             DayOfWeek = dto.DayOfWeek,
             StartTime = dto.StartTime,
             EndTime = dto.EndTime,
+            BreakStartTime = dto.BreakStartTime,
+            BreakEndTime = dto.BreakEndTime,
             SlotDurationMinutes = dto.SlotDurationMinutes,
             MaxPatientsPerSlot = dto.MaxPatientsPerSlot,
+            OnlineBookingEnabled = dto.OnlineBookingEnabled,
             IsActive = dto.IsActive,
             CreatedAt = DateTime.UtcNow
         };
@@ -103,8 +109,11 @@ public class DoctorSchedulesController : ControllerBase
         item.DayOfWeek = dto.DayOfWeek;
         item.StartTime = dto.StartTime;
         item.EndTime = dto.EndTime;
+        item.BreakStartTime = dto.BreakStartTime;
+        item.BreakEndTime = dto.BreakEndTime;
         item.SlotDurationMinutes = dto.SlotDurationMinutes;
         item.MaxPatientsPerSlot = dto.MaxPatientsPerSlot;
+        item.OnlineBookingEnabled = dto.OnlineBookingEnabled;
         item.IsActive = dto.IsActive;
         item.UpdatedAt = DateTime.UtcNow;
 
@@ -140,6 +149,24 @@ public class DoctorSchedulesController : ControllerBase
             return "End time must be after start time";
         }
 
+        if (dto.BreakStartTime.HasValue != dto.BreakEndTime.HasValue)
+        {
+            return "Break start and end time must both be provided";
+        }
+
+        if (dto.BreakStartTime.HasValue && dto.BreakEndTime.HasValue)
+        {
+            if (dto.BreakEndTime <= dto.BreakStartTime)
+            {
+                return "Break end time must be after break start time";
+            }
+
+            if (dto.BreakStartTime <= dto.StartTime || dto.BreakEndTime >= dto.EndTime)
+            {
+                return "Break time must fall inside the working schedule";
+            }
+        }
+
         if (dto.SlotDurationMinutes < 5)
         {
             return "Slot duration must be at least 5 minutes";
@@ -154,6 +181,32 @@ public class DoctorSchedulesController : ControllerBase
         if (totalMinutes < dto.SlotDurationMinutes || totalMinutes % dto.SlotDurationMinutes != 0)
         {
             return "Schedule window must divide evenly into the slot duration";
+        }
+
+        if (dto.BreakStartTime.HasValue && dto.BreakEndTime.HasValue)
+        {
+            var beforeBreak = (dto.BreakStartTime.Value - dto.StartTime).TotalMinutes;
+            var afterBreak = (dto.EndTime - dto.BreakEndTime.Value).TotalMinutes;
+
+            if (beforeBreak > 0 && beforeBreak < dto.SlotDurationMinutes)
+            {
+                return "Time before the break is too short for the slot duration";
+            }
+
+            if (afterBreak > 0 && afterBreak < dto.SlotDurationMinutes)
+            {
+                return "Time after the break is too short for the slot duration";
+            }
+
+            if (beforeBreak > 0 && beforeBreak % dto.SlotDurationMinutes != 0)
+            {
+                return "Time before the break must divide evenly into the slot duration";
+            }
+
+            if (afterBreak > 0 && afterBreak % dto.SlotDurationMinutes != 0)
+            {
+                return "Time after the break must divide evenly into the slot duration";
+            }
         }
 
         if (!dto.IsActive)
@@ -181,8 +234,11 @@ public class DoctorSchedulesController : ControllerBase
             DayOfWeek = item.DayOfWeek,
             StartTime = item.StartTime,
             EndTime = item.EndTime,
+            BreakStartTime = item.BreakStartTime,
+            BreakEndTime = item.BreakEndTime,
             SlotDurationMinutes = item.SlotDurationMinutes,
             MaxPatientsPerSlot = item.MaxPatientsPerSlot,
+            OnlineBookingEnabled = item.OnlineBookingEnabled,
             IsActive = item.IsActive,
             CreatedAt = item.CreatedAt,
             UpdatedAt = item.UpdatedAt

@@ -91,5 +91,22 @@
         <p class="empty">No appointment history is available for this patient account yet.</p>
       </ng-template>
     </article>
+
+    <article class="panel history-panel">
+      <h2>Notifications</h2>
+      <div class="upcoming-list" *ngIf="recentNotifications.length; else noNotifications">
+        <button class="upcoming-item" type="button" *ngFor="let notification of recentNotifications" (click)="markNotificationAsRead(notification)">
+          <div>
+            <h3>{{ notification.title }}</h3>
+            <p>{{ notification.message }}</p>
+            <small>{{ notification.createdAt | date:'medium' }}</small>
+          </div>
+          <span class="status" [class]="notification.isRead ? 'status completed' : 'status pending'">{{ notification.isRead ? 'Read' : 'New' }}</span>
+        </button>
+      </div>
+      <ng-template #noNotifications>
+        <p class="empty">No notifications are available right now.</p>
+      </ng-template>
+    </article>
   </div>
 </section>

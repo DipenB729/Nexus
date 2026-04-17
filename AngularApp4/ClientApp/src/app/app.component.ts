@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { Subscription, filter } from 'rxjs';
+import { Subscription, filter, interval } from 'rxjs';
 import { AppNotification, AuthSession } from './core/models/hms/auth.model';
 import { AuthApiService } from './core/services/hms/auth-api.service';
 import { NotificationsService } from './core/services/notifications.service';
@@ -25,6 +25,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private sessionSub?: Subscription;
   private notificationsSub?: Subscription;
   private notificationsRefreshSub?: Subscription;
+  private notificationsPollingSub?: Subscription;
 
   constructor(
     private readonly router: Router,
@@ -58,6 +59,12 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.currentSession) {
       this.loadNotifications();
     }
+
+    this.notificationsPollingSub = interval(30000).subscribe(() => {
+      if (this.currentSession) {
+        this.loadNotifications();
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -65,6 +72,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.sessionSub?.unsubscribe();
     this.notificationsSub?.unsubscribe();
     this.notificationsRefreshSub?.unsubscribe();
+    this.notificationsPollingSub?.unsubscribe();
   }
 
   toggleSidebar(): void {
@@ -125,7 +133,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (this.currentRole === 'Doctor') {
-      return '/doctor/appointments';
+      return '/doctor/availability';
     }
 
     return '/patient/book';
@@ -137,7 +145,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (this.currentRole === 'Doctor') {
-      return 'Appointments';
+      return 'Availability';
     }
 
     return 'Book Appointment';
@@ -149,6 +157,48 @@ export class AppComponent implements OnInit, OnDestroy {
 
   get unreadNotificationsCount(): number {
     return this.notifications.filter((item) => !item.isRead).length;
+  }
+
+  get notificationCenterRoute(): string {
+    if (this.currentRole === 'Admin') {
+      return '/admin/notifications';
+    }
+
+    if (this.currentRole === 'Doctor') {
+      return '/doctor/notifications';
+    }
+
+    return '/patient/notifications';
+  }
+
+  notificationTone(notification: AppNotification): string {
+    const type = notification.notificationType.toLowerCase();
+    if (type.includes('approval')) {
+      return 'success';
+    }
+
+    if (type.includes('cancel')) {
+      return 'danger';
+    }
+
+    if (type.includes('reminder')) {
+      return 'warning';
+    }
+
+    if (type.includes('reschedule')) {
+      return 'info';
+    }
+
+    return 'neutral';
+  }
+
+  notificationTimeLabel(notification: AppNotification): string {
+    return new Date(notification.createdAt).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
   }
 
   loadNotifications(): void {
@@ -333,6 +383,18 @@ export class AppComponent implements OnInit, OnDestroy {
 
     if (path.startsWith('/doctor/appointments')) {
       return 'Doctor Appointments';
+    }
+
+    if (path.startsWith('/doctor/availability')) {
+      return 'Availability Settings';
+    }
+
+    if (path.startsWith('/admin/notifications') || path.startsWith('/doctor/notifications') || path.startsWith('/patient/notifications')) {
+      return 'Notifications';
+    }
+
+    if (path.startsWith('/doctor/profile')) {
+      return 'Doctor Profile';
     }
 
     const titles: Record<string, string> = {

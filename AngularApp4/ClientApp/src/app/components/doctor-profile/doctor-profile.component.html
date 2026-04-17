@@ -1,0 +1,172 @@
+<section class="doctor-profile">
+  <header class="profile-hero">
+    <div>
+      <p class="eyebrow">Doctor profile</p>
+      <h1>Manage your doctor portal profile</h1>
+      <p class="subtitle">Keep your professional identity, consultation details, and password current.</p>
+    </div>
+
+    <div class="hero-meta">
+      <article>
+        <span>Department</span>
+        <strong>{{ departmentDisplayName }}</strong>
+      </article>
+      <article>
+        <span>Consultation fee</span>
+        <strong>{{ profile?.consultationFee ?? 0 | number:'1.2-2' }}</strong>
+      </article>
+    </div>
+  </header>
+
+  <div class="feedback" *ngIf="isLoading">Loading doctor profile...</div>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <p class="success" *ngIf="statusMessage">{{ statusMessage }}</p>
+
+  <div class="profile-grid" *ngIf="!isLoading">
+    <article class="summary-card">
+      <div class="photo-block">
+        <div class="photo-frame" *ngIf="avatarUrl; else avatarFallback">
+          <img [src]="avatarUrl" alt="Doctor profile photo" />
+        </div>
+        <ng-template #avatarFallback>
+          <div class="photo-fallback">{{ (profile?.fullName || 'D').charAt(0) }}</div>
+        </ng-template>
+      </div>
+
+      <h2>Professional summary</h2>
+      <dl>
+        <div>
+          <dt>Email</dt>
+          <dd>{{ profile?.email || 'Not available' }}</dd>
+        </div>
+        <div>
+          <dt>Phone</dt>
+          <dd>{{ profile?.phone || 'Not set' }}</dd>
+        </div>
+        <div>
+          <dt>License number</dt>
+          <dd>{{ profile?.licenseNumber || 'Not set' }}</dd>
+        </div>
+        <div>
+          <dt>Experience</dt>
+          <dd>{{ profile?.experienceYears ?? 0 }} years</dd>
+        </div>
+      </dl>
+
+      <label class="upload-button" [class.disabled]="isUploadingPhoto">
+        <input type="file" accept=".jpg,.jpeg,.png,.webp" (change)="uploadPhoto($event)" />
+        <span>{{ isUploadingPhoto ? 'Uploading photo...' : 'Upload photo' }}</span>
+      </label>
+      <small class="upload-note">{{ selectedPhotoName || 'JPG, PNG, and WebP supported.' }}</small>
+    </article>
+
+    <div class="content-stack">
+      <form class="profile-form" [formGroup]="profileForm" (ngSubmit)="saveProfile()" novalidate>
+        <h2>Edit profile</h2>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Full name</mat-label>
+            <input matInput formControlName="fullName" />
+            <mat-error *ngIf="profileForm.controls.fullName.hasError('required')">Full name is required.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput formControlName="email" type="email" />
+            <mat-error *ngIf="profileForm.controls.email.hasError('required')">Email is required.</mat-error>
+            <mat-error *ngIf="profileForm.controls.email.hasError('email')">Enter a valid email address.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Phone</mat-label>
+            <input matInput formControlName="phone" type="tel" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Department</mat-label>
+            <mat-select formControlName="departmentId">
+              <mat-option [value]="null">Not assigned</mat-option>
+              <mat-option *ngFor="let item of departmentOptions" [value]="item.departmentId">
+                {{ item.name }} | {{ item.branchName }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Specialization</mat-label>
+            <input matInput formControlName="specialization" />
+            <mat-error *ngIf="profileForm.controls.specialization.hasError('required')">Specialization is required.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Qualification</mat-label>
+            <input matInput formControlName="qualification" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>License number</mat-label>
+            <input matInput formControlName="licenseNumber" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Experience</mat-label>
+            <input matInput formControlName="experienceYears" type="number" min="0" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Consultation fee</mat-label>
+            <input matInput formControlName="consultationFee" type="number" min="0" step="0.01" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Bio / About</mat-label>
+            <textarea matInput formControlName="bio" rows="4"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Address</mat-label>
+            <textarea matInput formControlName="address" rows="3"></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="actions">
+          <button mat-stroked-button color="primary" type="button" (click)="loadProfile()" [disabled]="isSaving">Reload</button>
+          <button mat-raised-button color="primary" type="submit" [disabled]="isSaving">
+            {{ isSaving ? 'Saving...' : 'Save profile' }}
+          </button>
+        </div>
+      </form>
+
+      <form class="profile-form" [formGroup]="passwordForm" (ngSubmit)="changePassword()" novalidate>
+        <h2>Change password</h2>
+        <p class="error" *ngIf="passwordErrorMessage">{{ passwordErrorMessage }}</p>
+        <p class="success" *ngIf="passwordStatusMessage">{{ passwordStatusMessage }}</p>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Current password</mat-label>
+            <input matInput formControlName="currentPassword" type="password" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>New password</mat-label>
+            <input matInput formControlName="newPassword" type="password" />
+            <mat-error *ngIf="passwordForm.controls.newPassword.hasError('minlength')">Use at least 8 characters.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Confirm password</mat-label>
+            <input matInput formControlName="confirmPassword" type="password" />
+          </mat-form-field>
+        </div>
+
+        <div class="actions">
+          <button mat-raised-button color="primary" type="submit" [disabled]="isChangingPassword">
+            {{ isChangingPassword ? 'Updating...' : 'Change password' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

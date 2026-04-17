@@ -6,7 +6,8 @@ namespace AngularApp4.Model.Hms;
 public enum DoctorAvailabilityExceptionType
 {
     Leave,
-    Unavailable
+    Unavailable,
+    Holiday
 }
 
 public class DoctorAvailabilityException
@@ -17,6 +18,21 @@ public class DoctorAvailabilityException
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     [MaxLength(300)] public string? Notes { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    public Doctor? Doctor { get; set; }
+}
+
+public class DoctorBlockedSlot
+{
+    [Key] public long DoctorBlockedSlotId { get; set; }
+    public long DoctorId { get; set; }
+    public DateTime BlockDate { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
+    [MaxLength(300)] public string? Reason { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

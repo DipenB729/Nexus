@@ -52,6 +52,8 @@ import { LabServiceAdminComponent } from './components/lab-service-admin/lab-ser
 import { MonitoringAdminComponent } from './components/monitoring-admin/monitoring-admin.component';
 import { PatientProfileComponent } from './components/patient-profile/patient-profile.component';
 import { DoctorDashboardComponent } from './components/doctor-dashboard/doctor-dashboard.component';
+import { DoctorProfileComponent } from './components/doctor-profile/doctor-profile.component';
+import { NotificationCenterComponent } from './components/notification-center/notification-center.component';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { AuthInterceptor } from './core/services/hms/auth.interceptor';
@@ -82,7 +84,9 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     LabServiceAdminComponent,
     MonitoringAdminComponent,
     PatientProfileComponent,
-    DoctorDashboardComponent
+    DoctorDashboardComponent,
+    DoctorProfileComponent,
+    NotificationCenterComponent
   ],
   imports: [
     BrowserModule,
@@ -137,10 +141,14 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'admin/masters/:section', component: MasterSetupComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/settings', pathMatch: 'full', redirectTo: 'admin/settings/organization' },
       { path: 'admin/settings/:section', component: AdminSettingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
+      { path: 'admin/notifications', component: NotificationCenterComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'doctor', pathMatch: 'full', redirectTo: 'doctor/dashboard' },
       { path: 'doctor/dashboard', component: DoctorDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
       { path: 'doctor/appointments', component: DoctorDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
       { path: 'doctor/appointments/:appointmentId', component: DoctorDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
+      { path: 'doctor/availability', component: DoctorDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
+      { path: 'doctor/notifications', component: NotificationCenterComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
+      { path: 'doctor/profile', component: DoctorProfileComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Doctor' } },
       { path: 'patient', pathMatch: 'full', redirectTo: 'patient/doctors' },
       { path: 'patient/dashboard', component: UserPageComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
       { path: 'patient/doctors', component: DoctorListingComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
@@ -149,6 +157,7 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'patient/services', pathMatch: 'full', redirectTo: 'patient/doctors' },
       { path: 'patient/appointments', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
       { path: 'patient/appointments/:id', component: MyBookingsComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
+      { path: 'patient/notifications', component: NotificationCenterComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
       { path: 'patient/profile', component: PatientProfileComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'User' } },
       { path: 'user', pathMatch: 'full', redirectTo: 'patient/dashboard' },
       { path: 'user/dashboard', pathMatch: 'full', redirectTo: 'patient/dashboard' },

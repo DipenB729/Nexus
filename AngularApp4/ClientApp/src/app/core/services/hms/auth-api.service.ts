@@ -6,12 +6,16 @@ import {
   ApiResponse,
   AuthResponse,
   AuthSession,
+  ChangePasswordRequest,
+  DoctorProfile,
+  DoctorProfileDepartmentOption,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
   LoginRequest,
   PatientProfile,
   RegisterRequest,
   ResetPasswordRequest,
+  UpdateDoctorProfileRequest,
   UpdatePatientProfileRequest
 } from '../../models/hms/auth.model';
 
@@ -69,6 +73,41 @@ export class AuthApiService {
         this.updateSessionFromProfile(res.data);
         return res.data;
       })
+    );
+  }
+
+  getDoctorProfile(): Observable<DoctorProfile> {
+    return this.http.get<ApiResponse<DoctorProfile>>(`${this.api}/doctor-profile`).pipe(
+      map((res) => res.data)
+    );
+  }
+
+  updateDoctorProfile(request: UpdateDoctorProfileRequest): Observable<DoctorProfile> {
+    return this.http.put<ApiResponse<DoctorProfile>>(`${this.api}/doctor-profile`, request).pipe(
+      map((res) => {
+        this.updateSessionIdentity(res.data.fullName, res.data.email);
+        return res.data;
+      })
+    );
+  }
+
+  getDoctorProfileOptions(): Observable<DoctorProfileDepartmentOption[]> {
+    return this.http.get<ApiResponse<DoctorProfileDepartmentOption[]>>(`${this.api}/doctor-profile/options`).pipe(
+      map((res) => res.data ?? [])
+    );
+  }
+
+  uploadDoctorProfilePhoto(file: File): Observable<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<ApiResponse<{ photoUrl: string }>>(`${this.api}/doctor-profile/photo`, formData).pipe(
+      map((res) => res.data.photoUrl)
+    );
+  }
+
+  changePassword(request: ChangePasswordRequest): Observable<void> {
+    return this.http.post<ApiResponse<unknown>>(`${this.api}/change-password`, request).pipe(
+      map(() => undefined)
     );
   }
 
@@ -187,6 +226,10 @@ export class AuthApiService {
   }
 
   private updateSessionFromProfile(profile: PatientProfile): void {
+    this.updateSessionIdentity(profile.fullName, profile.email);
+  }
+
+  private updateSessionIdentity(fullName: string, email: string): void {
     const currentSession = this.sessionSubject.value;
     if (!currentSession) {
       return;
@@ -194,8 +237,8 @@ export class AuthApiService {
 
     const nextSession: AuthSession = {
       ...currentSession,
-      fullName: profile.fullName,
-      email: profile.email
+      fullName,
+      email
     };
 
     localStorage.setItem(this.sessionKey, JSON.stringify(nextSession));

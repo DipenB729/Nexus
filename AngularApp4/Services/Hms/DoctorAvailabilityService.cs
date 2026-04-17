@@ -21,8 +21,11 @@ public sealed class ResolvedDoctorSchedule
     public byte DayOfWeek { get; init; }
     public TimeSpan StartTime { get; init; }
     public TimeSpan EndTime { get; init; }
+    public TimeSpan? BreakStartTime { get; init; }
+    public TimeSpan? BreakEndTime { get; init; }
     public int SlotDurationMinutes { get; init; }
     public int MaxPatientsPerSlot { get; init; }
+    public bool OnlineBookingEnabled { get; init; }
 }
 
 public sealed class DoctorAvailabilityService : IDoctorAvailabilityService
@@ -63,8 +66,11 @@ public sealed class DoctorAvailabilityService : IDoctorAvailabilityService
                 DayOfWeek = x.DayOfWeek,
                 StartTime = x.StartTime,
                 EndTime = x.EndTime,
+                BreakStartTime = x.BreakStartTime,
+                BreakEndTime = x.BreakEndTime,
                 SlotDurationMinutes = x.SlotDurationMinutes,
-                MaxPatientsPerSlot = x.MaxPatientsPerSlot
+                MaxPatientsPerSlot = x.MaxPatientsPerSlot,
+                OnlineBookingEnabled = x.OnlineBookingEnabled
             })
             .ToListAsync(cancellationToken);
 
@@ -103,7 +109,8 @@ public sealed class DoctorAvailabilityService : IDoctorAvailabilityService
                 StartTime = doctor.OpdStartTime.Value,
                 EndTime = doctor.OpdEndTime.Value,
                 SlotDurationMinutes = 30,
-                MaxPatientsPerSlot = 1
+                MaxPatientsPerSlot = 1,
+                OnlineBookingEnabled = true
             }
         };
     }
@@ -116,13 +123,30 @@ public sealed class DoctorAvailabilityService : IDoctorAvailabilityService
             return null;
         }
 
+        var hasBlockedSlot = await _db.DoctorBlockedSlots
+            .AsNoTracking()
+            .AnyAsync(x =>
+                x.DoctorId == doctorId &&
+                x.IsActive &&
+                x.BlockDate.Date == date.Date &&
+                slotStartTime < x.EndTime &&
+                x.StartTime < slotEndTime,
+                cancellationToken);
+
+        if (hasBlockedSlot)
+        {
+            return null;
+        }
+
         return schedules.FirstOrDefault(schedule =>
         {
             var expectedDuration = TimeSpan.FromMinutes(schedule.SlotDurationMinutes);
             var isAligned = slotStartTime >= schedule.StartTime &&
                 slotEndTime <= schedule.EndTime &&
                 slotEndTime - slotStartTime == expectedDuration &&
-                (slotStartTime - schedule.StartTime).TotalMinutes % schedule.SlotDurationMinutes == 0;
+                (slotStartTime - schedule.StartTime).TotalMinutes % schedule.SlotDurationMinutes == 0 &&
+                schedule.OnlineBookingEnabled &&
+                !OverlapsBreak(schedule, slotStartTime, slotEndTime);
 
             return isAligned;
         });
@@ -130,11 +154,20 @@ public sealed class DoctorAvailabilityService : IDoctorAvailabilityService
 
     public async Task<List<DoctorAvailableSlotDto>> GetAvailableSlotsAsync(long doctorId, DateTime date, CancellationToken cancellationToken = default)
     {
-        var schedules = await GetSchedulesForDateAsync(doctorId, date, cancellationToken);
+        var schedules = (await GetSchedulesForDateAsync(doctorId, date, cancellationToken))
+            .Where(x => x.OnlineBookingEnabled)
+            .ToList();
         if (schedules.Count == 0)
         {
             return new List<DoctorAvailableSlotDto>();
         }
+
+        var blockedSlots = await _db.DoctorBlockedSlots
+            .AsNoTracking()
+            .Where(x => x.DoctorId == doctorId && x.IsActive && x.BlockDate.Date == date.Date)
+            .OrderBy(x => x.StartTime)
+            .Select(x => new { x.StartTime, x.EndTime })
+            .ToListAsync(cancellationToken);
 
         var bookedCounts = await _db.Appointments
             .AsNoTracking()
@@ -164,6 +197,16 @@ public sealed class DoctorAvailabilityService : IDoctorAvailabilityService
             for (var cursor = schedule.StartTime; cursor + slotLength <= schedule.EndTime; cursor += slotLength)
             {
                 var end = cursor + slotLength;
+                if (OverlapsBreak(schedule, cursor, end))
+                {
+                    continue;
+                }
+
+                if (blockedSlots.Any(x => cursor < x.EndTime && x.StartTime < end))
+                {
+                    continue;
+                }
+
                 var key = $"{cursor:c}|{end:c}";
                 var bookedPatients = bookedLookup.GetValueOrDefault(key);
                 var remainingPatients = Math.Max(schedule.MaxPatientsPerSlot - bookedPatients, 0);
@@ -291,5 +334,15 @@ public sealed class DoctorAvailabilityService : IDoctorAvailabilityService
         };
 
         return normalized.Contains(token);
+    }
+
+    private static bool OverlapsBreak(ResolvedDoctorSchedule schedule, TimeSpan slotStartTime, TimeSpan slotEndTime)
+    {
+        if (!schedule.BreakStartTime.HasValue || !schedule.BreakEndTime.HasValue)
+        {
+            return false;
+        }
+
+        return slotStartTime < schedule.BreakEndTime.Value && schedule.BreakStartTime.Value < slotEndTime;
     }
 }

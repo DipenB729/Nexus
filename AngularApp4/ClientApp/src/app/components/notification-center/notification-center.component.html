@@ -1,0 +1,70 @@
+<section class="notification-center">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Message center</p>
+      <h1>Notifications</h1>
+      <p class="summary">Track bookings, approvals, reschedules, follow-ups, and system alerts in one place.</p>
+    </div>
+
+    <div class="hero-stats">
+      <article>
+        <span>Total</span>
+        <strong>{{ notifications.length }}</strong>
+      </article>
+      <article>
+        <span>Unread</span>
+        <strong>{{ unreadCount }}</strong>
+      </article>
+    </div>
+  </header>
+
+  <p class="feedback" *ngIf="isLoading">Loading notifications...</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div class="filter-strip">
+        <button type="button" class="filter-pill" [class.active]="filter === 'all'" (click)="setFilter('all')">
+          All notifications
+        </button>
+        <button type="button" class="filter-pill" [class.active]="filter === 'unread'" (click)="setFilter('unread')">
+          Unread only
+        </button>
+      </div>
+
+      <button mat-stroked-button type="button" (click)="markAllAsRead()" [disabled]="unreadCount === 0">
+        Mark all read
+      </button>
+    </div>
+
+    <div class="notification-list" *ngIf="visibleNotifications.length > 0; else noNotifications">
+      <button
+        type="button"
+        class="notification-card"
+        *ngFor="let notification of visibleNotifications"
+        [class.unread-card]="!notification.isRead"
+        (click)="openNotification(notification)">
+        <div class="notification-top">
+          <div>
+            <span class="category">{{ notification.category }}</span>
+            <h2>{{ notification.title }}</h2>
+          </div>
+          <span class="status-pill" [ngClass]="notificationStatusClass(notification)">
+            {{ notification.isRead ? 'Read' : 'New' }}
+          </span>
+        </div>
+        <p>{{ notification.message }}</p>
+        <div class="notification-meta">
+          <span>{{ notification.notificationType }}</span>
+          <span>{{ notification.createdAt | date:'medium' }}</span>
+        </div>
+      </button>
+    </div>
+  </section>
+</section>
+
+<ng-template #noNotifications>
+  <div class="empty-state">
+    No notifications match the current filter.
+  </div>
+</ng-template>

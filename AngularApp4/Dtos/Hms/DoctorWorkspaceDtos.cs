@@ -167,6 +167,26 @@ public class DoctorAvailabilityWorkspaceDto
 {
     public List<DoctorScheduleDto> Schedules { get; set; } = new();
     public List<DoctorAvailabilityExceptionDto> Exceptions { get; set; } = new();
+    public List<DoctorBlockedSlotDto> BlockedSlots { get; set; } = new();
+}
+
+public class DoctorBlockedSlotDto
+{
+    public long DoctorBlockedSlotId { get; set; }
+    public DateTime BlockDate { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
+    public string? Reason { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class SaveDoctorBlockedSlotDto
+{
+    public DateTime BlockDate { get; set; }
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
+    public string? Reason { get; set; }
+    public bool IsActive { get; set; } = true;
 }
 
 public class MedicineSearchResultDto

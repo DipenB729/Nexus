@@ -60,6 +60,10 @@ public class Doctor
     [MaxLength(20)] public string? Phone { get; set; }
     public int ExperienceYears { get; set; }
     [MaxLength(150)] public string? Qualification { get; set; }
+    [MaxLength(80)] public string? LicenseNumber { get; set; }
+    [MaxLength(500)] public string? PhotoUrl { get; set; }
+    [MaxLength(300)] public string? Address { get; set; }
+    [MaxLength(2000)] public string? Bio { get; set; }
     [MaxLength(80)] public string? OpdDays { get; set; }
     public TimeSpan? OpdStartTime { get; set; }
     public TimeSpan? OpdEndTime { get; set; }
@@ -79,8 +83,11 @@ public class DoctorSchedule
     [Range(1, 7)] public byte DayOfWeek { get; set; }
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
+    public TimeSpan? BreakStartTime { get; set; }
+    public TimeSpan? BreakEndTime { get; set; }
     public int SlotDurationMinutes { get; set; }
     public int MaxPatientsPerSlot { get; set; } = 1;
+    public bool OnlineBookingEnabled { get; set; } = true;
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }

@@ -990,6 +990,14 @@ namespace AngularApp4.Migrations
                     b.Property<long?>("BranchId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<decimal>("ConsultationFee")
                         .HasColumnType("decimal(10,2)");
 
@@ -1015,6 +1023,10 @@ namespace AngularApp4.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("LicenseNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<string>("OpdDays")
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
@@ -1028,6 +1040,10 @@ namespace AngularApp4.Migrations
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("PhotoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Qualification")
                         .HasMaxLength(150)

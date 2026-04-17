@@ -59,15 +59,20 @@ public class PatientProfileDto
 public class DoctorProfileDto
 {
     public long DoctorId { get; set; }
+    public long? DepartmentId { get; set; }
     public string FullName { get; set; } = string.Empty;
+    public string? PhotoUrl { get; set; }
     public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string? Specialization { get; set; }
+    public string? LicenseNumber { get; set; }
     public int ExperienceYears { get; set; }
     public string? Qualification { get; set; }
     public decimal ConsultationFee { get; set; }
     public string? BranchName { get; set; }
     public string? DepartmentName { get; set; }
+    public string? Bio { get; set; }
+    public string? Address { get; set; }
     public string? OpdDays { get; set; }
     public TimeSpan? OpdStartTime { get; set; }
     public TimeSpan? OpdEndTime { get; set; }
@@ -87,10 +92,28 @@ public class UpdatePatientProfileDto
 public class UpdateDoctorProfileDto
 {
     public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
     public string? Phone { get; set; }
+    public long? DepartmentId { get; set; }
     public string? Specialization { get; set; }
     public int ExperienceYears { get; set; }
     public string? Qualification { get; set; }
+    public string? LicenseNumber { get; set; }
+    public decimal ConsultationFee { get; set; }
+    public string? Bio { get; set; }
+    public string? Address { get; set; }
+}
+
+public class DoctorProfilePhotoDto
+{
+    public string PhotoUrl { get; set; } = string.Empty;
+}
+
+public class DoctorProfileDepartmentOptionDto
+{
+    public long DepartmentId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string BranchName { get; set; } = string.Empty;
 }
 
 public class UpdateProfileDto
