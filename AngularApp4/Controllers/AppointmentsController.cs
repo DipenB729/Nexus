@@ -251,9 +251,9 @@ public class AppointmentsController : ControllerBase
     [Authorize(Policy = "DoctorOnly")]
     public async Task<ActionResult<ApiResponse<DoctorAppointmentSummaryDto>>> UpdateDoctorAppointmentStatus(long appointmentId, [FromBody] DoctorAppointmentStatusUpdateDto dto)
     {
-        if (dto.Status is not (AppointmentStatus.Completed or AppointmentStatus.NoShow))
+        if (dto.Status is not (AppointmentStatus.Approved or AppointmentStatus.Cancelled or AppointmentStatus.Completed or AppointmentStatus.NoShow))
         {
-            return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctors can only mark appointments as completed or no-show"));
+            return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Doctors can only approve, cancel, complete, or mark no-show"));
         }
 
         var userId = GetUserId();
@@ -276,9 +276,35 @@ public class AppointmentsController : ControllerBase
             return NotFound(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Appointment not found"));
         }
 
+        if (appointment.Status == AppointmentStatus.Cancelled && dto.Status != AppointmentStatus.Cancelled)
+        {
+            return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Cancelled appointments cannot be updated"));
+        }
+
+        if (appointment.Status == AppointmentStatus.Completed && dto.Status != AppointmentStatus.Completed)
+        {
+            return BadRequest(ApiResponse<DoctorAppointmentSummaryDto>.Fail("Completed appointments cannot be updated"));
+        }
+
+        var previousStatus = appointment.Status;
         appointment.Status = dto.Status;
+        appointment.AdminRemarks = Normalize(dto.AdminRemarks) ?? appointment.AdminRemarks;
+        if (dto.Status is AppointmentStatus.Approved or AppointmentStatus.Completed)
+        {
+            appointment.TokenNumber = await GenerateTokenNumberAsync(doctor.DoctorId, appointment.AppointmentDate, appointmentId);
+        }
+
         appointment.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        if (dto.Status == AppointmentStatus.Approved && previousStatus != AppointmentStatus.Approved)
+        {
+            await _notifications.QueueAppointmentApprovedAsync(appointment);
+        }
+        else if (dto.Status == AppointmentStatus.Cancelled && previousStatus != AppointmentStatus.Cancelled)
+        {
+            await _notifications.QueueAppointmentCancelledAsync(appointment);
+        }
 
         var payload = await BuildDoctorAppointmentQuery()
             .Where(x => x.AppointmentId == appointmentId)
@@ -528,6 +554,63 @@ public class AppointmentsController : ControllerBase
             ? "Selected slot has reached its booking limit"
             : null;
     }
+
+    private async Task<string> GenerateTokenNumberAsync(long doctorId, DateTime appointmentDate, long appointmentId)
+    {
+        var settings = await GetOrCreateTokenSettingsAsync();
+
+        var query = _db.Appointments
+            .AsNoTracking()
+            .Where(x =>
+                x.AppointmentId != appointmentId &&
+                x.DoctorId == doctorId &&
+                x.Status != AppointmentStatus.Cancelled &&
+                x.TokenNumber != null);
+
+        if (settings.ResetDaily)
+        {
+            query = query.Where(x => x.AppointmentDate.Date == appointmentDate.Date);
+        }
+
+        var existingTokens = await query.Select(x => x.TokenNumber!).ToListAsync();
+        var maxNumber = existingTokens
+            .Select(ExtractSequence)
+            .DefaultIfEmpty(settings.StartingNumber - 1)
+            .Max();
+
+        var nextNumber = Math.Max(settings.StartingNumber, maxNumber + 1);
+        return $"{settings.Prefix}-{appointmentDate:yyyyMMdd}-{nextNumber.ToString($"D{settings.NumberPadding}")}";
+    }
+
+    private async Task<AppointmentTokenSetting> GetOrCreateTokenSettingsAsync()
+    {
+        var settings = await _db.AppointmentTokenSettings.OrderBy(x => x.AppointmentTokenSettingId).FirstOrDefaultAsync();
+        if (settings is not null)
+        {
+            return settings;
+        }
+
+        settings = new AppointmentTokenSetting
+        {
+            Prefix = "OPD",
+            StartingNumber = 1,
+            NumberPadding = 3,
+            ResetDaily = true,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _db.AppointmentTokenSettings.Add(settings);
+        await _db.SaveChangesAsync();
+        return settings;
+    }
+
+    private static int ExtractSequence(string tokenNumber)
+    {
+        var parts = tokenNumber.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 0 || !int.TryParse(parts[^1], out var value) ? 0 : value;
+    }
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private IQueryable<PatientAppointmentProjection> BuildPatientAppointmentQuery()
     {

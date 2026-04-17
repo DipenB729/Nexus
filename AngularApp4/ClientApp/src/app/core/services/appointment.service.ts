@@ -3,7 +3,12 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { Service } from '../models/booking.model';
 import { Appointment } from '../models/appointment.model';
-import { ApiResponse, DoctorAppointment, ManageDoctorAppointmentRequest, PatientAppointment, PatientAppointmentPayload } from '../models/hms/auth.model';
+import { ApiResponse, DoctorAppointment, PatientAppointment, PatientAppointmentPayload } from '../models/hms/auth.model';
+
+export interface DoctorAppointmentStatusPayload {
+  status: string;
+  adminRemarks?: string | null;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -41,18 +46,10 @@ export class AppointmentService {
     );
   }
 
-  updateDoctorAppointmentStatus(appointmentId: number, status: 'Completed' | 'NoShow'): Observable<DoctorAppointment> {
-    return this.http.put<ApiResponse<DoctorAppointment>>(
-      `${this.appointmentsApi}/doctor/${appointmentId}/status`,
-      { status }
-    ).pipe(map((res) => res.data));
-  }
-
-  manageDoctorAppointment(appointmentId: number, payload: ManageDoctorAppointmentRequest): Observable<DoctorAppointment> {
-    return this.http.put<ApiResponse<DoctorAppointment>>(
-      `${this.appointmentsApi}/doctor/${appointmentId}/manage`,
-      payload
-    ).pipe(map((res) => res.data));
+  updateDoctorAppointmentStatus(appointmentId: number, payload: DoctorAppointmentStatusPayload): Observable<DoctorAppointment> {
+    return this.http.put<ApiResponse<DoctorAppointment>>(`${this.appointmentsApi}/doctor/${appointmentId}/status`, payload).pipe(
+      map((res) => res.data)
+    );
   }
 
   createAppointment(appointment: PatientAppointmentPayload): Observable<PatientAppointment> {

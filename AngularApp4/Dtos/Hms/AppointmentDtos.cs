@@ -74,6 +74,7 @@ public class DoctorAppointmentSummaryDto
 public class DoctorAppointmentStatusUpdateDto
 {
     public AppointmentStatus Status { get; set; }
+    public string? AdminRemarks { get; set; }
 }
 
 public class DoctorManageAppointmentDto
