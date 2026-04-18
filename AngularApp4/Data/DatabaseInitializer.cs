@@ -70,7 +70,6 @@ public sealed class DatabaseInitializer
         await EnsureAppointmentsAsync(cancellationToken);
         await EnsureAdmissionsAsync(cancellationToken);
         await EnsureInventoryAsync(cancellationToken);
-        await EnsurePhase5InventoryInfrastructureAsync(cancellationToken);
         await EnsurePhase5InventorySeedAsync(cancellationToken);
         await EnsureLabTestsAsync(cancellationToken);
         await EnsureDoctorWorkspaceSeedAsync(cancellationToken);
@@ -87,41 +86,7 @@ public sealed class DatabaseInitializer
 
     private async Task EnsureDatabaseAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            await _db.Database.MigrateAsync(cancellationToken);
-        }
-        catch (Microsoft.Data.SqlClient.SqlException ex)
-            when (ex.Number == 1767 &&
-                  ex.Message.Contains("MedicineMasters", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogWarning(
-                ex,
-                "Migration history is missing the phase 5 inventory schema. Applying the inventory infrastructure script and retrying migrations.");
-
-            await ApplyPhase5InventoryInfrastructureAsync(cancellationToken);
-            await _db.Database.MigrateAsync(cancellationToken);
-        }
-    }
-
-    private async Task ApplyPhase5InventoryInfrastructureAsync(CancellationToken cancellationToken)
-    {
-        var scriptPath = Path.Combine(AppContext.BaseDirectory, "Data", "Sql", "Phase5InventoryInfrastructure.sql");
-        if (!File.Exists(scriptPath))
-        {
-            throw new FileNotFoundException("Phase 5 inventory infrastructure script was not found.", scriptPath);
-        }
-
-        var script = await File.ReadAllTextAsync(scriptPath, cancellationToken);
-        foreach (var batch in SplitSqlBatches(script))
-        {
-            if (string.IsNullOrWhiteSpace(batch))
-            {
-                continue;
-            }
-
-            await _db.Database.ExecuteSqlRawAsync(batch, cancellationToken);
-        }
+        await _db.Database.MigrateAsync(cancellationToken);
     }
 
     private async Task EnsureRolesAsync(CancellationToken cancellationToken)
@@ -1201,11 +1166,6 @@ public sealed class DatabaseInitializer
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task EnsurePhase5InventoryInfrastructureAsync(CancellationToken cancellationToken)
-    {
-        await ApplyPhase5InventoryInfrastructureAsync(cancellationToken);
-    }
-
     private async Task EnsurePhase5InventorySeedAsync(CancellationToken cancellationToken)
     {
         var branches = await _db.Branches
@@ -1520,34 +1480,6 @@ public sealed class DatabaseInitializer
                 CreatedAt = DateTime.UtcNow
             });
             await _db.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    private static IEnumerable<string> SplitSqlBatches(string script)
-    {
-        using var reader = new StringReader(script);
-        var current = new List<string>();
-        string? line;
-
-        while ((line = reader.ReadLine()) is not null)
-        {
-            if (string.Equals(line.Trim(), "GO", StringComparison.OrdinalIgnoreCase))
-            {
-                if (current.Count != 0)
-                {
-                    yield return string.Join(Environment.NewLine, current);
-                    current.Clear();
-                }
-
-                continue;
-            }
-
-            current.Add(line);
-        }
-
-        if (current.Count != 0)
-        {
-            yield return string.Join(Environment.NewLine, current);
         }
     }
 

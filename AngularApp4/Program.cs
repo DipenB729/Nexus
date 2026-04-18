@@ -4,13 +4,19 @@ using AngularApp4.Data;
 using AngularApp4.Middleware;
 using AngularApp4.Serialization;
 using AngularApp4.Services.Hms;
-using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+    builder.WebHost.UseUrls($"http://*:{renderPort}");
+}
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -23,7 +29,7 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"))
 builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(defaultConnection));
+    options.UseNpgsql(defaultConnection));
 builder.Services.AddScoped<DatabaseInitializer>();
 
 builder.Services.AddHttpContextAccessor();
@@ -31,7 +37,7 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IDoctorAvailabilityService, DoctorAvailabilityService>();
 builder.Services.AddScoped<IDoctorPortalEmailService, DoctorPortalEmailService>();
-builder.Services.AddScoped<IInventoryAdminService, InventoryAdminService>();
+builder.Services.AddScoped<IInventoryAdminService, EfInventoryAdminService>();
 builder.Services.AddScoped<IPasswordPolicyService, PasswordPolicyService>();
 builder.Services.AddScoped<IAppNotificationService, AppNotificationService>();
 builder.Services.AddSingleton<IPasswordResetService, PasswordResetService>();
@@ -98,6 +104,10 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 using (var scope = app.Services.CreateScope())
 {
@@ -106,12 +116,12 @@ using (var scope = app.Services.CreateScope())
         var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
         await initializer.InitializeAsync();
     }
-    catch (SqlException ex) when (ex.Number == -1 || ex.Number == 2 || ex.Number == 26 || ex.Number == 53)
+    catch (NpgsqlException ex)
     {
         app.Logger.LogCritical(
             ex,
-            "SQL Server connection failed for '{DataSource}'. Update ConnectionStrings:DefaultConnection or start the matching SQL Server instance before running the app.",
-            new SqlConnectionStringBuilder(defaultConnection).DataSource);
+            "PostgreSQL connection failed for '{Host}'. Update ConnectionStrings:DefaultConnection or start the matching PostgreSQL instance before running the app.",
+            new NpgsqlConnectionStringBuilder(defaultConnection).Host);
         throw;
     }
 }

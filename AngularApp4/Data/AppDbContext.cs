@@ -83,8 +83,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<Patient>()
             .HasIndex(x => x.MedicalRecordNumber)
-            .IsUnique()
-            .HasFilter("[MedicalRecordNumber] IS NOT NULL");
+            .IsUnique();
         modelBuilder.Entity<Doctor>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<DoctorAvailabilityException>().HasIndex(x => new { x.DoctorId, x.StartDate, x.EndDate, x.ExceptionType });
         modelBuilder.Entity<DoctorBlockedSlot>().HasIndex(x => new { x.DoctorId, x.BlockDate, x.StartTime, x.EndTime });

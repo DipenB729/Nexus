@@ -1,0 +1,28 @@
+services:
+  - name: nexus-app
+    type: web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./AngularApp4/Dockerfile
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: nexus-db
+          property: connectionString
+      - key: Jwt__Issuer
+        value: HospitalManagementSystem
+      - key: Jwt__Audience
+        value: HospitalManagementSystem.Client
+      - key: Jwt__Key
+        sync: false
+      - key: Jwt__ExpiresInMinutes
+        value: "120"
+
+databases:
+  - name: nexus-db
+    plan: free
+    region: oregon
+    databaseName: nexus
