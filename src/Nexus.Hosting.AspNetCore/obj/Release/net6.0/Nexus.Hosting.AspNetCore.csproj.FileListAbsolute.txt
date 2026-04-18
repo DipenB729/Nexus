@@ -1,0 +1,13 @@
+E:\Nexus\src\Nexus.Hosting.AspNetCore\bin\Release\net6.0\Nexus.Hosting.AspNetCore.deps.json
+E:\Nexus\src\Nexus.Hosting.AspNetCore\bin\Release\net6.0\Nexus.Hosting.AspNetCore.dll
+E:\Nexus\src\Nexus.Hosting.AspNetCore\bin\Release\net6.0\Nexus.Hosting.AspNetCore.pdb
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.csproj.AssemblyReference.cache
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.GeneratedMSBuildEditorConfig.editorconfig
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.AssemblyInfoInputs.cache
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.AssemblyInfo.cs
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.csproj.CoreCompileInputs.cache
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.sourcelink.json
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.dll
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\refint\Nexus.Hosting.AspNetCore.dll
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\Nexus.Hosting.AspNetCore.pdb
+E:\Nexus\src\Nexus.Hosting.AspNetCore\obj\Release\net6.0\ref\Nexus.Hosting.AspNetCore.dll

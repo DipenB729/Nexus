@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>Nexus.Hosting.AspNetCore</id>
+    <version>1.0.0</version>
+    <authors>DipenB729</authors>
+    <license type="expression">MIT</license>
+    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
+    <readme>README.md</readme>
+    <description>Helpers for deploying ASP.NET Core apps behind proxies and on platforms like Render with PostgreSQL connection URL normalization.</description>
+    <tags>aspnetcore render postgresql npgsql hosting proxy</tags>
+    <repository type="git" url="https://github.com/DipenB729/Nexus" branch="refs/heads/main" commit="55aea07a5d37540edda36e539bfb5c9902237557" />
+    <dependencies>
+      <group targetFramework="net6.0">
+        <dependency id="Microsoft.AspNetCore.WebUtilities" version="2.3.0" exclude="Build,Analyzers" />
+        <dependency id="Npgsql" version="6.0.11" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+    <frameworkReferences>
+      <group targetFramework="net6.0">
+        <frameworkReference name="Microsoft.AspNetCore.App" />
+      </group>
+    </frameworkReferences>
+  </metadata>
+  <files>
+    <file src="E:\Nexus\src\Nexus.Hosting.AspNetCore\bin\Release\net6.0\Nexus.Hosting.AspNetCore.dll" target="lib\net6.0\Nexus.Hosting.AspNetCore.dll" />
+    <file src="E:\Nexus\src\Nexus.Hosting.AspNetCore\README.md" target="\README.md" />
+  </files>
+</package>
