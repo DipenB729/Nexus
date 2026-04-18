@@ -38,7 +38,9 @@ public sealed class DatabaseInitializer
     private readonly AppDbContext _db;
     private readonly ILogger<DatabaseInitializer> _logger;
 
-    public DatabaseInitializer(AppDbContext db, ILogger<DatabaseInitializer> logger)
+    public DatabaseInitializer(
+        AppDbContext db,
+        ILogger<DatabaseInitializer> logger)
     {
         _db = db;
         _logger = logger;
@@ -46,7 +48,7 @@ public sealed class DatabaseInitializer
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        await _db.Database.MigrateAsync(cancellationToken);
+        await EnsureDatabaseAsync(cancellationToken);
         await EnsureRolesAsync(cancellationToken);
         await EnsureRolePermissionsAsync(cancellationToken);
         await EnsureDemoAccountsAsync(cancellationToken);
@@ -81,6 +83,45 @@ public sealed class DatabaseInitializer
         await EnsureAuditLogsAsync(cancellationToken);
 
         _logger.LogInformation("Database schema verified and initial seed data applied.");
+    }
+
+    private async Task EnsureDatabaseAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _db.Database.MigrateAsync(cancellationToken);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex)
+            when (ex.Number == 1767 &&
+                  ex.Message.Contains("MedicineMasters", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                ex,
+                "Migration history is missing the phase 5 inventory schema. Applying the inventory infrastructure script and retrying migrations.");
+
+            await ApplyPhase5InventoryInfrastructureAsync(cancellationToken);
+            await _db.Database.MigrateAsync(cancellationToken);
+        }
+    }
+
+    private async Task ApplyPhase5InventoryInfrastructureAsync(CancellationToken cancellationToken)
+    {
+        var scriptPath = Path.Combine(AppContext.BaseDirectory, "Data", "Sql", "Phase5InventoryInfrastructure.sql");
+        if (!File.Exists(scriptPath))
+        {
+            throw new FileNotFoundException("Phase 5 inventory infrastructure script was not found.", scriptPath);
+        }
+
+        var script = await File.ReadAllTextAsync(scriptPath, cancellationToken);
+        foreach (var batch in SplitSqlBatches(script))
+        {
+            if (string.IsNullOrWhiteSpace(batch))
+            {
+                continue;
+            }
+
+            await _db.Database.ExecuteSqlRawAsync(batch, cancellationToken);
+        }
     }
 
     private async Task EnsureRolesAsync(CancellationToken cancellationToken)
@@ -1162,23 +1203,7 @@ public sealed class DatabaseInitializer
 
     private async Task EnsurePhase5InventoryInfrastructureAsync(CancellationToken cancellationToken)
     {
-        var scriptPath = Path.Combine(AppContext.BaseDirectory, "Data", "Sql", "Phase5InventoryInfrastructure.sql");
-        if (!File.Exists(scriptPath))
-        {
-            _logger.LogWarning("Phase 5 inventory infrastructure script not found at {ScriptPath}", scriptPath);
-            return;
-        }
-
-        var script = await File.ReadAllTextAsync(scriptPath, cancellationToken);
-        foreach (var batch in SplitSqlBatches(script))
-        {
-            if (string.IsNullOrWhiteSpace(batch))
-            {
-                continue;
-            }
-
-            await _db.Database.ExecuteSqlRawAsync(batch, cancellationToken);
-        }
+        await ApplyPhase5InventoryInfrastructureAsync(cancellationToken);
     }
 
     private async Task EnsurePhase5InventorySeedAsync(CancellationToken cancellationToken)
