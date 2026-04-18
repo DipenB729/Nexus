@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <IsPackable>true</IsPackable>
-    <PackageId>Nexus.Hosting.AspNetCore</PackageId>
+    <PackageId>DilBelbase10.Nexus.Hosting.AspNetCore</PackageId>
     <Version>1.0.0</Version>
     <Authors>DipenB729</Authors>
     <Company>DipenB729</Company>

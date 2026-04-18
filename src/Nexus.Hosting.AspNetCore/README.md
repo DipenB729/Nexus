@@ -11,7 +11,7 @@ Features:
 ## Install
 
 ```bash
-dotnet add package Nexus.Hosting.AspNetCore
+dotnet add package DilBelbase10.Nexus.Hosting.AspNetCore
 ```
 
 ## Usage
