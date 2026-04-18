@@ -4,6 +4,7 @@ using AngularApp4.Data;
 using AngularApp4.Middleware;
 using AngularApp4.Serialization;
 using AngularApp4.Services.Hms;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -15,11 +16,14 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(defaultConnection));
 builder.Services.AddScoped<DatabaseInitializer>();
 
 builder.Services.AddHttpContextAccessor();
@@ -97,8 +101,19 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
-    await initializer.InitializeAsync();
+    try
+    {
+        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+        await initializer.InitializeAsync();
+    }
+    catch (SqlException ex) when (ex.Number == -1 || ex.Number == 2 || ex.Number == 26 || ex.Number == 53)
+    {
+        app.Logger.LogCritical(
+            ex,
+            "SQL Server connection failed for '{DataSource}'. Update ConnectionStrings:DefaultConnection or start the matching SQL Server instance before running the app.",
+            new SqlConnectionStringBuilder(defaultConnection).DataSource);
+        throw;
+    }
 }
 
 if (!app.Environment.IsDevelopment())

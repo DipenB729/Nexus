@@ -87,13 +87,25 @@ jobs:
           name: app-publish
           path: publish
 
+      - name: Check deployment configuration
+        id: deploy_config
+        env:
+          AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+          AZURE_WEBAPP_PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        run: |
+          if [ -n "$AZURE_WEBAPP_NAME" ] && [ -n "$AZURE_WEBAPP_PUBLISH_PROFILE" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set deployment metadata
         id: deploy_meta
         run: |
           echo "app_url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Azure Web App
-        if: ${{ secrets.AZURE_WEBAPP_NAME != '' && secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
+        if: steps.deploy_config.outputs.configured == 'true'
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
@@ -101,7 +113,7 @@ jobs:
           package: publish
 
       - name: Deployment target not configured
-        if: ${{ secrets.AZURE_WEBAPP_NAME == '' || secrets.AZURE_WEBAPP_PUBLISH_PROFILE == '' }}
+        if: steps.deploy_config.outputs.configured != 'true'
         run: |
           echo "No deployment target secrets configured."
           echo "Create repository secrets AZURE_WEBAPP_NAME and AZURE_WEBAPP_PUBLISH_PROFILE to enable Azure deployment."
