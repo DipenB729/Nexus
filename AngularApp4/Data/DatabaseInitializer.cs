@@ -48,40 +48,50 @@ public sealed class DatabaseInitializer
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        await EnsureDatabaseAsync(cancellationToken);
-        await EnsureRolesAsync(cancellationToken);
-        await EnsureRolePermissionsAsync(cancellationToken);
-        await EnsureDemoAccountsAsync(cancellationToken);
-        await EnsureHospitalProfileAsync(cancellationToken);
-        await EnsureNotificationSettingsAsync(cancellationToken);
-        await EnsureSystemControlSettingsAsync(cancellationToken);
-        await EnsureSecuritySettingsAsync(cancellationToken);
-        await EnsureBranchesAsync(cancellationToken);
-        await EnsureDepartmentsAsync(cancellationToken);
-        await EnsurePatientCategoriesAsync(cancellationToken);
-        await EnsurePatientCategoryAssignmentsAsync(cancellationToken);
-        await EnsurePatientProfilesAsync(cancellationToken);
-        await EnsureSeedServicesAsync(cancellationToken);
-        await EnsureDoctorsAsync(cancellationToken);
-        await EnsureDoctorSchedulesAsync(cancellationToken);
-        await EnsureStaffAsync(cancellationToken);
-        await EnsureWardsAndBedsAsync(cancellationToken);
-        await EnsureTokenSettingsAsync(cancellationToken);
-        await EnsureAppointmentsAsync(cancellationToken);
-        await EnsureAdmissionsAsync(cancellationToken);
-        await EnsureInventoryAsync(cancellationToken);
-        await EnsurePhase5InventorySeedAsync(cancellationToken);
-        await EnsureLabTestsAsync(cancellationToken);
-        await EnsureDoctorWorkspaceSeedAsync(cancellationToken);
-        await EnsureServicePackagesAsync(cancellationToken);
-        await EnsureBillingChargeDefinitionsAsync(cancellationToken);
-        await EnsureBillingPaymentMethodsAsync(cancellationToken);
-        await EnsureBillingPartnersAsync(cancellationToken);
-        await EnsureBillingRulesAsync(cancellationToken);
-        await EnsureBillingAsync(cancellationToken);
-        await EnsureAuditLogsAsync(cancellationToken);
+        await RunStepAsync("database", EnsureDatabaseAsync, cancellationToken);
+        await RunStepAsync("roles", EnsureRolesAsync, cancellationToken);
+        await RunStepAsync("role-permissions", EnsureRolePermissionsAsync, cancellationToken);
+        await RunStepAsync("demo-accounts", EnsureDemoAccountsAsync, cancellationToken);
+        await RunStepAsync("hospital-profile", EnsureHospitalProfileAsync, cancellationToken);
+        await RunStepAsync("notification-settings", EnsureNotificationSettingsAsync, cancellationToken);
+        await RunStepAsync("system-control-settings", EnsureSystemControlSettingsAsync, cancellationToken);
+        await RunStepAsync("security-settings", EnsureSecuritySettingsAsync, cancellationToken);
+        await RunStepAsync("branches", EnsureBranchesAsync, cancellationToken);
+        await RunStepAsync("departments", EnsureDepartmentsAsync, cancellationToken);
+        await RunStepAsync("patient-categories", EnsurePatientCategoriesAsync, cancellationToken);
+        await RunStepAsync("patient-category-assignments", EnsurePatientCategoryAssignmentsAsync, cancellationToken);
+        await RunStepAsync("patient-profiles", EnsurePatientProfilesAsync, cancellationToken);
+        await RunStepAsync("services", EnsureSeedServicesAsync, cancellationToken);
+        await RunStepAsync("doctors", EnsureDoctorsAsync, cancellationToken);
+        await RunStepAsync("doctor-schedules", EnsureDoctorSchedulesAsync, cancellationToken);
+        await RunStepAsync("staff", EnsureStaffAsync, cancellationToken);
+        await RunStepAsync("wards-and-beds", EnsureWardsAndBedsAsync, cancellationToken);
+        await RunStepAsync("token-settings", EnsureTokenSettingsAsync, cancellationToken);
+        await RunStepAsync("appointments", EnsureAppointmentsAsync, cancellationToken);
+        await RunStepAsync("admissions", EnsureAdmissionsAsync, cancellationToken);
+        await RunStepAsync("inventory", EnsureInventoryAsync, cancellationToken);
+        await RunStepAsync("phase5-inventory-seed", EnsurePhase5InventorySeedAsync, cancellationToken);
+        await RunStepAsync("lab-tests", EnsureLabTestsAsync, cancellationToken);
+        await RunStepAsync("doctor-workspace-seed", EnsureDoctorWorkspaceSeedAsync, cancellationToken);
+        await RunStepAsync("service-packages", EnsureServicePackagesAsync, cancellationToken);
+        await RunStepAsync("billing-charge-definitions", EnsureBillingChargeDefinitionsAsync, cancellationToken);
+        await RunStepAsync("billing-payment-methods", EnsureBillingPaymentMethodsAsync, cancellationToken);
+        await RunStepAsync("billing-partners", EnsureBillingPartnersAsync, cancellationToken);
+        await RunStepAsync("billing-rules", EnsureBillingRulesAsync, cancellationToken);
+        await RunStepAsync("billing", EnsureBillingAsync, cancellationToken);
+        await RunStepAsync("audit-logs", EnsureAuditLogsAsync, cancellationToken);
 
         _logger.LogInformation("Database schema verified and initial seed data applied.");
+    }
+
+    private async Task RunStepAsync(
+        string stepName,
+        Func<CancellationToken, Task> step,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Database initialization step started: {StepName}", stepName);
+        await step(cancellationToken);
+        _logger.LogInformation("Database initialization step completed: {StepName}", stepName);
     }
 
     private async Task EnsureDatabaseAsync(CancellationToken cancellationToken)

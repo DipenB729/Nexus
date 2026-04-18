@@ -6,10 +6,13 @@ using AngularApp4.Serialization;
 using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Npgsql;
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 var renderPort = Environment.GetEnvironmentVariable("PORT");
@@ -24,6 +27,7 @@ builder.Logging.AddDebug();
 
 var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+defaultConnection = NormalizePostgresConnectionString(defaultConnection);
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddMemoryCache();
@@ -111,18 +115,26 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 using (var scope = app.Services.CreateScope())
 {
-    try
+    var skipDatabaseInitializer = builder.Configuration.GetValue<bool>("SKIP_DATABASE_INITIALIZER");
+    if (skipDatabaseInitializer)
     {
-        var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
-        await initializer.InitializeAsync();
+        app.Logger.LogWarning("Skipping database initialization because SKIP_DATABASE_INITIALIZER is enabled.");
     }
-    catch (NpgsqlException ex)
+    else
     {
-        app.Logger.LogCritical(
-            ex,
-            "PostgreSQL connection failed for '{Host}'. Update ConnectionStrings:DefaultConnection or start the matching PostgreSQL instance before running the app.",
-            new NpgsqlConnectionStringBuilder(defaultConnection).Host);
-        throw;
+        try
+        {
+            var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+            await initializer.InitializeAsync();
+        }
+        catch (NpgsqlException ex)
+        {
+            app.Logger.LogCritical(
+                ex,
+                "PostgreSQL connection failed for '{Host}'. Update ConnectionStrings:DefaultConnection or start the matching PostgreSQL instance before running the app.",
+                new NpgsqlConnectionStringBuilder(defaultConnection).Host);
+            throw;
+        }
     }
 }
 
@@ -151,3 +163,51 @@ app.MapControllers();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+static string NormalizePostgresConnectionString(string connectionString)
+{
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri) ||
+        (uri.Scheme != "postgres" && uri.Scheme != "postgresql"))
+    {
+        return connectionString;
+    }
+
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.IsDefaultPort ? 5432 : uri.Port,
+        Database = uri.AbsolutePath.Trim('/'),
+        SslMode = SslMode.Require,
+        TrustServerCertificate = true
+    };
+
+    if (!string.IsNullOrEmpty(uri.UserInfo))
+    {
+        var userInfo = uri.UserInfo.Split(':', 2);
+        builder.Username = Uri.UnescapeDataString(userInfo[0]);
+        if (userInfo.Length > 1)
+        {
+            builder.Password = Uri.UnescapeDataString(userInfo[1]);
+        }
+    }
+
+    if (!string.IsNullOrWhiteSpace(uri.Query))
+    {
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("sslmode", out var sslModeValue) &&
+            !string.IsNullOrWhiteSpace(sslModeValue) &&
+            Enum.TryParse<SslMode>(sslModeValue.ToString(), true, out var sslMode))
+        {
+            builder.SslMode = sslMode;
+        }
+
+        if (query.TryGetValue("trust server certificate", out var trustServerCertificateValue) &&
+            !string.IsNullOrWhiteSpace(trustServerCertificateValue) &&
+            bool.TryParse(trustServerCertificateValue.ToString(), out var trustServerCertificate))
+        {
+            builder.TrustServerCertificate = trustServerCertificate;
+        }
+    }
+
+    return builder.ConnectionString;
+}
