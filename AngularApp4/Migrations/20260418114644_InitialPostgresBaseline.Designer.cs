@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AngularApp4.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260418112205_InitialPostgres")]
-    partial class InitialPostgres
+    [Migration("20260418114644_InitialPostgresBaseline")]
+    partial class InitialPostgresBaseline
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -333,7 +333,7 @@ namespace AngularApp4.Migrations
                         .HasColumnType("character varying(150)");
 
                     b.Property<string>("SnapshotJson")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()

@@ -331,7 +331,7 @@ namespace AngularApp4.Migrations
                         .HasColumnType("character varying(150)");
 
                     b.Property<string>("SnapshotJson")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()

@@ -6,7 +6,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace AngularApp4.Migrations
 {
-    public partial class InitialPostgres : Migration
+    public partial class InitialPostgresBaseline : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -114,7 +114,7 @@ namespace AngularApp4.Migrations
                     BackupType = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
                     Status = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
                     Summary = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
-                    SnapshotJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SnapshotJson = table.Column<string>(type: "text", nullable: true),
                     TriggeredByUserId = table.Column<long>(type: "bigint", nullable: true),
                     TriggeredByName = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: true),
                     RestoredAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),

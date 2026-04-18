@@ -71,7 +71,7 @@ public class BackupLog
     [Required, MaxLength(40)] public string BackupType { get; set; } = string.Empty;
     [Required, MaxLength(40)] public string Status { get; set; } = string.Empty;
     [Required, MaxLength(300)] public string Summary { get; set; } = string.Empty;
-    [Column(TypeName = "nvarchar(max)")] public string? SnapshotJson { get; set; }
+    public string? SnapshotJson { get; set; }
     public long? TriggeredByUserId { get; set; }
     [MaxLength(150)] public string? TriggeredByName { get; set; }
     public DateTime? RestoredAt { get; set; }
