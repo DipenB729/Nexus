@@ -191,6 +191,187 @@ public class AppointmentsController : ControllerBase
         return Ok(ApiResponse<IEnumerable<PatientAppointmentSummaryDto>>.Ok(items));
     }
 
+    [HttpGet("my/{appointmentId:long}")]
+    [Authorize(Policy = "UserOnly")]
+    public async Task<ActionResult<ApiResponse<DoctorWorkspaceAppointmentDetailDto>>> MyDetail(long appointmentId, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+        if (patient is null)
+        {
+            return NotFound(ApiResponse<DoctorWorkspaceAppointmentDetailDto>.Fail("Patient profile not found"));
+        }
+
+        var appointment = await _db.Appointments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.AppointmentId == appointmentId && x.PatientId == patient.PatientId, cancellationToken);
+        if (appointment is null)
+        {
+            return NotFound(ApiResponse<DoctorWorkspaceAppointmentDetailDto>.Fail("Appointment not found"));
+        }
+
+        var patientUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == patient.UserId, cancellationToken);
+        var doctor = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.DoctorId == appointment.DoctorId, cancellationToken);
+        if (doctor is null)
+        {
+            return NotFound(ApiResponse<DoctorWorkspaceAppointmentDetailDto>.Fail("Doctor profile not found"));
+        }
+
+        var serviceName = await _db.Services.AsNoTracking()
+            .Where(x => x.Id == appointment.ServiceId)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+        var departmentName = await _db.Doctors.AsNoTracking()
+            .Where(x => x.DoctorId == doctor.DoctorId)
+            .Join(_db.Departments.AsNoTracking(), d => d.DepartmentId, dept => dept.DepartmentId, (d, dept) => dept.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+        var clinicalProfile = await _db.PatientClinicalProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.PatientId == patient.PatientId, cancellationToken);
+        var consultation = await _db.DoctorConsultations.AsNoTracking().FirstOrDefaultAsync(x => x.AppointmentId == appointment.AppointmentId, cancellationToken);
+
+        var previousPrescriptions = await _db.DoctorPrescriptions
+            .AsNoTracking()
+            .Where(x => x.PatientId == patient.PatientId)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(10)
+            .Select(x => new DoctorPrescriptionDto
+            {
+                DoctorPrescriptionId = x.DoctorPrescriptionId,
+                AppointmentId = x.AppointmentId,
+                CreatedAt = x.CreatedAt,
+                Notes = x.Notes
+            })
+            .ToListAsync(cancellationToken);
+
+        var prescriptionIds = previousPrescriptions.Select(x => x.DoctorPrescriptionId).ToList();
+        var prescriptionItems = await _db.DoctorPrescriptionItems
+            .AsNoTracking()
+            .Where(x => prescriptionIds.Contains(x.DoctorPrescriptionId))
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync(cancellationToken);
+        foreach (var prescription in previousPrescriptions)
+        {
+            prescription.Items = prescriptionItems
+                .Where(x => x.DoctorPrescriptionId == prescription.DoctorPrescriptionId)
+                .Select(x => new DoctorPrescriptionItemDto
+                {
+                    MedicineMasterId = x.MedicineMasterId,
+                    MedicineName = x.MedicineName,
+                    Dosage = x.Dosage,
+                    Frequency = x.Frequency,
+                    Duration = x.Duration,
+                    Instructions = x.Instructions
+                })
+                .ToList();
+        }
+
+        var diagnosticRequests = await _db.DiagnosticRequests
+            .AsNoTracking()
+            .Where(x => x.PatientId == patient.PatientId)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(20)
+            .Select(x => new DiagnosticRequestDto
+            {
+                DiagnosticRequestId = x.DiagnosticRequestId,
+                AppointmentId = x.AppointmentId,
+                RequestType = x.RequestType.ToString(),
+                LabTestMasterId = x.LabTestMasterId,
+                RequestedItemName = x.RequestedItemName,
+                Remarks = x.Remarks,
+                ResultSummary = x.ResultSummary,
+                Status = x.Status.ToString(),
+                CreatedAt = x.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var pastAppointments = await (
+                from item in _db.Appointments.AsNoTracking()
+                join itemDoctor in _db.Doctors.AsNoTracking() on item.DoctorId equals itemDoctor.DoctorId
+                join itemService in _db.Services.AsNoTracking() on item.ServiceId equals itemService.Id into serviceJoin
+                from itemService in serviceJoin.DefaultIfEmpty()
+                join itemConsultation in _db.DoctorConsultations.AsNoTracking() on item.AppointmentId equals itemConsultation.AppointmentId into consultationJoin
+                from itemConsultation in consultationJoin.DefaultIfEmpty()
+                where item.PatientId == patient.PatientId && item.AppointmentId != appointment.AppointmentId
+                orderby item.AppointmentDate descending, item.SlotStartTime descending
+                select new PatientAppointmentHistoryDto
+                {
+                    AppointmentId = item.AppointmentId,
+                    AppointmentDate = item.AppointmentDate,
+                    DoctorName = itemDoctor.FullName,
+                    Diagnosis = itemConsultation != null ? itemConsultation.Diagnosis : null,
+                    ServiceName = itemService != null ? itemService.Name : null,
+                    Status = item.Status.ToString()
+                })
+            .Take(12)
+            .ToListAsync(cancellationToken);
+
+        var admissionHistory = await _db.PatientAdmissions
+            .AsNoTracking()
+            .Where(x => x.PatientId == patient.PatientId)
+            .OrderByDescending(x => x.AdmissionDate)
+            .Take(10)
+            .Select(x => new PatientAdmissionHistoryDto
+            {
+                PatientAdmissionId = x.PatientAdmissionId,
+                AdmissionNumber = x.AdmissionNumber,
+                AdmissionDate = x.AdmissionDate,
+                DischargeDate = x.DischargeDate,
+                Status = x.Status.ToString(),
+                WardName = x.Ward != null ? x.Ward.Name : null,
+                BedNumber = x.Bed != null ? x.Bed.BedNumber : null,
+                Reason = x.Reason
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(ApiResponse<DoctorWorkspaceAppointmentDetailDto>.Ok(new DoctorWorkspaceAppointmentDetailDto
+        {
+            AppointmentId = appointment.AppointmentId,
+            AppointmentDate = appointment.AppointmentDate,
+            SlotStartTime = appointment.SlotStartTime,
+            SlotEndTime = appointment.SlotEndTime,
+            Status = appointment.Status.ToString(),
+            TokenNumber = appointment.TokenNumber,
+            Reason = appointment.Reason,
+            AdminRemarks = appointment.AdminRemarks,
+            DoctorId = doctor.DoctorId,
+            DoctorName = doctor.FullName,
+            PatientId = patient.PatientId,
+            PatientName = patientUser?.FullName ?? "Patient",
+            MedicalRecordNumber = patient.MedicalRecordNumber ?? $"MRN-{patient.PatientId:D5}",
+            PatientEmail = patientUser?.Email,
+            PatientPhone = patientUser?.Phone,
+            Gender = patient.Gender,
+            DateOfBirth = patient.DateOfBirth,
+            BloodGroup = patient.BloodGroup,
+            EmergencyContact = patient.EmergencyContact,
+            Address = patient.Address,
+            ServiceName = serviceName,
+            DepartmentName = departmentName,
+            ClinicalProfile = new PatientClinicalProfileDto
+            {
+                MedicalHistory = clinicalProfile?.MedicalHistory,
+                Allergies = clinicalProfile?.Allergies,
+                ChronicConditions = clinicalProfile?.ChronicConditions,
+                CurrentMedications = clinicalProfile?.CurrentMedications
+            },
+            Consultation = new DoctorConsultationDto
+            {
+                DoctorConsultationId = consultation?.DoctorConsultationId,
+                Symptoms = consultation?.Symptoms,
+                Diagnosis = consultation?.Diagnosis,
+                Notes = consultation?.Notes,
+                VitalObservations = consultation?.VitalObservations,
+                Advice = consultation?.Advice,
+                FollowUpDate = consultation?.FollowUpDate,
+                Status = consultation?.Status.ToString() ?? DoctorConsultationStatus.Draft.ToString(),
+                UpdatedAt = consultation?.UpdatedAt ?? consultation?.CreatedAt
+            },
+            PreviousPrescriptions = previousPrescriptions,
+            DiagnosticRequests = diagnosticRequests,
+            PastAppointments = pastAppointments,
+            AdmissionHistory = admissionHistory
+        }));
+    }
+
     [HttpGet("doctor/my")]
     [Authorize(Policy = "DoctorOnly")]
     public async Task<ActionResult<ApiResponse<IEnumerable<DoctorAppointmentSummaryDto>>>> DoctorMy([FromQuery] AppointmentStatus? status = null)

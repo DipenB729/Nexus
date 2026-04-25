@@ -2,10 +2,12 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { PatientAppointment } from '../../core/models/hms/auth.model';
+import { DoctorWorkspaceAppointmentDetail } from '../../core/models/hms/doctor-workspace.model';
 import { AppointmentService } from '../../core/services/appointment.service';
 import { NotificationsService } from '../../core/services/notifications.service';
 
 type ViewMode = 'index' | 'details';
+type PatientCareSection = 'consultation' | 'prescriptions' | 'diagnostics' | 'history';
 
 @Component({
   selector: 'app-my-bookings',
@@ -14,14 +16,23 @@ type ViewMode = 'index' | 'details';
 })
 export class MyBookingsComponent implements OnInit, OnDestroy {
   appointments: PatientAppointment[] = [];
+  selectedAppointmentDetail: DoctorWorkspaceAppointmentDetail | null = null;
   viewMode: ViewMode = 'index';
   selectedAppointmentId: number | null = null;
+  activeCareSection: PatientCareSection = 'consultation';
 
   isLoading = true;
+  isLoadingDetail = false;
   isCancelling = false;
   errorMessage = '';
   statusMessage = '';
   searchTerm = '';
+  readonly careSections: Array<{ id: PatientCareSection; label: string }> = [
+    { id: 'consultation', label: 'Consultation' },
+    { id: 'prescriptions', label: 'Prescription' },
+    { id: 'diagnostics', label: 'Diagnostics' },
+    { id: 'history', label: 'History' }
+  ];
 
   private appointmentsSub?: Subscription;
   private routeSub?: Subscription;
@@ -91,7 +102,12 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
   }
 
   backToIndex(): void {
+    this.selectedAppointmentDetail = null;
     this.router.navigate(['/patient/appointments']);
+  }
+
+  setCareSection(section: PatientCareSection): void {
+    this.activeCareSection = section;
   }
 
   cancelAppointment(appointment: PatientAppointment): void {
@@ -148,11 +164,14 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
     if (appointmentId) {
       this.viewMode = 'details';
       this.selectedAppointmentId = appointmentId;
+      this.activeCareSection = 'consultation';
+      this.loadAppointmentDetail(appointmentId);
       return;
     }
 
     this.viewMode = 'index';
     this.selectedAppointmentId = null;
+    this.selectedAppointmentDetail = null;
   }
 
   private formatTime(value: string): string {
@@ -179,6 +198,22 @@ export class MyBookingsComponent implements OnInit, OnDestroy {
       error: () => {
         this.isLoading = false;
         this.errorMessage = 'Unable to load your appointments right now.';
+      }
+    });
+  }
+
+  private loadAppointmentDetail(appointmentId: number): void {
+    this.isLoadingDetail = true;
+    this.selectedAppointmentDetail = null;
+
+    this.appointmentsApi.getMyAppointmentDetail(appointmentId).subscribe({
+      next: (detail) => {
+        this.selectedAppointmentDetail = detail;
+        this.isLoadingDetail = false;
+      },
+      error: () => {
+        this.isLoadingDetail = false;
+        this.errorMessage = 'Unable to load the doctor notes for this appointment right now.';
       }
     });
   }

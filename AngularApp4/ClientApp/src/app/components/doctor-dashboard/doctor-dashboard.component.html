@@ -1,5 +1,5 @@
 <section class="doctor-dashboard">
-  <header class="hero">
+  <header class="hero" *ngIf="isDashboardRoute">
     <div class="hero-left">
       <span class="avatar">{{ displayName.charAt(0) }}</span>
       <div>
@@ -11,7 +11,10 @@
 
     <div class="hero-copy">
       <strong>Appointments, consultation, prescriptions, and follow-up planning are handled here.</strong>
-      <span>Doctor availability and patient history are available in the same workspace.</span>
+      <span *ngIf="isAvailabilityRoute; else appointmentHeroCopy">Manage clinic hours and unavailable dates from this page.</span>
+      <ng-template #appointmentHeroCopy>
+        <span>Review the patient queue, open visits, and update appointment status from the table.</span>
+      </ng-template>
     </div>
   </header>
 
@@ -20,7 +23,14 @@
   <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
   <ng-container *ngIf="!selectedDetail">
-    <div class="stats-grid" *ngIf="!isLoading">
+    <div class="page-header" *ngIf="!isDashboardRoute">
+      <div>
+        <h1>{{ doctorPageTitle }}</h1>
+        <p>{{ doctorPageSubtitle }}</p>
+      </div>
+    </div>
+
+    <div class="stats-grid" *ngIf="!isLoading && isDashboardRoute">
       <article class="stat-card highlight">
         <p>Total appointments</p>
         <strong>{{ appointments.length }}</strong>
@@ -43,81 +53,83 @@
       </article>
     </div>
 
-    <div class="workspace-grid" *ngIf="!isLoading">
-      <section class="panel">
-        <div class="section-head">
+    <div class="workspace-grid appointments-index" *ngIf="!isLoading && !isAvailabilityRoute">
+      <div class="table-actions">
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Search appointments</mat-label>
+          <input matInput [(ngModel)]="searchTerm" placeholder="Patient, MRN, token, service" />
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="statusFilter">
+            <mat-option value="All">All statuses</mat-option>
+            <mat-option *ngFor="let status of statusOptions" [value]="status">{{ status }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-stroked-button type="button" (click)="refreshAppointments()">Refresh</button>
+      </div>
+
+      <section class="panel table-card appointments-panel">
+        <div class="panel-head">
           <div>
-            <p class="eyebrow">Appointments</p>
-            <h2>Booked patients</h2>
+            <span class="eyebrow">Appointments</span>
+            <h2>Appointment index</h2>
           </div>
-          <mat-form-field appearance="outline" class="search-field">
-            <mat-label>Search appointments</mat-label>
-            <input matInput [(ngModel)]="searchTerm" placeholder="Patient, MRN, token, service" />
-            <mat-icon matSuffix>search</mat-icon>
-          </mat-form-field>
         </div>
 
         <div class="table-wrap">
-          <table class="phase-table" *ngIf="filteredAppointments.length > 0; else noAppointments">
+          <table class="phase-table appointment-table" *ngIf="filteredAppointments.length > 0; else noAppointments">
             <thead>
               <tr>
+                <th>#</th>
                 <th>Patient</th>
                 <th>Visit</th>
                 <th>Status</th>
                 <th>Token</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let appointment of filteredAppointments">
+              <tr *ngFor="let appointment of filteredAppointments; let i = index">
+                <td>{{ i + 1 }}</td>
                 <td>
-                  <strong>{{ appointment.patientName }}</strong>
-                  <small>{{ appointment.medicalRecordNumber }}</small>
+                  <button type="button" class="name-link" (click)="openAppointment(appointment.appointmentId)">{{ appointment.patientName }}</button>
+                  <small>{{ appointment.medicalRecordNumber }} | {{ appointment.serviceName || 'General consultation' }}</small>
                 </td>
                 <td>
                   <strong>{{ appointment.appointmentDate | date:'mediumDate' }}</strong>
                   <small>{{ formatSlot(appointment) }}</small>
                 </td>
-                <td><span class="status" [class]="appointment.status.toLowerCase()">{{ appointment.status }}</span></td>
+                <td><span class="status-pill" [ngClass]="appointment.status.toLowerCase()">{{ appointment.status }}</span></td>
                 <td>{{ appointment.tokenNumber || 'Pending' }}</td>
-                <td class="action-cell">
-                  <button mat-button type="button" (click)="openAppointment(appointment.appointmentId)">Open</button>
-                  <button
-                    mat-button
-                    color="primary"
-                    type="button"
-                    *ngIf="canApproveAppointment(appointment)"
-                    (click)="updateAppointmentStatus(appointment, 'Approved')">
-                    Approve
-                  </button>
-                  <button
-                    mat-button
-                    color="accent"
-                    type="button"
-                    *ngIf="canCompleteAppointment(appointment)"
-                    (click)="updateAppointmentStatus(appointment, 'Completed')">
-                    Complete
-                  </button>
-                  <button
-                    mat-button
-                    color="warn"
-                    type="button"
-                    *ngIf="canCancelAppointment(appointment)"
-                    (click)="updateAppointmentStatus(appointment, 'Cancelled')">
-                    Cancel
-                  </button>
+                <td>
+                  <div class="action-cell">
+                    <button
+                      mat-stroked-button
+                      color="primary"
+                      type="button"
+                      class="open-action"
+                      (click)="openAppointment(appointment.appointmentId)">
+                      Open
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
+    </div>
 
+    <div class="workspace-grid availability-index" *ngIf="isAvailabilityRoute">
       <section class="panel">
         <div class="section-head">
           <div>
             <p class="eyebrow">Availability</p>
-            <h2>Doctor availability management</h2>
+            <h2>Schedule and leave</h2>
           </div>
         </div>
 
@@ -242,7 +254,7 @@
   </ng-container>
 
   <section class="detail-page" *ngIf="selectedDetail as detail">
-      <div class="detail-toolbar">
+    <div class="detail-toolbar">
       <button mat-stroked-button type="button" (click)="backToAppointments()">
         <mat-icon>arrow_back</mat-icon>
         Back to appointments
@@ -258,6 +270,13 @@
         </button>
         <button
           mat-stroked-button
+          type="button"
+          *ngIf="canRescheduleAppointment(detail)"
+          (click)="updateAppointmentStatus(detail, 'Rescheduled')">
+          Reschedule
+        </button>
+        <button
+          mat-stroked-button
           color="accent"
           type="button"
           *ngIf="canCompleteAppointment(detail)"
@@ -270,22 +289,43 @@
           type="button"
           *ngIf="canCancelAppointment(detail)"
           (click)="updateAppointmentStatus(detail, 'Cancelled')">
-          Cancel appointment
+          {{ detail.status === 'Pending' ? 'Reject appointment' : 'Cancel appointment' }}
         </button>
         <button mat-stroked-button type="button" (click)="printPrescription()">Print prescription</button>
         <button mat-raised-button color="primary" type="button" (click)="downloadPrescription()">Download prescription</button>
       </div>
     </div>
 
-    <div class="detail-grid">
+    <section class="detail-summary-panel">
+      <div>
+        <span class="eyebrow">Appointment</span>
+        <h1>{{ detail.patientName }}</h1>
+        <p>{{ detail.medicalRecordNumber }} | {{ detail.appointmentDate | date:'mediumDate' }} | {{ formatTime(detail.slotStartTime) }} - {{ formatTime(detail.slotEndTime) }}</p>
+      </div>
+      <div class="detail-summary-meta">
+        <span class="status-pill" [ngClass]="detail.status.toLowerCase()">{{ detail.status }}</span>
+        <span>{{ detail.serviceName || 'General consultation' }}</span>
+        <span>{{ detail.patientPhone || 'Phone not available' }}</span>
+      </div>
+    </section>
+
+    <nav class="detail-section-tabs" aria-label="Doctor appointment detail sections">
+      <button
+        type="button"
+        *ngFor="let section of doctorDetailSections"
+        [class.active]="activeDoctorDetailSection === section.id"
+        (click)="setDoctorDetailSection(section.id)">
+        {{ section.label }}
+      </button>
+    </nav>
+
+    <div class="detail-grid" *ngIf="activeDoctorDetailSection === 'overview'">
       <section class="panel patient-summary">
         <div class="section-head">
           <div>
-            <p class="eyebrow">Appointment details</p>
-            <h2>{{ detail.patientName }}</h2>
-            <p class="muted">{{ detail.medicalRecordNumber }} | {{ detail.appointmentDate | date:'mediumDate' }} | {{ formatTime(detail.slotStartTime) }} - {{ formatTime(detail.slotEndTime) }}</p>
+            <p class="eyebrow">Patient and visit</p>
+            <h2>Overview</h2>
           </div>
-          <span class="status" [class]="detail.status.toLowerCase()">{{ detail.status }}</span>
         </div>
 
         <div class="meta-grid">
@@ -342,7 +382,7 @@
       </section>
     </div>
 
-    <div class="detail-grid consultation-grid">
+    <div class="detail-grid consultation-grid" *ngIf="activeDoctorDetailSection === 'consultation'">
       <section class="panel">
         <div class="section-head">
           <div>
@@ -387,6 +427,9 @@
         </div>
       </section>
 
+    </div>
+
+    <div class="detail-grid single-section-grid" *ngIf="activeDoctorDetailSection === 'prescription'">
       <section class="panel">
         <div class="section-head">
           <div>
@@ -442,7 +485,7 @@
       </section>
     </div>
 
-    <div class="detail-grid">
+    <div class="detail-grid" *ngIf="activeDoctorDetailSection === 'diagnostics'">
       <section class="panel">
         <div class="section-head">
           <div>
@@ -507,6 +550,9 @@
         </div>
       </section>
 
+    </div>
+
+    <div class="detail-grid single-section-grid" *ngIf="activeDoctorDetailSection === 'history'">
       <section class="panel">
         <div class="section-head">
           <div>

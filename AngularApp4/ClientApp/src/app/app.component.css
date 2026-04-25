@@ -1,12 +1,16 @@
 .auth-shell {
   min-height: 100vh;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: linear-gradient(180deg, #f7fbff 0%, #edf4ff 100%);
 }
 
 .public-shell {
   min-height: 100vh;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: #f4f7f9;
 }
 
@@ -22,9 +26,10 @@
   --shell-accent-soft: #dbeafe;
   --shell-accent-contrast: #1d4ed8;
   display: block;
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
-  overflow: visible;
+  overflow-x: hidden;
   background: var(--shell-bg);
 }
 
@@ -57,13 +62,15 @@
   min-height: 100vh;
   background: transparent;
   margin-left: 272px;
-  width: calc(100vw - 272px);
-  transition: margin-left 0.28s ease, width 0.28s ease;
+  width: auto;
+  max-width: calc(100% - 272px);
+  overflow-x: hidden;
+  transition: margin-left 0.28s ease, max-width 0.28s ease;
 }
 
 .sidebar-nav.collapsed + .main-content {
   margin-left: 88px;
-  width: calc(100vw - 88px);
+  max-width: calc(100% - 88px);
 }
 
 .top-navbar {
@@ -82,6 +89,7 @@
   backdrop-filter: blur(16px);
   box-shadow: 0 18px 42px rgba(148, 163, 184, 0.08);
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .header-left,
@@ -89,6 +97,19 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+}
+
+.header-left {
+  flex: 1 1 auto;
+}
+
+.header-left > div {
+  min-width: 0;
+}
+
+.header-right {
+  flex: 0 1 auto;
 }
 
 .workspace-chip {
@@ -110,6 +131,7 @@
   font-size: 1.18rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
 .menu-toggle,
@@ -293,6 +315,10 @@
 
 .page-body {
   flex: 1;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 22px 18px 24px;
 }
@@ -310,13 +336,15 @@
   .main-content,
   .sidebar-nav.collapsed + .main-content {
     margin-left: 0;
-    width: 100vw;
+    width: 100%;
+    max-width: 100%;
   }
 
   .top-navbar {
     margin: 12px 12px 0;
     padding: 0 16px;
     border-radius: 18px;
+    gap: 10px;
   }
 
   .page-body {

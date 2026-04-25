@@ -14,6 +14,7 @@
   </div>
 
   <p class="feedback" *ngIf="isLoading">Loading your appointment history...</p>
+  <p class="feedback" *ngIf="isLoadingDetail">Loading doctor notes...</p>
   <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
   <p class="feedback success" *ngIf="statusMessage">{{ statusMessage }}</p>
 
@@ -124,6 +125,78 @@
       </div>
     </div>
 
+    <section class="care-summary" *ngIf="selectedAppointmentDetail as care">
+      <div class="care-head">
+        <div>
+          <p class="eyebrow">Care communication</p>
+          <h3>Doctor notes and follow-up</h3>
+        </div>
+        <span *ngIf="care.consultation.updatedAt">Updated {{ care.consultation.updatedAt | date:'mediumDate' }}</span>
+      </div>
+
+      <nav class="care-tabs" aria-label="Appointment care sections">
+        <button
+          type="button"
+          *ngFor="let section of careSections"
+          [class.active]="activeCareSection === section.id"
+          (click)="setCareSection(section.id)">
+          {{ section.label }}
+        </button>
+      </nav>
+
+      <div class="care-panel" *ngIf="activeCareSection === 'consultation'">
+        <div class="care-grid">
+          <article><span>Symptoms</span><p>{{ care.consultation.symptoms || 'Not added yet' }}</p></article>
+          <article><span>Diagnosis</span><p>{{ care.consultation.diagnosis || 'Not added yet' }}</p></article>
+          <article><span>Advice</span><p>{{ care.consultation.advice || 'Not added yet' }}</p></article>
+          <article><span>Follow-up</span><p>{{ care.consultation.followUpDate ? (care.consultation.followUpDate | date:'mediumDate') : 'No follow-up date added' }}</p></article>
+          <article class="full-width"><span>Doctor notes</span><p>{{ care.consultation.notes || 'No consultation notes added yet' }}</p></article>
+        </div>
+      </div>
+
+      <div class="care-panel" *ngIf="activeCareSection === 'prescriptions'">
+        <ng-container *ngIf="care.previousPrescriptions.length > 0; else noPrescriptionItems">
+          <article class="prescription-card" *ngFor="let prescription of care.previousPrescriptions">
+            <div class="card-head">
+              <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
+              <span>{{ prescription.notes || 'No prescription note' }}</span>
+            </div>
+            <div class="medicine-list">
+              <div *ngFor="let item of prescription.items">
+                <strong>{{ item.medicineName }}</strong>
+                <span>{{ item.dosage || '-' }} | {{ item.frequency || '-' }} | {{ item.duration || '-' }}</span>
+                <small>{{ item.instructions || 'No special instructions' }}</small>
+              </div>
+            </div>
+          </article>
+        </ng-container>
+      </div>
+
+      <div class="care-panel" *ngIf="activeCareSection === 'diagnostics'">
+        <div class="compact-table" *ngIf="care.diagnosticRequests.length > 0; else noDiagnosticItems">
+          <div class="compact-row header"><span>Type</span><span>Item</span><span>Status</span><span>Remarks</span></div>
+          <div class="compact-row" *ngFor="let request of care.diagnosticRequests">
+            <span>{{ request.requestType }}</span>
+            <span>{{ request.requestedItemName }}</span>
+            <span>{{ request.status }}</span>
+            <span>{{ request.remarks || request.resultSummary || '-' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="care-panel" *ngIf="activeCareSection === 'history'">
+        <div class="compact-table" *ngIf="care.pastAppointments.length > 0; else noHistoryItems">
+          <div class="compact-row header"><span>Date</span><span>Doctor</span><span>Service</span><span>Diagnosis</span></div>
+          <div class="compact-row" *ngFor="let item of care.pastAppointments">
+            <span>{{ item.appointmentDate | date:'mediumDate' }}</span>
+            <span>{{ item.doctorName }}</span>
+            <span>{{ item.serviceName || '-' }}</span>
+            <span>{{ item.diagnosis || 'Not recorded' }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <div class="actions-row">
       <button mat-stroked-button type="button" (click)="backToIndex()">Back to appointments</button>
       <a
@@ -150,6 +223,18 @@
     The selected appointment could not be found.
   </div>
 </div>
+
+<ng-template #noPrescriptionItems>
+  <div class="empty-state compact-empty">No prescriptions have been shared yet.</div>
+</ng-template>
+
+<ng-template #noDiagnosticItems>
+  <div class="empty-state compact-empty">No diagnostic requests have been shared yet.</div>
+</ng-template>
+
+<ng-template #noHistoryItems>
+  <div class="empty-state compact-empty">No previous visits are available yet.</div>
+</ng-template>
 
 <ng-template #noAppointments>
   <div class="empty-state">No appointments match the current filter.</div>

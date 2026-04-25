@@ -1,7 +1,7 @@
 .doctor-dashboard {
-  max-width: 1400px;
+  width: min(100%, 1500px);
   margin: 0 auto;
-  padding: 2rem 1.25rem 2.5rem;
+  padding: 1.5rem 1rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -40,10 +40,19 @@
 }
 
 .hero h1,
+.page-header h1,
 .hero strong,
+.panel-head h2,
 .section-head h2,
 .history-section h3 {
   margin: 0;
+}
+
+.page-header h1,
+.panel-head h2,
+.section-head h2,
+.history-section h3 {
+  color: #0f172a;
 }
 
 .eyebrow,
@@ -51,6 +60,22 @@
 .hero-copy span,
 .muted {
   color: rgba(255, 255, 255, 0.78);
+}
+
+.page-header p,
+.panel-head p {
+  margin: 0.4rem 0 0;
+  color: #64748b;
+}
+
+.panel-head .eyebrow,
+.section-head .eyebrow {
+  display: inline-block;
+  margin: 0 0 0.4rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
 }
 
 .feedback,
@@ -89,7 +114,7 @@
 }
 
 .stats-grid {
-  grid-template-columns: repeat(6, minmax(160px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .workspace-grid,
@@ -97,12 +122,26 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.single-section-grid {
+  grid-template-columns: 1fr;
+}
+
+.appointments-index,
+.availability-index {
+  grid-template-columns: 1fr;
+}
+
+.appointments-panel {
+  min-width: 0;
+}
+
 .consultation-grid {
   align-items: start;
 }
 
 .stat-card,
-.panel {
+.panel,
+.table-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
   border: 1px solid #dbe5f4;
   border-radius: 20px;
@@ -115,6 +154,14 @@
 
 .panel {
   padding: 1.2rem;
+  min-width: 0;
+}
+
+.table-card {
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.05);
 }
 
 .highlight {
@@ -147,6 +194,9 @@
 }
 
 .section-head,
+.page-header,
+.panel-head,
+.table-actions,
 .detail-toolbar,
 .actions-row,
 .search-row,
@@ -171,8 +221,108 @@
   flex-wrap: wrap;
 }
 
+.detail-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.detail-summary-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid #dbe5f4;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.detail-summary-panel h1 {
+  margin: 0.2rem 0;
+  color: #0f172a;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.detail-summary-panel p {
+  margin: 0;
+  color: #64748b;
+}
+
+.detail-summary-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.detail-section-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem;
+  border: 1px solid #dbe5f4;
+  border-radius: 14px;
+  background: #fff;
+  overflow-x: auto;
+}
+
+.detail-section-tabs button {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.65rem 0.9rem;
+  white-space: nowrap;
+}
+
+.detail-section-tabs button.active {
+  background: #0f766e;
+  color: #fff;
+}
+
 .search-field {
-  width: min(340px, 100%);
+  flex: 1 1 20rem;
+}
+
+.filter-field {
+  width: min(220px, 100%);
+}
+
+.action-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 72px;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.open-action {
+  min-width: 64px;
+  height: 34px;
+  border-radius: 9px;
+  line-height: 32px;
+  padding: 0 12px;
+}
+
+.table-actions {
+  align-items: center;
+}
+
+.page-header,
+.table-actions,
+.panel-head {
+  flex-wrap: wrap;
 }
 
 .availability-layout,
@@ -202,10 +352,32 @@
 .meta-grid div,
 .history-card,
 .report-card {
-  padding: 1rem;
+  padding: 0.9rem;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 12px;
   background: #f8fafc;
+}
+
+.detail-page strong {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.detail-page .meta-grid span,
+.detail-page .stack-grid span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.detail-page .meta-grid strong,
+.detail-page .stack-grid strong {
+  display: block;
+  line-height: 1.45;
 }
 
 .report-list,
@@ -329,11 +501,13 @@
 }
 
 .table-wrap {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .phase-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
@@ -343,6 +517,32 @@
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.phase-table th {
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: #f8fafc;
+}
+
+.phase-table th:first-child,
+.phase-table td:first-child {
+  width: 52px;
+}
+
+.phase-table th:nth-child(5),
+.phase-table td:nth-child(5) {
+  width: 110px;
+}
+
+.phase-table th:last-child,
+.phase-table td:last-child {
+  width: 150px;
 }
 
 .phase-table tbody tr:hover {
@@ -355,6 +555,46 @@
   color: #64748b;
 }
 
+.appointment-table th,
+.appointment-table td {
+  vertical-align: middle;
+}
+
+.appointment-table td {
+  min-height: 64px;
+}
+
+.appointment-table th:first-child,
+.appointment-table td:first-child {
+  width: 44px;
+}
+
+.appointment-table th:nth-child(2),
+.appointment-table td:nth-child(2) {
+  width: 30%;
+}
+
+.appointment-table th:nth-child(3),
+.appointment-table td:nth-child(3) {
+  width: 22%;
+}
+
+.appointment-table th:nth-child(4),
+.appointment-table td:nth-child(4) {
+  width: 130px;
+}
+
+.appointment-table th:nth-child(5),
+.appointment-table td:nth-child(5) {
+  width: 120px;
+}
+
+.appointment-table th:last-child,
+.appointment-table td:last-child {
+  width: 96px;
+  text-align: right;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -363,6 +603,53 @@
   font-size: 0.76rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.name-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-pill.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-pill.approved,
+.status-pill.completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill.rescheduled {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-pill.cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-pill.noshow {
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .pending {

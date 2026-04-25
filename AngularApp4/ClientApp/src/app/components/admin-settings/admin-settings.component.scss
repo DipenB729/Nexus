@@ -211,12 +211,14 @@ td span {
 }
 
 .table-wrap {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
   margin-top: 14px;
 }
 
 table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
@@ -226,6 +228,8 @@ td {
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 th {

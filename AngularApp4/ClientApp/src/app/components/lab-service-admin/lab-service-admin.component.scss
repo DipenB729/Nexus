@@ -134,12 +134,14 @@
 }
 
 .table-shell {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .master-table {
   width: 100%;
-  min-width: 760px;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
 
   th,
@@ -148,6 +150,8 @@
     border-bottom: 1px solid #eef2f7;
     text-align: left;
     vertical-align: top;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   th {

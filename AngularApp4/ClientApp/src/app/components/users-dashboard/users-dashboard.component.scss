@@ -190,18 +190,19 @@
 .permission-table {
   border: 1px solid #e2e8f0;
   border-radius: 20px;
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
   overflow-y: hidden;
 }
 
 .permission-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) repeat(4, 90px) minmax(140px, 1fr);
+  grid-template-columns: minmax(140px, 1.4fr) repeat(4, minmax(52px, 0.45fr)) minmax(110px, 1fr);
   gap: 10px;
   align-items: center;
   padding: 14px 18px;
   border-bottom: 1px solid #eef2f7;
-  min-width: 860px;
+  min-width: 0;
 
   &.header {
     background: #f8fafc;
@@ -227,6 +228,7 @@
 .module-name {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 
   small {
     color: #64748b;
@@ -237,6 +239,7 @@
 .summary-text {
   color: #475569;
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
 }
 
 .system-note {
@@ -284,7 +287,9 @@
   }
 
   .permission-row {
-    min-width: 760px;
+    grid-template-columns: minmax(110px, 1fr) repeat(4, minmax(44px, 0.42fr)) minmax(86px, 0.8fr);
+    gap: 6px;
+    padding: 12px 10px;
   }
 
   .actions-row,

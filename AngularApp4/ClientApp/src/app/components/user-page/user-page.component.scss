@@ -155,12 +155,14 @@ h1 {
 }
 
 .table-wrap {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
   margin-top: 0.7rem;
 }
 
 table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
@@ -169,6 +171,8 @@ td {
   text-align: left;
   padding: 0.7rem 0.5rem;
   border-bottom: 1px solid #f1f5f9;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 th {

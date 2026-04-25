@@ -56,6 +56,8 @@ interface DiagnosticRequestFormState {
 }
 
 type DoctorAppointmentStatusView = Pick<DoctorAppointment, 'appointmentId' | 'status'>;
+type DoctorAppointmentManageView = Pick<DoctorAppointment, 'appointmentId' | 'status' | 'scheduleId' | 'appointmentDate' | 'slotStartTime' | 'slotEndTime' | 'reason' | 'adminRemarks'>;
+type DoctorDetailSection = 'overview' | 'consultation' | 'prescription' | 'diagnostics' | 'history';
 
 const EMPTY_SCHEDULE_FORM: ScheduleFormState = {
   scheduleId: 0,
@@ -120,8 +122,10 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   labTestResults: LabTestSearchResult[] = [];
 
   searchTerm = '';
+  statusFilter = 'All';
   medicineSearchTerm = '';
   labSearchTerm = '';
+  activeDoctorDetailSection: DoctorDetailSection = 'overview';
   isLoading = true;
   isLoadingDetail = false;
   isLoadingAvailability = false;
@@ -149,6 +153,14 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   ];
   readonly consultationStatuses = ['Draft', 'Completed', 'FollowUpPlanned'];
   readonly requestTypes = ['Lab', 'Radiology'];
+  readonly statusOptions = ['Pending', 'Approved', 'Rescheduled', 'Completed', 'Cancelled', 'NoShow'];
+  readonly doctorDetailSections: Array<{ id: DoctorDetailSection; label: string }> = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'consultation', label: 'Consultation' },
+    { id: 'prescription', label: 'Prescription' },
+    { id: 'diagnostics', label: 'Diagnostics' },
+    { id: 'history', label: 'History' }
+  ];
 
   private sessionSub?: Subscription;
   private routeSub?: Subscription;
@@ -173,7 +185,6 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
     this.syncRoute();
     this.loadAppointments();
-    this.loadAvailability();
   }
 
   ngOnDestroy(): void {
@@ -193,12 +204,26 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     return this.auth.getDisplayRole(this.session?.role);
   }
 
+  get doctorPageTitle(): string {
+    return this.isAvailabilityRoute ? 'Doctor Availability' : 'Doctor Appointments';
+  }
+
+  get doctorPageSubtitle(): string {
+    return this.isAvailabilityRoute
+      ? 'Manage clinic schedules, leave, and unavailable dates.'
+      : 'Review assigned bookings, open patient visits, and update appointment status.';
+  }
+
   get isDashboardRoute(): boolean {
     return this.router.url.startsWith('/doctor/dashboard');
   }
 
   get isAppointmentsRoute(): boolean {
     return this.router.url.startsWith('/doctor/appointments') && !this.selectedAppointmentId;
+  }
+
+  get isAvailabilityRoute(): boolean {
+    return this.router.url.startsWith('/doctor/availability');
   }
 
   get selectedAppointmentId(): number | null {
@@ -222,12 +247,17 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   get filteredAppointments(): DoctorAppointment[] {
     const term = this.searchTerm.trim().toLowerCase();
-    if (!term) {
-      return this.appointments;
-    }
+    return this.appointments.filter((appointment) => {
+      const matchesStatus = this.statusFilter === 'All' || appointment.status === this.statusFilter;
+      if (!matchesStatus) {
+        return false;
+      }
 
-    return this.appointments.filter((appointment) =>
-      [
+      if (!term) {
+        return true;
+      }
+
+      return [
         appointment.patientName,
         appointment.medicalRecordNumber,
         appointment.serviceName,
@@ -235,7 +265,12 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
         appointment.tokenNumber
       ]
         .map((value) => String(value ?? '').toLowerCase())
-        .some((value) => value.includes(term)));
+        .some((value) => value.includes(term));
+    });
+  }
+
+  refreshAppointments(): void {
+    this.loadAppointments();
   }
 
   openAppointment(appointmentId: number): void {
@@ -244,8 +279,13 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   backToAppointments(): void {
     this.selectedDetail = null;
+    this.activeDoctorDetailSection = 'overview';
     this.resetClinicalForms();
     void this.router.navigate(['/doctor/appointments']);
+  }
+
+  setDoctorDetailSection(section: DoctorDetailSection): void {
+    this.activeDoctorDetailSection = section;
   }
 
   editSchedule(schedule: DoctorScheduleRecord): void {
@@ -538,11 +578,30 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     return appointment.status === 'Approved' || appointment.status === 'Rescheduled';
   }
 
-  updateAppointmentStatus(appointment: DoctorAppointmentStatusView, status: 'Approved' | 'Cancelled' | 'Completed' | 'NoShow'): void {
+  canRescheduleAppointment(appointment: DoctorAppointmentStatusView): boolean {
+    return appointment.status !== 'Cancelled' && appointment.status !== 'Completed';
+  }
+
+  updateAppointmentStatus(appointment: DoctorAppointmentManageView, status: 'Approved' | 'Rescheduled' | 'Cancelled' | 'Completed' | 'NoShow'): void {
     this.errorMessage = '';
     this.statusMessage = '';
 
-    this.appointmentsApi.updateDoctorAppointmentStatus(appointment.appointmentId, { status }).subscribe({
+    const request = status === 'Rescheduled'
+      ? this.appointmentsApi.manageDoctorAppointment(appointment.appointmentId, {
+          status,
+          scheduleId: appointment.scheduleId ?? null,
+          appointmentDate: appointment.appointmentDate,
+          slotStartTime: appointment.slotStartTime,
+          slotEndTime: appointment.slotEndTime,
+          reason: appointment.reason ?? null,
+          adminRemarks: appointment.adminRemarks ?? 'Marked for reschedule by doctor'
+        })
+      : this.appointmentsApi.updateDoctorAppointmentStatus(appointment.appointmentId, {
+          status,
+          adminRemarks: status === 'Cancelled' ? 'Rejected by doctor' : appointment.adminRemarks ?? null
+        });
+
+    request.subscribe({
       next: (updated) => {
         this.appointments = this.appointments.map((item) =>
           item.appointmentId === updated.appointmentId ? updated : item);
@@ -572,7 +631,12 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     }
 
     this.selectedDetail = null;
+    this.activeDoctorDetailSection = 'overview';
     this.resetClinicalForms();
+
+    if (this.isAvailabilityRoute && !this.isLoadingAvailability) {
+      this.loadAvailability();
+    }
   }
 
   private loadAppointments(): void {
@@ -613,6 +677,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     this.workspaceApi.getAppointmentDetail(appointmentId).subscribe({
       next: (detail) => {
         this.selectedDetail = detail;
+        this.activeDoctorDetailSection = 'overview';
         this.isLoadingDetail = false;
         this.consultationForm = {
           symptoms: detail.consultation.symptoms || '',

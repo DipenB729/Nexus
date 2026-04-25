@@ -3,7 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { Service } from '../models/booking.model';
 import { Appointment } from '../models/appointment.model';
-import { ApiResponse, DoctorAppointment, PatientAppointment, PatientAppointmentPayload } from '../models/hms/auth.model';
+import { ApiResponse, DoctorAppointment, ManageDoctorAppointmentRequest, PatientAppointment, PatientAppointmentPayload } from '../models/hms/auth.model';
+import { DoctorWorkspaceAppointmentDetail } from '../models/hms/doctor-workspace.model';
 
 export interface DoctorAppointmentStatusPayload {
   status: string;
@@ -40,6 +41,12 @@ export class AppointmentService {
     );
   }
 
+  getMyAppointmentDetail(appointmentId: number): Observable<DoctorWorkspaceAppointmentDetail> {
+    return this.http.get<ApiResponse<DoctorWorkspaceAppointmentDetail>>(`${this.appointmentsApi}/my/${appointmentId}`).pipe(
+      map((res) => res.data)
+    );
+  }
+
   getDoctorAppointments(): Observable<DoctorAppointment[]> {
     return this.http.get<ApiResponse<DoctorAppointment[]>>(`${this.appointmentsApi}/doctor/my`).pipe(
       map((res) => res.data ?? [])
@@ -48,6 +55,12 @@ export class AppointmentService {
 
   updateDoctorAppointmentStatus(appointmentId: number, payload: DoctorAppointmentStatusPayload): Observable<DoctorAppointment> {
     return this.http.put<ApiResponse<DoctorAppointment>>(`${this.appointmentsApi}/doctor/${appointmentId}/status`, payload).pipe(
+      map((res) => res.data)
+    );
+  }
+
+  manageDoctorAppointment(appointmentId: number, payload: ManageDoctorAppointmentRequest): Observable<DoctorAppointment> {
+    return this.http.put<ApiResponse<DoctorAppointment>>(`${this.appointmentsApi}/doctor/${appointmentId}/manage`, payload).pipe(
       map((res) => res.data)
     );
   }
