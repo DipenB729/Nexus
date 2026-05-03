@@ -1,8 +1,8 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 
-type DashboardRole = 'Admin' | 'User' | 'Doctor';
+type DashboardRole = 'SuperAdmin' | 'Admin' | 'User' | 'Doctor';
 
 interface NavItem {
   label: string;
@@ -23,7 +23,7 @@ interface NavSection {
   templateUrl: './navbar.component.html',
   styleUrls: ['./navbar.component.scss']
 })
-export class NavbarComponent implements OnInit, OnDestroy {
+export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
   @Input() isExpanded = true;
   @Input() role: DashboardRole = 'Admin';
   @Input() displayName = 'Nexus User';
@@ -121,6 +121,30 @@ export class NavbarComponent implements OnInit, OnDestroy {
     }
   ];
 
+  private readonly superAdminSections: NavSection[] = [
+    {
+      id: 'superadmin-overview',
+      label: 'Overview',
+      items: [
+        { label: 'Dashboard', icon: 'space_dashboard', route: '/superadmin/dashboard', exact: true }
+      ]
+    },
+    {
+      id: 'superadmin-hospital',
+      label: 'Hospital',
+      items: [
+        { label: 'Hospitals', icon: 'domain', route: '/superadmin/hospitals' }
+      ]
+    },
+    {
+      id: 'superadmin-access',
+      label: 'Access',
+      items: [
+        { label: 'Admins', icon: 'admin_panel_settings', route: '/superadmin/admins' }
+      ]
+    }
+  ];
+
   private readonly userSections: NavSection[] = [
     {
       id: 'patient-care',
@@ -165,6 +189,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
   ];
 
   get navigationSections(): NavSection[] {
+    if (this.role === 'SuperAdmin') {
+      return this.superAdminSections;
+    }
+
     if (this.role === 'Admin') {
       return this.adminSections;
     }
@@ -178,6 +206,12 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   constructor(private readonly router: Router) {}
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['role'] && !changes['role'].firstChange) {
+      this.syncExpandedSections(this.router.url);
+    }
+  }
+
   ngOnInit(): void {
     this.syncExpandedSections(this.router.url);
     this.routeSub = this.router.events
@@ -190,6 +224,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   get brandText(): string {
+    if (this.role === 'SuperAdmin') {
+      return 'Nexus Superadmin';
+    }
+
     if (this.role === 'Admin') {
       return 'Nexus Admin';
     }
@@ -202,6 +240,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   get roleSubtitle(): string {
+    if (this.role === 'SuperAdmin') {
+      return 'Platform Control';
+    }
+
     if (this.role === 'Admin') {
       return 'Control Center';
     }
@@ -218,7 +260,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
   }
 
   isSectionExpanded(section: NavSection): boolean {
-    return section.collapsible ? this.expandedSections[section.id] !== false : true;
+    return section.collapsible ? this.expandedSections[this.getSectionKey(section)] === true : true;
   }
 
   toggleSection(section: NavSection): void {
@@ -226,9 +268,19 @@ export class NavbarComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const sectionKey = this.getSectionKey(section);
+    const isOpening = !this.isSectionExpanded(section);
+    const nextState = { ...this.expandedSections };
+
+    for (const candidate of this.navigationSections) {
+      if (candidate.collapsible) {
+        nextState[this.getSectionKey(candidate)] = false;
+      }
+    }
+
     this.expandedSections = {
-      ...this.expandedSections,
-      [section.id]: !this.isSectionExpanded(section)
+      ...nextState,
+      [sectionKey]: isOpening
     };
   }
 
@@ -239,17 +291,29 @@ export class NavbarComponent implements OnInit, OnDestroy {
   private syncExpandedSections(url: string): void {
     const nextState: Record<string, boolean> = { ...this.expandedSections };
 
-    for (const section of this.adminSections) {
+    for (const section of this.navigationSections) {
       if (!section.collapsible) {
         continue;
       }
 
+      const sectionKey = this.getSectionKey(section);
       const hasActiveChild = section.items.some((item) => url.startsWith(item.route));
-      if (!(section.id in nextState) || hasActiveChild) {
-        nextState[section.id] = hasActiveChild || nextState[section.id] !== false;
+      if (hasActiveChild) {
+        for (const candidate of this.navigationSections) {
+          if (candidate.collapsible) {
+            nextState[this.getSectionKey(candidate)] = false;
+          }
+        }
+        nextState[sectionKey] = true;
+      } else if (!(sectionKey in nextState)) {
+        nextState[sectionKey] = false;
       }
     }
 
     this.expandedSections = nextState;
+  }
+
+  private getSectionKey(section: NavSection): string {
+    return `${this.role}:${section.id}`;
   }
 }

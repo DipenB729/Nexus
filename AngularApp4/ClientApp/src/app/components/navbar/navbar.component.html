@@ -1,12 +1,13 @@
 <aside
   class="sidebar"
   [class.collapsed]="!isExpanded"
+  [class.superadmin-theme]="role === 'SuperAdmin'"
   [class.admin-theme]="role === 'Admin'"
   [class.doctor-theme]="role === 'Doctor'"
   [class.user-theme]="role === 'User'">
   <div class="sidebar-header">
     <div class="logo-box">
-      <div class="logo-mark">{{ role === 'Admin' ? 'A' : role === 'Doctor' ? 'D' : 'P' }}</div>
+      <div class="logo-mark">{{ role === 'SuperAdmin' ? 'S' : role === 'Admin' ? 'A' : role === 'Doctor' ? 'D' : 'P' }}</div>
       <div class="brand-copy" *ngIf="isExpanded">
         <strong>{{ brandText }}</strong>
         <span>{{ roleSubtitle }}</span>
