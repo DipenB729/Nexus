@@ -8,6 +8,7 @@
   <ng-container *ngIf="isDashboardRoute; else publicLayout">
     <div
       class="dashboard-wrapper"
+      [class.superadmin-mode]="currentRole === 'SuperAdmin'"
       [class.admin-mode]="currentRole === 'Admin'"
       [class.doctor-mode]="currentRole === 'Doctor'"
       [class.user-mode]="currentRole === 'User'">
@@ -99,7 +100,7 @@
                 <span>Dashboard</span>
               </button>
               <button mat-menu-item [routerLink]="[secondaryMenuRoute]">
-                <mat-icon>{{ currentRole === 'Admin' ? 'settings' : 'medical_services' }}</mat-icon>
+                <mat-icon>{{ currentRole === 'Admin' ? 'settings' : currentRole === 'SuperAdmin' ? 'admin_panel_settings' : 'medical_services' }}</mat-icon>
                 <span>{{ secondaryMenuLabel }}</span>
               </button>
               <mat-divider></mat-divider>

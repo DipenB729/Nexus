@@ -49,6 +49,14 @@
   --shell-accent-contrast: #0369a1;
 }
 
+.dashboard-wrapper.superadmin-mode {
+  --shell-bg: radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent 28%), #f6f8fc;
+  --shell-accent: #1d4ed8;
+  --shell-accent-strong: #0f766e;
+  --shell-accent-soft: #dbeafe;
+  --shell-accent-contrast: #1d4ed8;
+}
+
 .sidebar-nav {
   width: 272px;
   position: fixed;

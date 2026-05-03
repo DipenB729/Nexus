@@ -1,0 +1,195 @@
+<section class="superadmin-page" *ngIf="!isLoading; else loadingState">
+  <div class="hero-band">
+    <div>
+      <p class="eyebrow">Superadmin Portal</p>
+      <h1>Hospital and admin control</h1>
+      <p>Manage the hospital profile, branches, and administrator accounts from one workspace.</p>
+    </div>
+    <div class="hero-actions">
+      <button mat-stroked-button type="button" (click)="load()">Refresh</button>
+      <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'admins'" (click)="openAdminModal()">New admin</button>
+      <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'hospitals'" (click)="openBranchModal()">New branch</button>
+    </div>
+  </div>
+
+  <div class="alert success" *ngIf="successMessage">{{ successMessage }}</div>
+  <div class="alert danger" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <nav class="section-tabs" aria-label="Superadmin sections">
+    <button type="button" [class.active]="activeSection === 'dashboard'" (click)="setSection('dashboard')">Overview</button>
+    <button type="button" [class.active]="activeSection === 'hospitals'" (click)="setSection('hospitals')">Hospitals</button>
+    <button type="button" [class.active]="activeSection === 'admins'" (click)="setSection('admins')">Admins</button>
+  </nav>
+
+  <div class="stats-grid">
+    <article>
+      <span>Hospitals</span>
+      <strong>{{ summary.totalHospitals }}</strong>
+      <small>Configured hospital profiles</small>
+    </article>
+    <article>
+      <span>Branches</span>
+      <strong>{{ summary.activeBranches }}</strong>
+      <small>Active hospital branches</small>
+    </article>
+    <article>
+      <span>Admins</span>
+      <strong>{{ summary.activeAdmins }}/{{ summary.totalAdmins }}</strong>
+      <small>Active administrator accounts</small>
+    </article>
+    <article>
+      <span>Users</span>
+      <strong>{{ summary.totalUsers }}</strong>
+      <small>Total platform users</small>
+    </article>
+  </div>
+
+  <ng-container [ngSwitch]="activeSection">
+    <section class="panel overview-grid" *ngSwitchCase="'dashboard'">
+      <article>
+        <span class="source-pill">Hospital</span>
+        <h2>{{ profile.hospitalName || 'Hospital profile not configured' }}</h2>
+        <p>{{ profile.addressLine1 || 'Address pending' }}, {{ profile.city || 'City pending' }}</p>
+        <button mat-stroked-button type="button" (click)="setSection('hospitals')">Manage hospital</button>
+      </article>
+      <article>
+        <span class="source-pill">Administrators</span>
+        <h2>{{ summary.activeAdmins }} active admins</h2>
+        <p>Superadmin controls admin account creation and access status.</p>
+        <button mat-stroked-button type="button" (click)="setSection('admins')">Manage admins</button>
+      </article>
+    </section>
+
+    <section class="hospital-grid" *ngSwitchCase="'hospitals'">
+      <form class="panel form-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Hospital</p>
+            <h2>Profile</h2>
+          </div>
+          <button mat-raised-button color="primary" type="button" [disabled]="isSaving" (click)="saveHospital()">Save hospital</button>
+        </div>
+        <div class="form-grid">
+          <mat-form-field appearance="outline"><mat-label>Hospital name</mat-label><input matInput [(ngModel)]="profile.hospitalName" name="hospitalName" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Logo URL</mat-label><input matInput [(ngModel)]="profile.logoUrl" name="logoUrl" /></mat-form-field>
+          <mat-form-field appearance="outline" class="wide"><mat-label>Address</mat-label><input matInput [(ngModel)]="profile.addressLine1" name="addressLine1" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>City</mat-label><input matInput [(ngModel)]="profile.city" name="city" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>State/Province</mat-label><input matInput [(ngModel)]="profile.stateOrProvince" name="stateOrProvince" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Postal code</mat-label><input matInput [(ngModel)]="profile.postalCode" name="postalCode" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Country</mat-label><input matInput [(ngModel)]="profile.country" name="country" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput [(ngModel)]="profile.contactEmail" name="contactEmail" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput [(ngModel)]="profile.contactPhone" name="contactPhone" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Tax label</mat-label><input matInput [(ngModel)]="profile.taxLabel" name="taxLabel" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Tax number</mat-label><input matInput [(ngModel)]="profile.taxRegistrationNumber" name="taxRegistrationNumber" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Tax %</mat-label><input matInput type="number" [(ngModel)]="profile.taxPercentage" name="taxPercentage" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Currency</mat-label><input matInput [(ngModel)]="profile.currencyCode" name="currencyCode" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Invoice prefix</mat-label><input matInput [(ngModel)]="profile.invoicePrefix" name="invoicePrefix" /></mat-form-field>
+          <mat-form-field appearance="outline"><mat-label>Starting invoice</mat-label><input matInput type="number" [(ngModel)]="profile.invoiceStartingNumber" name="invoiceStartingNumber" /></mat-form-field>
+          <mat-form-field appearance="outline" class="wide"><mat-label>Invoice footer</mat-label><input matInput [(ngModel)]="profile.invoiceFooterNote" name="invoiceFooterNote" /></mat-form-field>
+          <label class="check-row"><input type="checkbox" [(ngModel)]="profile.multiBranchEnabled" name="multiBranchEnabled" /> Multi-branch enabled</label>
+        </div>
+      </form>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Branches</p>
+            <h2>Hospital branches</h2>
+          </div>
+          <button mat-raised-button color="primary" type="button" (click)="openBranchModal()">New branch</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" *ngIf="branches.length; else noBranches">
+            <thead><tr><th>Branch</th><th>Contact</th><th>Beds</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              <tr *ngFor="let branch of branches">
+                <td><strong>{{ branch.name }}</strong><small>{{ branch.code }} | {{ branch.address }}</small></td>
+                <td>{{ branch.contactEmail }}<small>{{ branch.contactPhone }}</small></td>
+                <td>{{ branch.occupiedBeds }}/{{ branch.totalBeds }}</td>
+                <td><span class="status-pill" [class.active]="branch.isActive">{{ branch.isActive ? 'Active' : 'Inactive' }}</span><small *ngIf="branch.isPrimary">Primary</small></td>
+                <td><button mat-button type="button" (click)="openBranchModal(branch)">Edit</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" *ngSwitchCase="'admins'">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Administrators</p>
+          <h2>Admin accounts</h2>
+        </div>
+        <button mat-raised-button color="primary" type="button" (click)="openAdminModal()">New admin</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" *ngIf="admins.length; else noAdmins">
+          <thead><tr><th>Admin</th><th>Hospital</th><th>Contact</th><th>Created</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let admin of admins">
+              <td><strong>{{ admin.fullName }}</strong><small>{{ admin.role }}</small></td>
+              <td>{{ admin.hospitalName || 'Unassigned' }}</td>
+              <td>{{ admin.email }}<small>{{ admin.phone || 'No phone' }}</small></td>
+              <td>{{ admin.createdAt | date:'mediumDate' }}</td>
+              <td><span class="status-pill" [class.active]="admin.isActive">{{ admin.isActive ? 'Active' : 'Inactive' }}</span></td>
+              <td><button mat-button type="button" (click)="toggleAdmin(admin)">{{ admin.isActive ? 'Deactivate' : 'Activate' }}</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-container>
+</section>
+
+<div class="modal-backdrop" *ngIf="activeModal" (click)="closeModal()">
+  <section class="modal-panel" (click)="$event.stopPropagation()">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Create</p>
+        <h2>{{ activeModal === 'branch' ? (editingBranchId ? 'Edit branch' : 'New branch') : 'New admin' }}</h2>
+      </div>
+      <button mat-icon-button type="button" (click)="closeModal()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <form class="form-grid" *ngIf="activeModal === 'branch'">
+      <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput [(ngModel)]="branchForm.name" name="branchName" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Code</mat-label><input matInput [(ngModel)]="branchForm.code" name="branchCode" /></mat-form-field>
+      <mat-form-field appearance="outline" class="wide"><mat-label>Address</mat-label><input matInput [(ngModel)]="branchForm.address" name="branchAddress" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput [(ngModel)]="branchForm.contactEmail" name="branchEmail" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput [(ngModel)]="branchForm.contactPhone" name="branchPhone" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Total beds</mat-label><input matInput type="number" [(ngModel)]="branchForm.totalBeds" name="totalBeds" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Occupied beds</mat-label><input matInput type="number" [(ngModel)]="branchForm.occupiedBeds" name="occupiedBeds" /></mat-form-field>
+      <label class="check-row"><input type="checkbox" [(ngModel)]="branchForm.isPrimary" name="branchPrimary" /> Primary branch</label>
+      <label class="check-row"><input type="checkbox" [(ngModel)]="branchForm.isActive" name="branchActive" /> Active</label>
+      <div class="modal-actions wide">
+        <button mat-stroked-button type="button" (click)="closeModal()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSaving" (click)="saveBranch()">Save branch</button>
+      </div>
+    </form>
+
+    <form class="form-grid" *ngIf="activeModal === 'admin'">
+      <mat-form-field appearance="outline" class="wide">
+        <mat-label>Hospital</mat-label>
+        <mat-select [(ngModel)]="adminForm.hospitalProfileId" name="adminHospitalProfileId">
+          <mat-option *ngFor="let hospital of hospitals" [value]="hospital.hospitalProfileId">{{ hospital.hospitalName }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Full name</mat-label><input matInput [(ngModel)]="adminForm.fullName" name="adminFullName" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput [(ngModel)]="adminForm.email" name="adminEmail" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput [(ngModel)]="adminForm.phone" name="adminPhone" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Password</mat-label><input matInput type="password" [(ngModel)]="adminForm.password" name="adminPassword" /></mat-form-field>
+      <div class="modal-actions wide">
+        <button mat-stroked-button type="button" (click)="closeModal()">Cancel</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSaving || !adminForm.hospitalProfileId" (click)="saveAdmin()">Create admin</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<ng-template #loadingState>
+  <section class="superadmin-page"><div class="empty-state">Loading superadmin workspace...</div></section>
+</ng-template>
+
+<ng-template #noBranches><div class="empty-state">No branches configured yet.</div></ng-template>
+<ng-template #noAdmins><div class="empty-state">No admin accounts found.</div></ng-template>

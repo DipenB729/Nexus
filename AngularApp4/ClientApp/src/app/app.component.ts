@@ -5,7 +5,7 @@ import { AppNotification, AuthSession } from './core/models/hms/auth.model';
 import { AuthApiService } from './core/services/hms/auth-api.service';
 import { NotificationsService } from './core/services/notifications.service';
 
-type DashboardRole = 'Admin' | 'User' | 'Doctor';
+type DashboardRole = 'SuperAdmin' | 'Admin' | 'User' | 'Doctor';
 
 @Component({
   selector: 'app-root',
@@ -93,6 +93,10 @@ export class AppComponent implements OnInit, OnDestroy {
       return 'System Admin';
     }
 
+    if (this.currentRole === 'SuperAdmin') {
+      return 'Superadmin Portal';
+    }
+
     if (this.currentRole === 'Doctor') {
       return 'Doctor Portal';
     }
@@ -109,6 +113,10 @@ export class AppComponent implements OnInit, OnDestroy {
       return 'Admin Workspace';
     }
 
+    if (this.currentRole === 'SuperAdmin') {
+      return 'Superadmin Workspace';
+    }
+
     if (this.currentRole === 'Doctor') {
       return 'Doctor Workspace';
     }
@@ -119,6 +127,10 @@ export class AppComponent implements OnInit, OnDestroy {
   get primaryMenuRoute(): string {
     if (this.currentRole === 'Admin') {
       return '/admin/dashboard';
+    }
+
+    if (this.currentRole === 'SuperAdmin') {
+      return '/superadmin/dashboard';
     }
 
     if (this.currentRole === 'Doctor') {
@@ -133,6 +145,10 @@ export class AppComponent implements OnInit, OnDestroy {
       return '/admin/settings';
     }
 
+    if (this.currentRole === 'SuperAdmin') {
+      return '/superadmin/admins';
+    }
+
     if (this.currentRole === 'Doctor') {
       return '/doctor/availability';
     }
@@ -143,6 +159,10 @@ export class AppComponent implements OnInit, OnDestroy {
   get secondaryMenuLabel(): string {
     if (this.currentRole === 'Admin') {
       return 'Settings';
+    }
+
+    if (this.currentRole === 'SuperAdmin') {
+      return 'Admins';
     }
 
     if (this.currentRole === 'Doctor') {
@@ -163,6 +183,10 @@ export class AppComponent implements OnInit, OnDestroy {
   get notificationCenterRoute(): string {
     if (this.currentRole === 'Admin') {
       return '/admin/notifications';
+    }
+
+    if (this.currentRole === 'SuperAdmin') {
+      return '/superadmin/dashboard';
     }
 
     if (this.currentRole === 'Doctor') {
@@ -250,7 +274,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.currentPath = currentPath;
 
     this.isAuthRoute = currentPath.startsWith('/auth');
-    this.currentRole = currentPath.startsWith('/admin')
+    this.currentRole = currentPath.startsWith('/superadmin')
+      ? 'SuperAdmin'
+      : currentPath.startsWith('/admin')
       ? 'Admin'
       : currentPath.startsWith('/doctor')
         ? 'Doctor'
@@ -264,6 +290,14 @@ export class AppComponent implements OnInit, OnDestroy {
   private resolvePageTitle(path: string): string {
     if (path.startsWith('/admin/masters/departments')) {
       return 'Department Management';
+    }
+
+    if (path.startsWith('/superadmin/admins')) {
+      return 'Admin Management';
+    }
+
+    if (path.startsWith('/superadmin/hospitals')) {
+      return 'Hospital Management';
     }
 
     if (path.startsWith('/admin/masters/doctors')) {
@@ -413,6 +447,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     const titles: Record<string, string> = {
       '/admin/dashboard': 'Admin Dashboard',
+      '/superadmin/dashboard': 'Superadmin Dashboard',
       '/admin/services': 'Service Management',
       '/admin/roles': 'Roles & Permissions',
       '/admin/users': 'Roles & Permissions',
