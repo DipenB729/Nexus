@@ -83,6 +83,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Department>().HasIndex(x => new { x.BranchId, x.Name }).IsUnique();
         modelBuilder.Entity<PatientCategory>().HasIndex(x => x.Name).IsUnique();
         modelBuilder.Entity<User>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<User>().HasIndex(x => x.HospitalProfileId);
         modelBuilder.Entity<Patient>()
             .HasIndex(x => x.MedicalRecordNumber)
             .IsUnique();
@@ -138,6 +139,11 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.RoleId)
             .OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<User>()
+            .HasOne(x => x.HospitalProfile)
+            .WithMany()
+            .HasForeignKey(x => x.HospitalProfileId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Patient>()
             .HasOne(x => x.PatientCategory)

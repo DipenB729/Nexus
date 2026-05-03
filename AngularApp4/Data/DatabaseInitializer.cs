@@ -11,6 +11,7 @@ public sealed class DatabaseInitializer
 {
     private static readonly (string Name, string Description)[] SystemRoles =
     {
+        ("SuperAdmin", "Platform-level hospital and administrator management"),
         ("Admin", "Full hospital administration access"),
         ("Receptionist", "Front desk scheduling and patient intake"),
         ("Doctor", "Clinical workflow and appointment access"),
@@ -51,8 +52,8 @@ public sealed class DatabaseInitializer
         await RunStepAsync("database", EnsureDatabaseAsync, cancellationToken);
         await RunStepAsync("roles", EnsureRolesAsync, cancellationToken);
         await RunStepAsync("role-permissions", EnsureRolePermissionsAsync, cancellationToken);
-        await RunStepAsync("demo-accounts", EnsureDemoAccountsAsync, cancellationToken);
         await RunStepAsync("hospital-profile", EnsureHospitalProfileAsync, cancellationToken);
+        await RunStepAsync("demo-accounts", EnsureDemoAccountsAsync, cancellationToken);
         await RunStepAsync("notification-settings", EnsureNotificationSettingsAsync, cancellationToken);
         await RunStepAsync("system-control-settings", EnsureSystemControlSettingsAsync, cancellationToken);
         await RunStepAsync("security-settings", EnsureSecuritySettingsAsync, cancellationToken);
@@ -185,6 +186,7 @@ public sealed class DatabaseInitializer
 
     private async Task EnsureDemoAccountsAsync(CancellationToken cancellationToken)
     {
+        await EnsureUserAsync("Nexus Superadmin", "superadmin@nexus.local", "Super@123", "SuperAdmin", false, cancellationToken);
         await EnsureUserAsync("Nexus Admin", "admin@nexus.local", "Admin@123", "Admin", false, cancellationToken);
         await EnsureUserAsync("Nexus User", "user@nexus.local", "User@123", "User", true, cancellationToken);
         await EnsureUserAsync("Dr. Aryan Shah", "aryan.shah@nexushospital.local", "Doctor@123", "Doctor", false, cancellationToken);
@@ -2378,6 +2380,12 @@ public sealed class DatabaseInitializer
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var role = await _db.Roles.FirstAsync(x => x.Name == roleName, cancellationToken);
+        var hospitalProfileId = roleName == "Admin"
+            ? await _db.HospitalProfiles
+                .OrderBy(x => x.HospitalProfileId)
+                .Select(x => (long?)x.HospitalProfileId)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
 
         if (user is null)
@@ -2389,6 +2397,7 @@ public sealed class DatabaseInitializer
                 FullName = fullName,
                 Email = normalizedEmail,
                 RoleId = role.RoleId,
+                HospitalProfileId = hospitalProfileId,
                 PasswordHash = hash,
                 PasswordSalt = salt,
                 IsActive = true,
@@ -2411,6 +2420,12 @@ public sealed class DatabaseInitializer
             if (!user.IsActive)
             {
                 user.IsActive = true;
+                hasChanges = true;
+            }
+
+            if (roleName == "Admin" && user.HospitalProfileId != hospitalProfileId)
+            {
+                user.HospitalProfileId = hospitalProfileId;
                 hasChanges = true;
             }
 
@@ -2537,6 +2552,7 @@ public sealed class DatabaseInitializer
     {
         return roleName switch
         {
+            "SuperAdmin" => FullAccess(roleId),
             "Admin" => FullAccess(roleId),
             "Receptionist" => ModuleSet(roleId, new Dictionary<string, (bool View, bool Add, bool Edit, bool Delete)>
             {

@@ -1081,6 +1081,9 @@ namespace AngularApp4.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<long?>("HospitalProfileId")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -3271,6 +3274,8 @@ namespace AngularApp4.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("HospitalProfileId");
+
                     b.HasIndex("RoleId");
 
                     b.ToTable("Users");
@@ -4141,11 +4146,18 @@ namespace AngularApp4.Migrations
 
             modelBuilder.Entity("AngularApp4.Model.Hms.User", b =>
                 {
+                    b.HasOne("AngularApp4.Model.Hms.HospitalProfile", "HospitalProfile")
+                        .WithMany()
+                        .HasForeignKey("HospitalProfileId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("AngularApp4.Model.Hms.Role", "Role")
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("HospitalProfile");
 
                     b.Navigation("Role");
                 });

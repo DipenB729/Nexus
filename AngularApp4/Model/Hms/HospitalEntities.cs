@@ -17,6 +17,7 @@ public class User
 {
     [Key] public long UserId { get; set; }
     public long RoleId { get; set; }
+    public long? HospitalProfileId { get; set; }
     [Required, MaxLength(150)] public string FullName { get; set; } = string.Empty;
     [Required, MaxLength(150)] public string Email { get; set; } = string.Empty;
     [MaxLength(20)] public string? Phone { get; set; }
@@ -27,6 +28,7 @@ public class User
     public DateTime? UpdatedAt { get; set; }
 
     public Role? Role { get; set; }
+    public HospitalProfile? HospitalProfile { get; set; }
 }
 
 public class Patient
