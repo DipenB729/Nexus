@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using AngularApp4.Data;
+using AngularApp4.Hubs;
 using AngularApp4.Middleware;
 using AngularApp4.Serialization;
 using AngularApp4.Services.Hms;
@@ -51,7 +52,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AngularClient", policy =>
         policy.WithOrigins("https://localhost:44432", "http://localhost:4200")
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 
 builder.Services
@@ -80,7 +82,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero,
             NameClaimType = "sub"
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/care-communication"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
+builder.Services.AddSignalR();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -159,6 +176,7 @@ app.UseCors("AngularClient");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHub<CareCommunicationHub>("/hubs/care-communication");
 app.MapControllers();
 app.MapFallbackToFile("index.html");
 

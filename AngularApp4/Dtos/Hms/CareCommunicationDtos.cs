@@ -64,3 +64,14 @@ public class SavePatientCaseReportDto
     public string? ReportCategory { get; set; }
     public string? ReportNotes { get; set; }
 }
+
+public class SavePatientCaseReportFormDto
+{
+    public string Symptoms { get; set; } = string.Empty;
+    public string? PreviousReportSummary { get; set; }
+    public string? ReportTitle { get; set; }
+    public string? ReportUrl { get; set; }
+    public string? ReportCategory { get; set; }
+    public string? ReportNotes { get; set; }
+    public IFormFile? Attachment { get; set; }
+}

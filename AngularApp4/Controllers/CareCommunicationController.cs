@@ -14,11 +14,14 @@ namespace AngularApp4.Controllers;
 public class CareCommunicationController : ControllerBase
 {
     private static readonly AppointmentStatus[] OpenCareStatuses = { AppointmentStatus.Approved, AppointmentStatus.Completed };
+    private static readonly HashSet<string> AllowedReportExtensions = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp", ".pdf" };
     private readonly AppDbContext _db;
+    private readonly IWebHostEnvironment _environment;
 
-    public CareCommunicationController(AppDbContext db)
+    public CareCommunicationController(AppDbContext db, IWebHostEnvironment environment)
     {
         _db = db;
+        _environment = environment;
     }
 
     [HttpGet("threads")]
@@ -52,12 +55,20 @@ public class CareCommunicationController : ControllerBase
             .ToListAsync(cancellationToken);
 
         var appointmentIds = rows.Select(x => x.AppointmentId).ToList();
-        var lastMessages = await _db.CareConversationMessages
+        var lastMessageRows = await _db.CareConversationMessages
             .AsNoTracking()
             .Where(x => appointmentIds.Contains(x.AppointmentId))
-            .GroupBy(x => x.AppointmentId)
-            .Select(x => x.OrderByDescending(m => m.CreatedAt).First())
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new
+            {
+                x.AppointmentId,
+                x.Message,
+                x.CreatedAt
+            })
             .ToListAsync(cancellationToken);
+        var lastMessages = lastMessageRows
+            .GroupBy(x => x.AppointmentId)
+            .ToDictionary(x => x.Key, x => x.First());
 
         var reportCounts = await _db.PatientCaseReports
             .AsNoTracking()
@@ -68,9 +79,11 @@ public class CareCommunicationController : ControllerBase
 
         foreach (var row in rows)
         {
-            var lastMessage = lastMessages.FirstOrDefault(x => x.AppointmentId == row.AppointmentId);
-            row.LastMessage = lastMessage?.Message;
-            row.LastMessageAt = lastMessage?.CreatedAt;
+            if (lastMessages.TryGetValue(row.AppointmentId, out var lastMessage))
+            {
+                row.LastMessage = lastMessage.Message;
+                row.LastMessageAt = lastMessage.CreatedAt;
+            }
             row.ReportCount = reportCounts.FirstOrDefault(x => x.AppointmentId == row.AppointmentId)?.Count ?? 0;
         }
 
@@ -287,6 +300,39 @@ public class CareCommunicationController : ControllerBase
     [Authorize(Policy = "UserOnly")]
     public async Task<ActionResult<ApiResponse<PatientCaseReportDto>>> SubmitReport(long appointmentId, [FromBody] SavePatientCaseReportDto dto, CancellationToken cancellationToken)
     {
+        return await SavePatientReportAsync(appointmentId, dto, null, cancellationToken);
+    }
+
+    [HttpPost("threads/{appointmentId:long}/reports/upload")]
+    [Authorize(Policy = "UserOnly")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<ActionResult<ApiResponse<PatientCaseReportDto>>> SubmitReportWithAttachment(long appointmentId, [FromForm] SavePatientCaseReportFormDto dto, CancellationToken cancellationToken)
+    {
+        var reportUrl = Normalize(dto.ReportUrl);
+        if (dto.Attachment is not null)
+        {
+            var uploadedUrl = await SaveReportAttachmentAsync(dto.Attachment, cancellationToken);
+            if (uploadedUrl is null)
+            {
+                return BadRequest(ApiResponse<PatientCaseReportDto>.Fail("Only JPG, PNG, WebP, and PDF report files up to 10 MB are supported"));
+            }
+
+            reportUrl = uploadedUrl;
+        }
+
+        return await SavePatientReportAsync(appointmentId, new SavePatientCaseReportDto
+        {
+            Symptoms = dto.Symptoms,
+            PreviousReportSummary = dto.PreviousReportSummary,
+            ReportTitle = dto.ReportTitle,
+            ReportUrl = reportUrl,
+            ReportCategory = dto.ReportCategory,
+            ReportNotes = dto.ReportNotes
+        }, null, cancellationToken);
+    }
+
+    private async Task<ActionResult<ApiResponse<PatientCaseReportDto>>> SavePatientReportAsync(long appointmentId, SavePatientCaseReportDto dto, PatientDocument? _, CancellationToken cancellationToken)
+    {
         var participant = await ResolveParticipantAsync(cancellationToken);
         if (participant is null || participant.PatientId is null)
         {
@@ -357,6 +403,35 @@ public class CareCommunicationController : ControllerBase
                 UploadedAt = document.UploadedAt
             }
         }, "Report submitted"));
+    }
+
+    private async Task<string?> SaveReportAttachmentAsync(IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file.Length <= 0 || file.Length > 10_000_000)
+        {
+            return null;
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        if (!AllowedReportExtensions.Contains(extension))
+        {
+            return null;
+        }
+
+        var webRoot = _environment.WebRootPath;
+        if (string.IsNullOrWhiteSpace(webRoot))
+        {
+            webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        }
+
+        var uploadsRoot = Path.Combine(webRoot, "uploads", "patient-reports");
+        Directory.CreateDirectory(uploadsRoot);
+        var fileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var absolutePath = Path.Combine(uploadsRoot, fileName);
+        await using var stream = System.IO.File.Create(absolutePath);
+        await file.CopyToAsync(stream, cancellationToken);
+
+        return $"/uploads/patient-reports/{fileName}";
     }
 
     private async Task<CareParticipant?> ResolveParticipantAsync(CancellationToken cancellationToken)
