@@ -129,6 +129,10 @@ export class AuthApiService {
   }
 
   getDashboardRoute(role = this.getRole()): string {
+    if (role === 'SuperAdmin') {
+      return '/superadmin/dashboard';
+    }
+
     if (role === 'Admin') {
       return '/admin/dashboard';
     }
@@ -145,6 +149,10 @@ export class AuthApiService {
   }
 
   getDisplayRole(role = this.getRole()): string {
+    if (role === 'SuperAdmin') {
+      return 'Super Administrator';
+    }
+
     if (role === 'Admin') {
       return 'Administrator';
     }

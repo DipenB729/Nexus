@@ -18,6 +18,7 @@ const PROXY_CONFIG = [
       "/api/roles",
       "/api/schedules",
       "/api/settings",
+      "/api/superadmin",
       "/api/departments",
       "/api/doctor",
       "/api/doctors",

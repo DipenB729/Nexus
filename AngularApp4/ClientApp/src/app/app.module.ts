@@ -56,6 +56,7 @@ import { DoctorProfileComponent } from './components/doctor-profile/doctor-profi
 import { NotificationCenterComponent } from './components/notification-center/notification-center.component';
 import { CareCommunicationComponent } from './components/care-communication/care-communication.component';
 import { FloatingChatComponent } from './components/floating-chat/floating-chat.component';
+import { SuperAdminDashboardComponent } from './components/superadmin-dashboard/superadmin-dashboard.component';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { AuthInterceptor } from './core/services/hms/auth.interceptor';
@@ -90,7 +91,8 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
     DoctorProfileComponent,
     NotificationCenterComponent,
     CareCommunicationComponent,
-    FloatingChatComponent
+    FloatingChatComponent,
+    SuperAdminDashboardComponent
   ],
   imports: [
     BrowserModule,
@@ -104,6 +106,8 @@ import { AuthInterceptor } from './core/services/hms/auth.interceptor';
       { path: 'auth/login', component: LoginComponent },
       { path: 'auth/register', component: RegisterComponent },
       { path: 'auth/forgot-password', component: ForgotPasswordComponent },
+      { path: 'superadmin', pathMatch: 'full', redirectTo: 'superadmin/dashboard' },
+      { path: 'superadmin/:section', component: SuperAdminDashboardComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'SuperAdmin' } },
       { path: 'admin', pathMatch: 'full', redirectTo: 'admin/dashboard' },
       { path: 'admin/dashboard', component: HomeComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },
       { path: 'admin/patients', component: PatientRegistryComponent, canActivate: [AuthGuard, RoleGuard], data: { role: 'Admin' } },

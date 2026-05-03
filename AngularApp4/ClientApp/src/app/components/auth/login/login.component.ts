@@ -7,7 +7,7 @@ interface DemoAccount {
   label: string;
   email: string;
   password: string;
-  role: 'Admin' | 'User' | 'Doctor';
+  role: 'SuperAdmin' | 'Admin' | 'User' | 'Doctor';
 }
 
 @Component({
@@ -20,6 +20,7 @@ export class LoginComponent {
   isSubmitting = false;
 
   readonly demoAccounts: DemoAccount[] = [
+    { label: 'Superadmin Demo', email: 'superadmin@nexus.local', password: 'Super@123', role: 'SuperAdmin' },
     { label: 'Admin Demo', email: 'admin@nexus.local', password: 'Admin@123', role: 'Admin' },
     { label: 'Doctor Demo', email: 'aryan.shah@nexushospital.local', password: 'Doctor@123', role: 'Doctor' },
     { label: 'Patient Demo', email: 'mira.patient@nexus.local', password: 'User@123', role: 'User' }
