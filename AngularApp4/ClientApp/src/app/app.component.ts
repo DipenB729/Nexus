@@ -17,6 +17,7 @@ export class AppComponent implements OnInit, OnDestroy {
   isAuthRoute = false;
   isDashboardRoute = false;
   pageTitle = 'Nexus Portal';
+  currentPath = '';
   currentRole: DashboardRole | null = null;
   currentSession: AuthSession | null = null;
   notifications: AppNotification[] = [];
@@ -171,6 +172,11 @@ export class AppComponent implements OnInit, OnDestroy {
     return '/patient/notifications';
   }
 
+  get showFloatingChat(): boolean {
+    return (this.currentRole === 'User' && this.currentPath.startsWith('/patient/dashboard')) ||
+      (this.currentRole === 'Doctor' && this.currentPath.startsWith('/doctor/dashboard'));
+  }
+
   notificationTone(notification: AppNotification): string {
     const type = notification.notificationType.toLowerCase();
     if (type.includes('approval')) {
@@ -242,6 +248,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
   private updateLayoutState(url: string): void {
     const currentPath = url.split('?')[0];
+    this.currentPath = currentPath;
 
     this.isAuthRoute = currentPath.startsWith('/auth');
     this.currentRole = currentPath.startsWith('/admin')
@@ -389,6 +396,14 @@ export class AppComponent implements OnInit, OnDestroy {
       return 'Availability Settings';
     }
 
+    if (path.startsWith('/doctor/messages') || path.startsWith('/patient/messages')) {
+      return 'Message Box';
+    }
+
+    if (path.startsWith('/doctor/reports') || path.startsWith('/patient/reports')) {
+      return 'Reports';
+    }
+
     if (path.startsWith('/admin/notifications') || path.startsWith('/doctor/notifications') || path.startsWith('/patient/notifications')) {
       return 'Notifications';
     }
@@ -407,8 +422,12 @@ export class AppComponent implements OnInit, OnDestroy {
       '/patient/doctors': 'Doctor Listing',
       '/patient/services': 'Doctor Listing',
       '/patient/appointments': 'My Appointments',
+      '/patient/messages': 'Message Box',
+      '/patient/reports': 'Reports',
       '/patient/profile': 'Patient Profile',
-      '/doctor/dashboard': 'Doctor Dashboard'
+      '/doctor/dashboard': 'Doctor Dashboard',
+      '/doctor/messages': 'Message Box',
+      '/doctor/reports': 'Reports'
     };
 
     return titles[path] ?? 'Nexus Portal';

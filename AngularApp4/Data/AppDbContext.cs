@@ -29,6 +29,8 @@ public class AppDbContext : DbContext
     public DbSet<DoctorPrescriptionItem> DoctorPrescriptionItems => Set<DoctorPrescriptionItem>();
     public DbSet<DiagnosticRequest> DiagnosticRequests => Set<DiagnosticRequest>();
     public DbSet<PatientDocument> PatientDocuments => Set<PatientDocument>();
+    public DbSet<PatientCaseReport> PatientCaseReports => Set<PatientCaseReport>();
+    public DbSet<CareConversationMessage> CareConversationMessages => Set<CareConversationMessage>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<HospitalProfile> HospitalProfiles => Set<HospitalProfile>();
     public DbSet<NotificationSetting> NotificationSettings => Set<NotificationSetting>();
@@ -128,6 +130,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DoctorConsultation>().HasIndex(x => x.AppointmentId).IsUnique();
         modelBuilder.Entity<DoctorPrescription>().HasIndex(x => x.AppointmentId);
         modelBuilder.Entity<DiagnosticRequest>().HasIndex(x => new { x.PatientId, x.RequestType, x.CreatedAt });
+        modelBuilder.Entity<PatientCaseReport>().HasIndex(x => new { x.AppointmentId, x.CreatedAt });
+        modelBuilder.Entity<CareConversationMessage>().HasIndex(x => new { x.AppointmentId, x.CreatedAt });
 
         modelBuilder.Entity<User>()
             .HasOne(x => x.Role)
@@ -631,6 +635,54 @@ public class AppDbContext : DbContext
             .HasOne(x => x.Appointment)
             .WithMany()
             .HasForeignKey(x => x.AppointmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PatientCaseReport>()
+            .HasOne(x => x.Appointment)
+            .WithMany()
+            .HasForeignKey(x => x.AppointmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PatientCaseReport>()
+            .HasOne(x => x.Patient)
+            .WithMany()
+            .HasForeignKey(x => x.PatientId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PatientCaseReport>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PatientCaseReport>()
+            .HasOne(x => x.PatientDocument)
+            .WithMany()
+            .HasForeignKey(x => x.PatientDocumentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<CareConversationMessage>()
+            .HasOne(x => x.Appointment)
+            .WithMany()
+            .HasForeignKey(x => x.AppointmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CareConversationMessage>()
+            .HasOne(x => x.Patient)
+            .WithMany()
+            .HasForeignKey(x => x.PatientId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CareConversationMessage>()
+            .HasOne(x => x.Doctor)
+            .WithMany()
+            .HasForeignKey(x => x.DoctorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CareConversationMessage>()
+            .HasOne(x => x.SenderUser)
+            .WithMany()
+            .HasForeignKey(x => x.SenderUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<AdmissionTransfer>()

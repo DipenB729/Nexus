@@ -163,3 +163,39 @@ public class PatientDocument
     public Patient? Patient { get; set; }
     public Appointment? Appointment { get; set; }
 }
+
+public class PatientCaseReport
+{
+    [Key] public long PatientCaseReportId { get; set; }
+    public long AppointmentId { get; set; }
+    public long PatientId { get; set; }
+    public long DoctorId { get; set; }
+    [Required, MaxLength(4000)] public string Symptoms { get; set; } = string.Empty;
+    [MaxLength(2000)] public string? PreviousReportSummary { get; set; }
+    public long? PatientDocumentId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
+
+    public Appointment? Appointment { get; set; }
+    public Patient? Patient { get; set; }
+    public Doctor? Doctor { get; set; }
+    public PatientDocument? PatientDocument { get; set; }
+}
+
+public class CareConversationMessage
+{
+    [Key] public long CareConversationMessageId { get; set; }
+    public long AppointmentId { get; set; }
+    public long PatientId { get; set; }
+    public long DoctorId { get; set; }
+    public long SenderUserId { get; set; }
+    [Required, MaxLength(30)] public string SenderRole { get; set; } = string.Empty;
+    [Required, MaxLength(150)] public string SenderName { get; set; } = string.Empty;
+    [Required, MaxLength(2000)] public string Message { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public Appointment? Appointment { get; set; }
+    public Patient? Patient { get; set; }
+    public Doctor? Doctor { get; set; }
+    public User? SenderUser { get; set; }
+}

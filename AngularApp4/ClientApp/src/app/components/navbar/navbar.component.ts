@@ -130,6 +130,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
         { label: 'Doctors', icon: 'medical_services', route: '/patient/doctors' },
         { label: 'Book Appointment', icon: 'event_available', route: '/patient/book' },
         { label: 'Appointments', icon: 'calendar_month', route: '/patient/appointments' },
+        { label: 'Reports', icon: 'assignment', route: '/patient/reports' },
         { label: 'Notifications', icon: 'notifications', route: '/patient/notifications' },
         { label: 'Profile', icon: 'person', route: '/patient/profile' }
       ]
@@ -143,6 +144,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
       items: [
         { label: 'Dashboard', icon: 'space_dashboard', route: '/doctor/dashboard', exact: true },
         { label: 'Appointments', icon: 'calendar_month', route: '/doctor/appointments' },
+        { label: 'Reports', icon: 'assignment', route: '/doctor/reports' },
         { label: 'Notifications', icon: 'notifications', route: '/doctor/notifications' },
         { label: 'Availability', icon: 'schedule', route: '/doctor/availability' },
         { label: 'Profile', icon: 'badge', route: '/doctor/profile' }

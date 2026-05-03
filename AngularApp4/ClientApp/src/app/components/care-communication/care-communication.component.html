@@ -1,0 +1,178 @@
+<section class="care-communication">
+  <div class="page-header">
+    <div>
+      <h1>{{ pageTitle }}</h1>
+      <p>{{ pageSubtitle }}</p>
+    </div>
+    <button mat-stroked-button type="button" *ngIf="selectedThread" (click)="backToThreads()">
+      <mat-icon>arrow_back</mat-icon>
+      Back
+    </button>
+  </div>
+
+  <p class="feedback" *ngIf="isLoading || isLoadingThread">Loading approved appointment threads...</p>
+  <p class="feedback success" *ngIf="statusMessage">{{ statusMessage }}</p>
+  <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <ng-container *ngIf="!selectedThread">
+    <div class="table-actions" *ngIf="!isLoading">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search</mat-label>
+        <input matInput [(ngModel)]="searchTerm" placeholder="Patient, doctor, MRN, service" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+    </div>
+
+    <section class="thread-list" *ngIf="!isLoading">
+      <button class="thread-card" type="button" *ngFor="let thread of filteredThreads" (click)="openThread(thread.appointmentId)">
+        <span class="status-pill">{{ thread.status }}</span>
+        <div>
+          <strong>{{ isDoctor ? thread.patientName : thread.doctorName }}</strong>
+          <small>{{ isDoctor ? (thread.medicalRecordNumber || 'MRN pending') : (thread.doctorSpecialization || 'General practice') }}</small>
+        </div>
+        <div>
+          <span>{{ thread.appointmentDate | date:'mediumDate' }} | {{ formatTime(thread.slotStartTime) }} - {{ formatTime(thread.slotEndTime) }}</span>
+          <small>{{ thread.serviceName || 'General consultation' }}</small>
+        </div>
+        <p *ngIf="mode === 'messages'">{{ thread.lastMessage || 'No messages yet' }}</p>
+        <p *ngIf="mode === 'reports'">{{ thread.reportCount }} patient report{{ thread.reportCount === 1 ? '' : 's' }}</p>
+      </button>
+      <div class="empty-state" *ngIf="filteredThreads.length === 0">No approved appointment threads are available yet.</div>
+    </section>
+  </ng-container>
+
+  <section class="thread-detail" *ngIf="selectedThread as detail">
+    <div class="summary-panel">
+      <div>
+        <p class="eyebrow">Approved appointment</p>
+        <h2>{{ isDoctor ? detail.thread.patientName : detail.thread.doctorName }}</h2>
+        <span>{{ detail.thread.appointmentDate | date:'fullDate' }} | {{ formatTime(detail.thread.slotStartTime) }} - {{ formatTime(detail.thread.slotEndTime) }}</span>
+      </div>
+      <a mat-stroked-button *ngIf="isDoctor" [routerLink]="doctorWorkspaceLink(detail.thread)">Open workspace</a>
+    </div>
+
+    <div class="detail-grid">
+      <section class="panel" *ngIf="mode === 'messages'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Message box</p>
+            <h3>Conversation</h3>
+          </div>
+        </div>
+
+        <div class="message-list" *ngIf="detail.messages.length > 0; else noMessages">
+          <article class="message-card" *ngFor="let message of detail.messages" [class.own]="isDoctor ? message.senderRole === 'Doctor' : message.senderRole === 'Patient'">
+            <div>
+              <strong>{{ message.senderName }}</strong>
+              <span>{{ message.createdAt | date:'short' }}</span>
+            </div>
+            <p>{{ message.message }}</p>
+          </article>
+        </div>
+
+        <div class="message-form">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Write message</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="messageText"></textarea>
+          </mat-form-field>
+          <button mat-raised-button color="primary" type="button" [disabled]="isSavingMessage || !messageText.trim()" (click)="sendMessage()">Send</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Patient reports</p>
+            <h3>Symptoms and previous reports</h3>
+          </div>
+        </div>
+
+        <form class="report-form" *ngIf="isPatient && mode === 'reports'">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Symptoms</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="reportForm.symptoms" name="symptoms"></textarea>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Previous report summary</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="reportForm.previousReportSummary" name="previousReportSummary"></textarea>
+          </mat-form-field>
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Report title</mat-label>
+              <input matInput [(ngModel)]="reportForm.reportTitle" name="reportTitle" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Report link</mat-label>
+              <input matInput [(ngModel)]="reportForm.reportUrl" name="reportUrl" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Category</mat-label>
+              <input matInput [(ngModel)]="reportForm.reportCategory" name="reportCategory" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Report notes</mat-label>
+              <input matInput [(ngModel)]="reportForm.reportNotes" name="reportNotes" />
+            </mat-form-field>
+          </div>
+          <button mat-raised-button color="primary" type="button" [disabled]="isSavingReport || !reportForm.symptoms.trim()" (click)="submitReport()">Submit report</button>
+        </form>
+
+        <div class="report-list" *ngIf="detail.reports.length > 0; else noReports">
+          <article class="report-card" *ngFor="let report of detail.reports">
+            <div>
+              <strong>{{ report.createdAt | date:'mediumDate' }}</strong>
+              <span>{{ report.previousReportSummary || 'No previous report summary' }}</span>
+            </div>
+            <p>{{ report.symptoms }}</p>
+            <a *ngIf="report.document" [href]="report.document.fileUrl" target="_blank" rel="noreferrer">
+              {{ report.document.title }}
+            </a>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" *ngIf="mode === 'reports'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Doctor report</p>
+            <h3>Consultation and orders</h3>
+          </div>
+        </div>
+        <div class="care-grid">
+          <article><span>Diagnosis</span><p>{{ detail.consultation.diagnosis || 'Not added yet' }}</p></article>
+          <article><span>Advice</span><p>{{ detail.consultation.advice || 'Not added yet' }}</p></article>
+          <article><span>Follow-up</span><p>{{ detail.consultation.followUpDate ? (detail.consultation.followUpDate | date:'mediumDate') : 'No follow-up date' }}</p></article>
+          <article><span>Status</span><p>{{ detail.consultation.status || 'Draft' }}</p></article>
+        </div>
+
+        <div class="history-section">
+          <h4>Prescriptions</h4>
+          <article class="report-card" *ngFor="let prescription of detail.prescriptions">
+            <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
+            <span>{{ prescription.notes || 'No prescription notes' }}</span>
+            <p>{{ prescription.items.length }} medicine{{ prescription.items.length === 1 ? '' : 's' }}</p>
+          </article>
+          <div class="empty-state compact-empty" *ngIf="detail.prescriptions.length === 0">No prescription has been shared yet.</div>
+        </div>
+
+        <div class="history-section">
+          <h4>Diagnostics</h4>
+          <article class="report-card" *ngFor="let request of detail.diagnosticRequests">
+            <strong>{{ request.requestedItemName }}</strong>
+            <span>{{ request.requestType }} | {{ request.status }}</span>
+            <p>{{ request.remarks || request.resultSummary || 'No remarks' }}</p>
+          </article>
+          <div class="empty-state compact-empty" *ngIf="detail.diagnosticRequests.length === 0">No diagnostic request has been shared yet.</div>
+        </div>
+      </section>
+    </div>
+  </section>
+</section>
+
+<ng-template #noMessages>
+  <div class="empty-state compact-empty">No messages have been sent yet.</div>
+</ng-template>
+
+<ng-template #noReports>
+  <div class="empty-state compact-empty">No patient reports have been submitted yet.</div>
+</ng-template>
