@@ -1,3 +1,4 @@
 export const environment = {
-  production: true
+  production: true,
+  apiOrigin: 'https://nexus-app-scn1.onrender.com'
 };

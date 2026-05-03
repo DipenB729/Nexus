@@ -1,6 +1,7 @@
 import { Injectable, NgZone } from '@angular/core';
 import { HubConnection, HubConnectionBuilder, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { Observable, Subject } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 import { CareConversationMessage } from '../../models/hms/care-communication.model';
 import { AuthApiService } from './auth-api.service';
 
@@ -31,8 +32,10 @@ export class CareCommunicationRealtimeService {
       return this.startPromise;
     }
 
+    const hubUrl = `${environment.apiOrigin}/hubs/care-communication`;
+
     this.connection = new HubConnectionBuilder()
-      .withUrl('/hubs/care-communication', {
+      .withUrl(hubUrl, {
         accessTokenFactory: () => this.auth.getToken() ?? ''
       })
       .withAutomaticReconnect()
