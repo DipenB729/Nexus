@@ -41,6 +41,14 @@
   --shell-accent-contrast: #0f766e;
 }
 
+.dashboard-wrapper.doctor-mode {
+  --shell-bg: radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 28%), #f5faff;
+  --shell-accent: #0369a1;
+  --shell-accent-strong: #0f766e;
+  --shell-accent-soft: #e0f2fe;
+  --shell-accent-contrast: #0369a1;
+}
+
 .sidebar-nav {
   width: 272px;
   position: fixed;
@@ -321,6 +329,35 @@
   overflow-x: hidden;
   overflow-y: auto;
   padding: 22px 18px 24px;
+}
+
+.dashboard-wrapper.user-mode .top-navbar,
+.dashboard-wrapper.doctor-mode .top-navbar {
+  margin: 12px 12px 0;
+}
+
+.dashboard-wrapper.user-mode .page-body,
+.dashboard-wrapper.doctor-mode .page-body {
+  padding: 12px 12px 18px;
+}
+
+:host ::ng-deep .dashboard-wrapper.user-mode .user-dashboard,
+:host ::ng-deep .dashboard-wrapper.user-mode .doctor-listing,
+:host ::ng-deep .dashboard-wrapper.user-mode .doctor-detail,
+:host ::ng-deep .dashboard-wrapper.user-mode .booking-page,
+:host ::ng-deep .dashboard-wrapper.user-mode .bookings-container,
+:host ::ng-deep .dashboard-wrapper.user-mode .care-communication,
+:host ::ng-deep .dashboard-wrapper.user-mode .notification-center,
+:host ::ng-deep .dashboard-wrapper.user-mode .patient-profile,
+:host ::ng-deep .dashboard-wrapper.doctor-mode .doctor-dashboard,
+:host ::ng-deep .dashboard-wrapper.doctor-mode .care-communication,
+:host ::ng-deep .dashboard-wrapper.doctor-mode .notification-center,
+:host ::ng-deep .dashboard-wrapper.doctor-mode .doctor-profile {
+  max-width: none;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 0;
 }
 
 @media (max-width: 900px) {

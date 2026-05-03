@@ -6,7 +6,11 @@
 
 <ng-template #appLayout>
   <ng-container *ngIf="isDashboardRoute; else publicLayout">
-    <div class="dashboard-wrapper" [class.user-mode]="currentRole === 'User'">
+    <div
+      class="dashboard-wrapper"
+      [class.admin-mode]="currentRole === 'Admin'"
+      [class.doctor-mode]="currentRole === 'Doctor'"
+      [class.user-mode]="currentRole === 'User'">
       <app-navbar
         class="sidebar-nav"
         [class.collapsed]="!isSidebarExpanded"

@@ -24,11 +24,14 @@ const PROXY_CONFIG = [
       "/api/staff",
       "/api/patient-categories",
       "/api/wards",
-      "/api/beds"
+      "/api/beds",
+      "/api/care-communication",
+      "/hubs/care-communication"
     ],
     proxyTimeout: 10000,
     target: target,
     secure: false,
+    ws: true,
     headers: {
       Connection: 'Keep-Alive'
     }

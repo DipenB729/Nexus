@@ -2,8 +2,8 @@
   <section class="chat-panel" *ngIf="isOpen">
     <header class="chat-head">
       <div>
-        <strong>Message Box</strong>
-        <span>Approved appointments only</span>
+        <strong>Chat</strong>
+        <span>{{ panelTitle }}</span>
       </div>
       <button type="button" class="icon-button" (click)="toggle()" aria-label="Close chat">
         <mat-icon>close</mat-icon>
@@ -11,53 +11,59 @@
     </header>
 
     <div class="chat-body">
-      <aside class="thread-list" *ngIf="threads.length > 1">
+      <aside class="thread-list" *ngIf="threads.length > 0">
         <button
           type="button"
           *ngFor="let thread of threads"
           [class.active]="selectedThread?.thread?.appointmentId === thread.appointmentId"
           (click)="openThread(thread.appointmentId)">
-          <strong>{{ participantName(thread) }}</strong>
-          <span>{{ thread.lastMessage || thread.serviceName || 'Open chat' }}</span>
+          <span class="avatar">{{ participantInitial(thread) }}</span>
+          <span class="thread-copy">
+            <strong>{{ participantName(thread) }}</strong>
+            <small>{{ thread.lastMessage || participantMeta(thread) }}</small>
+          </span>
         </button>
       </aside>
 
       <main class="conversation">
-        <p class="feedback" *ngIf="isLoading">Loading chat...</p>
-        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
-
         <ng-container *ngIf="selectedThread as detail">
           <div class="conversation-title">
-            <strong>{{ participantName(detail.thread) }}</strong>
-            <span>{{ detail.thread.serviceName || 'General consultation' }}</span>
+            <span class="avatar large">{{ participantInitial(detail.thread) }}</span>
+            <span>
+              <strong>{{ participantName(detail.thread) }}</strong>
+              <small>{{ participantMeta(detail.thread) }} · {{ detail.thread.status }}</small>
+            </span>
           </div>
 
           <div class="message-list" *ngIf="detail.messages.length > 0; else noMessages">
             <article
               class="message-card"
               *ngFor="let message of detail.messages"
-              [class.own]="isDoctor ? message.senderRole === 'Doctor' : message.senderRole === 'Patient'">
-              <span>{{ message.senderName }}</span>
+              [class.own]="isOwnMessage(message)">
               <p>{{ message.message }}</p>
+              <span>{{ message.createdAt | date:'shortTime' }}</span>
             </article>
           </div>
 
           <div class="message-form">
-            <textarea [(ngModel)]="messageText" rows="2" placeholder="Type message"></textarea>
+            <textarea [(ngModel)]="messageText" rows="1" placeholder="Aa"></textarea>
             <button type="button" [disabled]="isSending || !messageText.trim()" (click)="sendMessage()">
               <mat-icon>send</mat-icon>
             </button>
           </div>
         </ng-container>
 
+        <p class="feedback" *ngIf="isLoading">Loading chat...</p>
+        <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
         <div class="empty-state" *ngIf="!isLoading && threads.length === 0">
-          No approved doctor chat is available yet.
+          No approved appointment chat is available yet.
         </div>
       </main>
     </div>
   </section>
 
-  <button type="button" class="chat-fab" (click)="toggle()" aria-label="Open message box">
+  <button type="button" class="chat-fab" (click)="toggle()" aria-label="Open chat">
     <mat-icon>{{ isOpen ? 'close' : 'chat' }}</mat-icon>
     <span *ngIf="threads.length > 0 && !isOpen">{{ unreadLabel }}</span>
   </button>

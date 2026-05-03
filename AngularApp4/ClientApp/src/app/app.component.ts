@@ -173,8 +173,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   get showFloatingChat(): boolean {
-    return (this.currentRole === 'User' && this.currentPath.startsWith('/patient/dashboard')) ||
-      (this.currentRole === 'Doctor' && this.currentPath.startsWith('/doctor/dashboard'));
+    return this.currentRole === 'User' || this.currentRole === 'Doctor';
   }
 
   notificationTone(notification: AppNotification): string {
@@ -397,7 +396,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (path.startsWith('/doctor/messages') || path.startsWith('/patient/messages')) {
-      return 'Message Box';
+      return 'Chat';
     }
 
     if (path.startsWith('/doctor/reports') || path.startsWith('/patient/reports')) {
@@ -422,11 +421,11 @@ export class AppComponent implements OnInit, OnDestroy {
       '/patient/doctors': 'Doctor Listing',
       '/patient/services': 'Doctor Listing',
       '/patient/appointments': 'My Appointments',
-      '/patient/messages': 'Message Box',
+      '/patient/messages': 'Chat',
       '/patient/reports': 'Reports',
       '/patient/profile': 'Patient Profile',
       '/doctor/dashboard': 'Doctor Dashboard',
-      '/doctor/messages': 'Message Box',
+      '/doctor/messages': 'Chat',
       '/doctor/reports': 'Reports'
     };
 

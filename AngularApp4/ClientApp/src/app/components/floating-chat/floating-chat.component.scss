@@ -1,7 +1,7 @@
 .floating-chat {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  right: 22px;
+  bottom: 22px;
   z-index: 1100;
 }
 
@@ -11,9 +11,9 @@
   height: 58px;
   border: 0;
   border-radius: 50%;
-  background: #0f766e;
+  background: #0b7cff;
   color: #fff;
-  box-shadow: 0 18px 40px rgba(15, 118, 110, 0.35);
+  box-shadow: 0 16px 38px rgba(11, 124, 255, 0.34);
   cursor: pointer;
 }
 
@@ -40,13 +40,13 @@
   position: absolute;
   right: 0;
   bottom: 74px;
-  width: min(420px, calc(100vw - 32px));
-  height: min(560px, calc(100vh - 120px));
+  width: min(720px, calc(100vw - 34px));
+  height: min(610px, calc(100vh - 118px));
   display: grid;
   grid-template-rows: auto 1fr;
   overflow: hidden;
-  border: 1px solid #dbe5f4;
-  border-radius: 18px;
+  border: 1px solid #d8dee9;
+  border-radius: 16px;
   background: #fff;
   box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
 }
@@ -56,76 +56,93 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 0.9rem 1rem;
-  background: #0f766e;
-  color: #fff;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
 }
 
 .chat-head strong,
-.chat-head span {
+.chat-head span,
+.thread-copy strong,
+.thread-copy small,
+.conversation-title strong,
+.conversation-title small,
+.message-card span {
   display: block;
 }
 
-.chat-head span {
-  color: rgba(255, 255, 255, 0.78);
+.chat-head strong,
+.thread-copy strong,
+.conversation-title strong {
+  color: #111827;
+}
+
+.chat-head span,
+.thread-copy small,
+.conversation-title small,
+.message-card span {
+  color: #6b7280;
   font-size: 0.78rem;
 }
 
 .icon-button {
+  width: 36px;
+  height: 36px;
   border: 0;
-  background: transparent;
-  color: inherit;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: #374151;
   cursor: pointer;
 }
 
 .chat-body {
   display: grid;
-  grid-template-columns: 132px 1fr;
+  grid-template-columns: 245px minmax(0, 1fr);
   min-height: 0;
 }
 
 .thread-list {
   display: grid;
   align-content: start;
-  gap: 0.35rem;
-  padding: 0.6rem;
+  gap: 0.25rem;
+  padding: 0.65rem;
   overflow-y: auto;
-  border-right: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-right: 1px solid #e5e7eb;
+  background: #fff;
 }
 
 .thread-list button {
-  border: 1px solid transparent;
-  border-radius: 12px;
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  border: 0;
+  border-radius: 10px;
   background: transparent;
   padding: 0.55rem;
   text-align: left;
   cursor: pointer;
 }
 
+.thread-list button:hover,
 .thread-list button.active {
-  border-color: #99f6e4;
-  background: #ecfdf5;
+  background: #f3f4f6;
 }
 
-.thread-list strong,
-.thread-list span,
-.conversation-title strong,
-.conversation-title span,
-.message-card span {
-  display: block;
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0b7cff, #10b981);
+  color: #fff;
+  font-weight: 800;
 }
 
-.thread-list strong,
-.conversation-title strong {
-  color: #0f172a;
-}
-
-.thread-list span,
-.conversation-title span,
-.message-card span {
-  color: #64748b;
-  font-size: 0.78rem;
+.avatar.large {
+  width: 42px;
+  height: 42px;
 }
 
 .conversation {
@@ -133,64 +150,85 @@
   grid-template-rows: auto 1fr auto;
   min-width: 0;
   min-height: 0;
+  background: #fff;
 }
 
 .conversation-title {
-  padding: 0.75rem 0.85rem;
-  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .message-list {
   display: grid;
   align-content: start;
-  gap: 0.55rem;
+  gap: 0.45rem;
   overflow-y: auto;
-  padding: 0.75rem;
-  background: #f8fafc;
+  padding: 1rem 0.85rem;
+  background: #fff;
 }
 
 .message-card {
-  width: 86%;
-  padding: 0.6rem 0.7rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
+  width: fit-content;
+  max-width: min(76%, 430px);
+  padding: 0.55rem 0.75rem 0.35rem;
+  border-radius: 18px;
+  background: #f1f5f9;
+  color: #111827;
 }
 
 .message-card.own {
   justify-self: end;
-  border-color: #99f6e4;
-  background: #ecfdf5;
+  background: #0b7cff;
+  color: #fff;
 }
 
 .message-card p {
-  margin: 0.2rem 0 0;
-  color: #1e293b;
-  line-height: 1.35;
+  margin: 0;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
+}
+
+.message-card span {
+  margin-top: 0.18rem;
+  color: #6b7280;
+  text-align: right;
+}
+
+.message-card.own span {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .message-form {
   display: grid;
-  grid-template-columns: 1fr 44px;
-  gap: 0.5rem;
+  grid-template-columns: 1fr 42px;
+  gap: 0.55rem;
   padding: 0.7rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
 }
 
 .message-form textarea {
   width: 100%;
-  min-height: 44px;
+  min-height: 40px;
+  max-height: 92px;
   resize: none;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  padding: 0.55rem 0.65rem;
+  border: 0;
+  border-radius: 999px;
+  background: #f3f4f6;
+  padding: 0.63rem 0.9rem;
   font: inherit;
+  outline: none;
 }
 
 .message-form button {
+  width: 42px;
+  height: 42px;
   border: 0;
-  border-radius: 12px;
-  background: #0f766e;
+  border-radius: 50%;
+  background: #0b7cff;
   color: #fff;
   cursor: pointer;
 }
@@ -203,14 +241,15 @@
 .feedback,
 .error,
 .empty-state {
-  margin: 0.75rem;
+  align-self: start;
+  margin: 0.85rem;
   padding: 0.85rem;
   border-radius: 12px;
 }
 
 .feedback {
-  background: #ecfeff;
-  color: #0f766e;
+  background: #eff6ff;
+  color: #1d4ed8;
 }
 
 .error {
@@ -224,16 +263,18 @@
 }
 
 .compact {
-  min-height: 8rem;
+  min-height: 7rem;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 700px) {
   .floating-chat {
-    right: 16px;
-    bottom: 16px;
+    right: 14px;
+    bottom: 14px;
   }
 
   .chat-panel {
+    width: calc(100vw - 28px);
+    height: min(620px, calc(100vh - 104px));
     bottom: 70px;
   }
 
@@ -242,6 +283,12 @@
   }
 
   .thread-list {
-    display: none;
+    max-height: 112px;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(180px, 1fr);
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid #e5e7eb;
   }
 }

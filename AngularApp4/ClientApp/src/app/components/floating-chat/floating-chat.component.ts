@@ -1,8 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { CareThreadDetail, CareThreadSummary } from '../../core/models/hms/care-communication.model';
+import { CareConversationMessage, CareThreadDetail, CareThreadSummary } from '../../core/models/hms/care-communication.model';
 import { CareCommunicationService } from '../../core/services/hms/care-communication.service';
 import { AuthApiService } from '../../core/services/hms/auth-api.service';
+import { CareCommunicationRealtimeService } from '../../core/services/hms/care-communication-realtime.service';
 
 @Component({
   selector: 'app-floating-chat',
@@ -19,19 +20,27 @@ export class FloatingChatComponent implements OnInit, OnDestroy {
   errorMessage = '';
 
   private sessionSub?: Subscription;
+  private messageSub?: Subscription;
 
   constructor(
     private readonly api: CareCommunicationService,
-    private readonly auth: AuthApiService
+    private readonly auth: AuthApiService,
+    private readonly realtime: CareCommunicationRealtimeService
   ) {}
 
   ngOnInit(): void {
     this.loadThreads();
     this.sessionSub = this.auth.session$.subscribe(() => this.loadThreads());
+    this.messageSub = this.realtime.messages$.subscribe((message) => this.handleRealtimeMessage(message));
+    this.realtime.start().catch(() => {
+      this.errorMessage = 'Chat connection is unavailable.';
+    });
   }
 
   ngOnDestroy(): void {
     this.sessionSub?.unsubscribe();
+    this.messageSub?.unsubscribe();
+    void this.realtime.stop();
   }
 
   get isDoctor(): boolean {
@@ -40,6 +49,10 @@ export class FloatingChatComponent implements OnInit, OnDestroy {
 
   get unreadLabel(): string {
     return this.threads.length > 9 ? '9+' : String(this.threads.length);
+  }
+
+  get panelTitle(): string {
+    return this.isDoctor ? 'Patient chats' : 'Doctor chats';
   }
 
   toggle(): void {
@@ -56,6 +69,9 @@ export class FloatingChatComponent implements OnInit, OnDestroy {
       next: (thread) => {
         this.selectedThread = thread;
         this.isLoading = false;
+        this.realtime.joinThread(appointmentId).catch(() => {
+          this.errorMessage = 'Chat connection is unavailable.';
+        });
       },
       error: () => {
         this.selectedThread = null;
@@ -74,32 +90,33 @@ export class FloatingChatComponent implements OnInit, OnDestroy {
 
     this.isSending = true;
     this.errorMessage = '';
-    this.api.sendMessage(appointmentId, { message }).subscribe({
-      next: (saved) => {
+    this.realtime.sendMessage(appointmentId, message)
+      .then(() => {
         this.isSending = false;
         this.messageText = '';
-        if (this.selectedThread) {
-          this.selectedThread = {
-            ...this.selectedThread,
-            messages: [...this.selectedThread.messages, saved],
-            thread: {
-              ...this.selectedThread.thread,
-              lastMessage: saved.message,
-              lastMessageAt: saved.createdAt
-            }
-          };
-        }
-        this.loadThreads(false);
-      },
-      error: () => {
+      })
+      .catch(() => {
         this.isSending = false;
         this.errorMessage = 'Unable to send message.';
-      }
-    });
+      });
   }
 
   participantName(thread: CareThreadSummary): string {
     return this.isDoctor ? thread.patientName : thread.doctorName;
+  }
+
+  participantMeta(thread: CareThreadSummary): string {
+    return this.isDoctor
+      ? thread.medicalRecordNumber || 'MRN pending'
+      : thread.doctorSpecialization || 'General practice';
+  }
+
+  participantInitial(thread: CareThreadSummary): string {
+    return this.participantName(thread).trim().charAt(0).toUpperCase() || 'C';
+  }
+
+  isOwnMessage(message: CareConversationMessage): boolean {
+    return this.isDoctor ? message.senderRole === 'Doctor' : message.senderRole === 'Patient';
   }
 
   private loadThreads(showLoading = true): void {
@@ -117,5 +134,30 @@ export class FloatingChatComponent implements OnInit, OnDestroy {
         this.isLoading = false;
       }
     });
+  }
+
+  private handleRealtimeMessage(message: CareConversationMessage): void {
+    this.threads = this.threads.map((thread) =>
+      thread.appointmentId === message.appointmentId
+        ? { ...thread, lastMessage: message.message, lastMessageAt: message.createdAt }
+        : thread);
+
+    if (!this.selectedThread || this.selectedThread.thread.appointmentId !== message.appointmentId) {
+      return;
+    }
+
+    if (this.selectedThread.messages.some((item) => item.careConversationMessageId === message.careConversationMessageId)) {
+      return;
+    }
+
+    this.selectedThread = {
+      ...this.selectedThread,
+      messages: [...this.selectedThread.messages, message],
+      thread: {
+        ...this.selectedThread.thread,
+        lastMessage: message.message,
+        lastMessageAt: message.createdAt
+      }
+    };
   }
 }
