@@ -128,6 +128,7 @@
 
 .thread-detail,
 .detail-grid,
+.clinical-workspace,
 .message-list,
 .message-form,
 .report-form,
@@ -144,6 +145,146 @@
 
 .detail-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.clinical-workspace {
+  grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
+  align-items: start;
+}
+
+.report-workspace-panel {
+  padding: 1.25rem;
+}
+
+.clinical-column {
+  min-width: 0;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.doctor-column,
+.saved-column {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.patient-column {
+  border-color: #99f6e4;
+  background: linear-gradient(180deg, #ffffff, #f8fffd);
+}
+
+.clinical-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.patient-context {
+  grid-column: 1 / -1;
+}
+
+.create-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1300;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.create-modal {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(760px, calc(100vh - 2rem));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border: 1px solid #dbe5f4;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-head h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.modal-form {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.2rem;
+}
+
+.attachment-picker {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px dashed #99f6e4;
+  border-radius: 14px;
+  background: #f0fdfa;
+  color: #0f766e;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.attachment-picker input {
+  display: none;
+}
+
+.clinical-column-head h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.source-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.doctor-source {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.patient-source {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.clinical-workspace .saved-panel {
+  min-width: 0;
 }
 
 .panel {
@@ -179,8 +320,51 @@
   gap: 1rem;
 }
 
+.actions-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.prescription-item {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
 .full-width {
   grid-column: 1 / -1;
+}
+
+.report-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.35rem;
+  border: 1px solid #dbe5f4;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.report-tabs button {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.65rem 0.9rem;
+  white-space: nowrap;
+}
+
+.report-tabs button.active {
+  background: #0f766e;
+  color: #fff;
 }
 
 .report-card,
@@ -196,6 +380,77 @@
   gap: 0.45rem;
 }
 
+.patient-report-card {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.patient-submit-panel {
+  border-color: #99f6e4;
+  background: linear-gradient(180deg, #fff, #f8fffd);
+}
+
+.patient-history-panel {
+  background: #fff;
+}
+
+.patient-report-form {
+  max-width: 920px;
+}
+
+.patient-doctor-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.patient-doctor-summary article {
+  padding: 0.9rem;
+  border: 1px solid #dbe5f4;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.patient-doctor-summary span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.patient-doctor-summary p {
+  margin: 0.35rem 0 0;
+  color: #0f172a;
+}
+
+.prescription-card,
+.diagnostic-card {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.medicine-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.medicine-list div {
+  padding: 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.medicine-list strong,
+.medicine-list span,
+.medicine-list small {
+  display: block;
+}
+
+.medicine-list small {
+  color: #64748b;
+}
+
 .report-card a {
   color: #1d4ed8;
   font-weight: 600;
@@ -209,8 +464,10 @@
 @media (max-width: 1000px) {
   .thread-card,
   .detail-grid,
+  .clinical-workspace,
   .form-grid,
-  .care-grid {
+  .care-grid,
+  .patient-doctor-summary {
     grid-template-columns: 1fr;
   }
 

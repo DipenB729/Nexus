@@ -32,4 +32,8 @@ export class CareCommunicationService {
   submitReport(appointmentId: number, payload: SavePatientReportPayload): Observable<PatientCaseReport> {
     return this.http.post<ApiResponse<PatientCaseReport>>(`${this.api}/threads/${appointmentId}/reports`, payload).pipe(map((res) => res.data));
   }
+
+  submitReportForm(appointmentId: number, formData: FormData): Observable<PatientCaseReport> {
+    return this.http.post<ApiResponse<PatientCaseReport>>(`${this.api}/threads/${appointmentId}/reports/upload`, formData).pipe(map((res) => res.data));
+  }
 }

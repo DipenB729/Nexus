@@ -79,7 +79,107 @@
         </div>
       </section>
 
-      <section class="panel">
+      <ng-container *ngIf="mode === 'reports' && isDoctor">
+        <nav class="report-tabs full-width" aria-label="Report sections">
+          <button
+            type="button"
+            *ngFor="let section of reportSections"
+            [class.active]="activeReportSection === section.id"
+            (click)="setReportSection(section.id)">
+            {{ section.label }}
+          </button>
+        </nav>
+      </ng-container>
+
+      <ng-container *ngIf="mode === 'reports' && isPatient">
+        <nav class="report-tabs full-width" aria-label="Patient report sections">
+          <button
+            type="button"
+            *ngFor="let section of patientReportSections"
+            [class.active]="activePatientReportSection === section.id"
+            (click)="setPatientReportSection(section.id)">
+            {{ section.label }}
+          </button>
+        </nav>
+      </ng-container>
+
+      <section class="panel full-width patient-history-panel" *ngIf="mode === 'reports' && isPatient && activePatientReportSection === 'submitted'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Submitted reports</p>
+            <h3>Your shared reports</h3>
+          </div>
+          <button mat-raised-button color="primary" type="button" (click)="openPatientReportModal()">Create report</button>
+        </div>
+
+        <div class="report-list" *ngIf="detail.reports.length > 0; else noReports">
+          <article class="report-card patient-report-card" *ngFor="let report of detail.reports">
+            <div>
+              <strong>{{ report.createdAt | date:'mediumDate' }}</strong>
+              <span>{{ report.previousReportSummary || 'No previous report summary' }}</span>
+            </div>
+            <p>{{ report.symptoms }}</p>
+            <a *ngIf="report.document" [href]="report.document.fileUrl" target="_blank" rel="noreferrer">
+              {{ report.document.title }}
+            </a>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel full-width patient-history-panel" *ngIf="mode === 'reports' && isPatient && activePatientReportSection === 'consultation'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Doctor response</p>
+            <h3>Consultation</h3>
+          </div>
+        </div>
+        <div class="care-grid">
+          <article><span>Symptoms</span><p>{{ detail.consultation.symptoms || 'Not added yet' }}</p></article>
+          <article><span>Diagnosis</span><p>{{ detail.consultation.diagnosis || 'Not added yet' }}</p></article>
+          <article><span>Vitals</span><p>{{ detail.consultation.vitalObservations || 'Not added yet' }}</p></article>
+          <article><span>Notes</span><p>{{ detail.consultation.notes || 'Not added yet' }}</p></article>
+          <article><span>Advice</span><p>{{ detail.consultation.advice || 'Not added yet' }}</p></article>
+          <article><span>Follow-up</span><p>{{ detail.consultation.followUpDate ? (detail.consultation.followUpDate | date:'mediumDate') : 'No follow-up date' }}</p></article>
+        </div>
+      </section>
+
+      <section class="panel full-width patient-history-panel" *ngIf="mode === 'reports' && isPatient && activePatientReportSection === 'prescriptions'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Doctor response</p>
+            <h3>Prescription</h3>
+          </div>
+        </div>
+        <article class="report-card prescription-card" *ngFor="let prescription of detail.prescriptions">
+          <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
+          <span>{{ prescription.notes || 'No prescription notes' }}</span>
+          <div class="medicine-list" *ngIf="prescription.items.length > 0">
+            <div *ngFor="let item of prescription.items">
+              <strong>{{ item.medicineName }}</strong>
+              <span>{{ item.dosage || 'Dosage not set' }} | {{ item.frequency || 'Frequency not set' }} | {{ item.duration || 'Duration not set' }}</span>
+              <small>{{ item.instructions || 'No instructions' }}</small>
+            </div>
+          </div>
+        </article>
+        <div class="empty-state compact-empty" *ngIf="detail.prescriptions.length === 0">No prescription has been shared yet.</div>
+      </section>
+
+      <section class="panel full-width patient-history-panel" *ngIf="mode === 'reports' && isPatient && activePatientReportSection === 'diagnostics'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Doctor response</p>
+            <h3>Diagnostics</h3>
+          </div>
+        </div>
+        <article class="report-card diagnostic-card" *ngFor="let request of detail.diagnosticRequests">
+          <strong>{{ request.requestedItemName }}</strong>
+          <span>{{ request.requestType }} | {{ request.status }} | {{ request.createdAt | date:'mediumDate' }}</span>
+          <p>{{ request.remarks || request.resultSummary || 'No remarks' }}</p>
+        </article>
+        <div class="empty-state compact-empty" *ngIf="detail.diagnosticRequests.length === 0">No diagnostic request has been shared yet.</div>
+      </section>
+
+      <section class="panel full-width" *ngIf="mode === 'reports' && isDoctor && activeReportSection === 'reports'">
         <div class="section-head">
           <div>
             <p class="eyebrow">Patient reports</p>
@@ -131,42 +231,295 @@
         </div>
       </section>
 
-      <section class="panel" *ngIf="mode === 'reports'">
+      <section class="panel full-width report-workspace-panel" *ngIf="mode === 'reports' && activeReportSection === 'consultation'">
         <div class="section-head">
           <div>
             <p class="eyebrow">Doctor report</p>
-            <h3>Consultation and orders</h3>
+            <h3>Consultation</h3>
           </div>
+          <button mat-raised-button color="primary" type="button" *ngIf="isDoctor" (click)="openCreatePanel('consultation')">Create consultation</button>
         </div>
-        <div class="care-grid">
-          <article><span>Diagnosis</span><p>{{ detail.consultation.diagnosis || 'Not added yet' }}</p></article>
-          <article><span>Advice</span><p>{{ detail.consultation.advice || 'Not added yet' }}</p></article>
-          <article><span>Follow-up</span><p>{{ detail.consultation.followUpDate ? (detail.consultation.followUpDate | date:'mediumDate') : 'No follow-up date' }}</p></article>
-          <article><span>Status</span><p>{{ detail.consultation.status || 'Draft' }}</p></article>
-        </div>
+        <div class="clinical-workspace">
+          <section class="clinical-column doctor-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Doctor-created</span>
+              <h4>Saved consultation</h4>
+            </div>
+            <div class="care-grid saved-panel">
+            <article><span>Symptoms</span><p>{{ detail.consultation.symptoms || 'Not added yet' }}</p></article>
+            <article><span>Diagnosis</span><p>{{ detail.consultation.diagnosis || 'Not added yet' }}</p></article>
+            <article><span>Vitals</span><p>{{ detail.consultation.vitalObservations || 'Not added yet' }}</p></article>
+            <article><span>Notes</span><p>{{ detail.consultation.notes || 'Not added yet' }}</p></article>
+            <article><span>Advice</span><p>{{ detail.consultation.advice || 'Not added yet' }}</p></article>
+            <article><span>Follow-up</span><p>{{ detail.consultation.followUpDate ? (detail.consultation.followUpDate | date:'mediumDate') : 'No follow-up date' }}</p></article>
+            <article><span>Status</span><p>{{ detail.consultation.status || 'Draft' }}</p></article>
+            <article><span>Updated</span><p>{{ detail.consultation.updatedAt ? (detail.consultation.updatedAt | date:'short') : 'Not saved yet' }}</p></article>
+            </div>
+          </section>
 
-        <div class="history-section">
-          <h4>Prescriptions</h4>
-          <article class="report-card" *ngFor="let prescription of detail.prescriptions">
-            <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
-            <span>{{ prescription.notes || 'No prescription notes' }}</span>
-            <p>{{ prescription.items.length }} medicine{{ prescription.items.length === 1 ? '' : 's' }}</p>
-          </article>
-          <div class="empty-state compact-empty" *ngIf="detail.prescriptions.length === 0">No prescription has been shared yet.</div>
+          <section class="clinical-column patient-column">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Patient-created</span>
+              <h4>Patient submitted reports</h4>
+            </div>
+            <div class="report-list" *ngIf="detail.reports.length > 0; else noReports">
+              <article class="report-card patient-report-card" *ngFor="let report of detail.reports">
+                <strong>{{ report.createdAt | date:'mediumDate' }}</strong>
+                <span>{{ report.previousReportSummary || 'No previous report summary' }}</span>
+                <p>{{ report.symptoms }}</p>
+              </article>
+            </div>
+          </section>
         </div>
+      </section>
 
-        <div class="history-section">
-          <h4>Diagnostics</h4>
-          <article class="report-card" *ngFor="let request of detail.diagnosticRequests">
-            <strong>{{ request.requestedItemName }}</strong>
-            <span>{{ request.requestType }} | {{ request.status }}</span>
-            <p>{{ request.remarks || request.resultSummary || 'No remarks' }}</p>
-          </article>
-          <div class="empty-state compact-empty" *ngIf="detail.diagnosticRequests.length === 0">No diagnostic request has been shared yet.</div>
+      <section class="panel full-width report-workspace-panel" *ngIf="mode === 'reports' && activeReportSection === 'prescriptions'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Doctor report</p>
+            <h3>Prescription</h3>
+          </div>
+          <button mat-raised-button color="primary" type="button" *ngIf="isDoctor" (click)="openCreatePanel('prescriptions')">Create prescription</button>
+        </div>
+        <div class="clinical-workspace">
+          <section class="clinical-column doctor-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Doctor-created</span>
+              <h4>Saved prescriptions</h4>
+            </div>
+            <div class="history-section saved-panel">
+              <article class="report-card prescription-card" *ngFor="let prescription of detail.prescriptions">
+                <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
+                <span>{{ prescription.notes || 'No prescription notes' }}</span>
+                <div class="medicine-list" *ngIf="prescription.items.length > 0">
+                  <div *ngFor="let item of prescription.items">
+                    <strong>{{ item.medicineName }}</strong>
+                    <span>{{ item.dosage || 'Dosage not set' }} | {{ item.frequency || 'Frequency not set' }} | {{ item.duration || 'Duration not set' }}</span>
+                    <small>{{ item.instructions || 'No instructions' }}</small>
+                  </div>
+                </div>
+              </article>
+              <div class="empty-state compact-empty" *ngIf="detail.prescriptions.length === 0">No prescription has been shared yet.</div>
+            </div>
+          </section>
+
+          <section class="clinical-column patient-column">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Patient-created</span>
+              <h4>Patient reports used for prescription context</h4>
+            </div>
+            <div class="report-list" *ngIf="detail.reports.length > 0; else noReports">
+              <article class="report-card patient-report-card" *ngFor="let report of detail.reports">
+                <strong>{{ report.createdAt | date:'mediumDate' }}</strong>
+                <span>{{ report.previousReportSummary || 'No previous report summary' }}</span>
+                <p>{{ report.symptoms }}</p>
+                <a *ngIf="report.document" [href]="report.document.fileUrl" target="_blank" rel="noreferrer">
+                  {{ report.document.title }}
+                </a>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel full-width report-workspace-panel" *ngIf="mode === 'reports' && activeReportSection === 'diagnostics'">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Doctor report</p>
+            <h3>Diagnostics</h3>
+          </div>
+          <button mat-raised-button color="primary" type="button" *ngIf="isDoctor" (click)="openCreatePanel('diagnostics')">Create request</button>
+        </div>
+        <div class="clinical-workspace">
+          <section class="clinical-column doctor-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Doctor-created</span>
+              <h4>Saved diagnostic requests</h4>
+            </div>
+            <div class="history-section saved-panel">
+              <article class="report-card diagnostic-card" *ngFor="let request of detail.diagnosticRequests">
+                <strong>{{ request.requestedItemName }}</strong>
+                <span>{{ request.requestType }} | {{ request.status }} | {{ request.createdAt | date:'mediumDate' }}</span>
+                <p>{{ request.remarks || request.resultSummary || 'No remarks' }}</p>
+              </article>
+              <div class="empty-state compact-empty" *ngIf="detail.diagnosticRequests.length === 0">No diagnostic request has been shared yet.</div>
+            </div>
+          </section>
+
+          <section class="clinical-column patient-column">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Patient-created</span>
+              <h4>Patient reports used for diagnostic context</h4>
+            </div>
+            <div class="report-list" *ngIf="detail.reports.length > 0; else noReports">
+              <article class="report-card patient-report-card" *ngFor="let report of detail.reports">
+                <strong>{{ report.createdAt | date:'mediumDate' }}</strong>
+                <span>{{ report.previousReportSummary || 'No previous report summary' }}</span>
+                <p>{{ report.symptoms }}</p>
+              </article>
+            </div>
+          </section>
         </div>
       </section>
     </div>
   </section>
+
+  <div class="create-modal-backdrop" *ngIf="isDoctor && activeCreatePanel" (click)="closeCreatePanel()">
+    <section class="create-modal" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Doctor-created</p>
+          <h3 *ngIf="activeCreatePanel === 'consultation'">Create consultation</h3>
+          <h3 *ngIf="activeCreatePanel === 'prescriptions'">Create prescription</h3>
+          <h3 *ngIf="activeCreatePanel === 'diagnostics'">Create diagnostic request</h3>
+        </div>
+        <button mat-icon-button type="button" (click)="closeCreatePanel()" aria-label="Close create form">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+    <form class="modal-form" *ngIf="activeCreatePanel === 'consultation'">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Symptoms</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="consultationForm.symptoms" name="drawerConsultationSymptoms"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Diagnosis</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="consultationForm.diagnosis" name="drawerConsultationDiagnosis"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Notes</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="consultationForm.notes" name="drawerConsultationNotes"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Vital observations</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="consultationForm.vitalObservations" name="drawerConsultationVitals"></textarea>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Advice</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="consultationForm.advice" name="drawerConsultationAdvice"></textarea>
+      </mat-form-field>
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Follow-up date</mat-label>
+          <input matInput type="date" [(ngModel)]="consultationForm.followUpDate" name="drawerConsultationFollowUp" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="consultationForm.status" name="drawerConsultationStatus">
+            <mat-option *ngFor="let status of consultationStatuses" [value]="status">{{ status }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <button mat-raised-button color="primary" type="button" [disabled]="isSavingConsultation" (click)="saveConsultation()">Save consultation</button>
+    </form>
+
+    <form class="modal-form" *ngIf="activeCreatePanel === 'prescriptions'">
+      <div class="prescription-item" *ngFor="let item of prescriptionForm.items; let i = index">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Medicine</mat-label>
+            <input matInput [(ngModel)]="item.medicineName" name="drawerMedicineName{{ i }}" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Dosage</mat-label>
+            <input matInput [(ngModel)]="item.dosage" name="drawerMedicineDosage{{ i }}" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Frequency</mat-label>
+            <input matInput [(ngModel)]="item.frequency" name="drawerMedicineFrequency{{ i }}" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Duration</mat-label>
+            <input matInput [(ngModel)]="item.duration" name="drawerMedicineDuration{{ i }}" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Instructions</mat-label>
+            <textarea matInput rows="2" [(ngModel)]="item.instructions" name="drawerMedicineInstructions{{ i }}"></textarea>
+          </mat-form-field>
+        </div>
+        <button mat-button color="warn" type="button" (click)="removePrescriptionItem(i)">Remove medicine</button>
+      </div>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Prescription notes</mat-label>
+        <textarea matInput rows="2" [(ngModel)]="prescriptionForm.notes" name="drawerPrescriptionNotes"></textarea>
+      </mat-form-field>
+      <div class="actions-row">
+        <button mat-stroked-button type="button" (click)="addPrescriptionItem()">Add medicine</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingPrescription" (click)="savePrescription()">Save prescription</button>
+      </div>
+    </form>
+
+    <form class="modal-form" *ngIf="activeCreatePanel === 'diagnostics'">
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Request type</mat-label>
+          <mat-select [(ngModel)]="diagnosticRequestForm.requestType" name="drawerDiagnosticType">
+            <mat-option *ngFor="let type of requestTypes" [value]="type">{{ type }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Requested item</mat-label>
+          <input matInput [(ngModel)]="diagnosticRequestForm.requestedItemName" name="drawerDiagnosticItem" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Remarks</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="diagnosticRequestForm.remarks" name="drawerDiagnosticRemarks"></textarea>
+        </mat-form-field>
+      </div>
+      <button mat-raised-button color="primary" type="button" [disabled]="isSavingRequest || !diagnosticRequestForm.requestedItemName.trim()" (click)="saveDiagnosticRequest()">Save request</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="create-modal-backdrop" *ngIf="isPatient && isPatientReportModalOpen" (click)="closePatientReportModal()">
+    <section class="create-modal" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Patient-created</p>
+          <h3>Submit previous report</h3>
+        </div>
+        <button mat-icon-button type="button" (click)="closePatientReportModal()" aria-label="Close report form">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <form class="modal-form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Symptoms</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="reportForm.symptoms" name="modalSymptoms"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Previous report summary</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="reportForm.previousReportSummary" name="modalPreviousReportSummary"></textarea>
+        </mat-form-field>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Report title</mat-label>
+            <input matInput [(ngModel)]="reportForm.reportTitle" name="modalReportTitle" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Report link</mat-label>
+            <input matInput [(ngModel)]="reportForm.reportUrl" name="modalReportUrl" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <input matInput [(ngModel)]="reportForm.reportCategory" name="modalReportCategory" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Report notes</mat-label>
+            <input matInput [(ngModel)]="reportForm.reportNotes" name="modalReportNotes" />
+          </mat-form-field>
+        </div>
+        <label class="attachment-picker">
+          <input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" (change)="selectReportAttachment($event)" />
+          <mat-icon>attach_file</mat-icon>
+          <span>{{ reportAttachmentName || 'Attach report image or PDF' }}</span>
+        </label>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingReport || !reportForm.symptoms.trim()" (click)="submitReport()">Submit report</button>
+      </form>
+    </section>
+  </div>
 </section>
 
 <ng-template #noMessages>
