@@ -58,6 +58,7 @@ interface DiagnosticRequestFormState {
 type DoctorAppointmentStatusView = Pick<DoctorAppointment, 'appointmentId' | 'status'>;
 type DoctorAppointmentManageView = Pick<DoctorAppointment, 'appointmentId' | 'status' | 'scheduleId' | 'appointmentDate' | 'slotStartTime' | 'slotEndTime' | 'reason' | 'adminRemarks'>;
 type DoctorDetailSection = 'overview' | 'consultation' | 'prescription' | 'diagnostics' | 'history';
+type DoctorCreatePanel = 'consultation' | 'prescription' | 'diagnostics' | 'schedule' | 'exception';
 
 const EMPTY_SCHEDULE_FORM: ScheduleFormState = {
   scheduleId: 0,
@@ -126,6 +127,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
   medicineSearchTerm = '';
   labSearchTerm = '';
   activeDoctorDetailSection: DoctorDetailSection = 'overview';
+  activeCreatePanel: DoctorCreatePanel | null = null;
   isLoading = true;
   isLoadingDetail = false;
   isLoadingAvailability = false;
@@ -286,6 +288,15 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
 
   setDoctorDetailSection(section: DoctorDetailSection): void {
     this.activeDoctorDetailSection = section;
+    this.activeCreatePanel = null;
+  }
+
+  openCreatePanel(panel: DoctorCreatePanel): void {
+    this.activeCreatePanel = panel;
+  }
+
+  closeCreatePanel(): void {
+    this.activeCreatePanel = null;
   }
 
   editSchedule(schedule: DoctorScheduleRecord): void {
@@ -327,6 +338,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
         this.isSavingSchedule = false;
         this.statusMessage = 'Availability schedule saved.';
         this.resetScheduleForm();
+        this.closeCreatePanel();
         this.loadAvailability();
       },
       error: (error: { error?: { message?: string } }) => {
@@ -365,6 +377,7 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
         this.isSavingSchedule = false;
         this.statusMessage = 'Availability exception saved.';
         this.availabilityExceptionForm = { ...EMPTY_EXCEPTION_FORM };
+        this.closeCreatePanel();
         this.loadAvailability();
       },
       error: (error: { error?: { message?: string } }) => {
@@ -410,6 +423,8 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
         if (this.selectedDetail) {
           this.selectedDetail = { ...this.selectedDetail, consultation };
         }
+        this.closeCreatePanel();
+        this.loadAppointmentDetail(this.selectedAppointmentId!, false);
         this.loadAppointments();
       },
       error: (error: { error?: { message?: string } }) => {
@@ -449,6 +464,8 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
           };
         }
         this.prescriptionForm = { ...EMPTY_PRESCRIPTION_FORM, items: [{ ...EMPTY_PRESCRIPTION_ITEM }] };
+        this.closeCreatePanel();
+        this.loadAppointmentDetail(this.selectedAppointmentId!, false);
       },
       error: (error: { error?: { message?: string } }) => {
         this.isSavingPrescription = false;
@@ -479,6 +496,8 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
           };
         }
         this.diagnosticRequestForm = { ...EMPTY_REQUEST_FORM };
+        this.closeCreatePanel();
+        this.loadAppointmentDetail(this.selectedAppointmentId!, false);
       },
       error: (error: { error?: { message?: string } }) => {
         this.isSavingRequest = false;
@@ -671,13 +690,15 @@ export class DoctorDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadAppointmentDetail(appointmentId: number): void {
+  private loadAppointmentDetail(appointmentId: number, resetSection = true): void {
     this.isLoadingDetail = true;
     this.errorMessage = '';
     this.workspaceApi.getAppointmentDetail(appointmentId).subscribe({
       next: (detail) => {
         this.selectedDetail = detail;
-        this.activeDoctorDetailSection = 'overview';
+        if (resetSection) {
+          this.activeDoctorDetailSection = 'overview';
+        }
         this.isLoadingDetail = false;
         this.consultationForm = {
           symptoms: detail.consultation.symptoms || '',

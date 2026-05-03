@@ -226,6 +226,172 @@
   gap: 1rem;
 }
 
+.appointment-workspace-panel {
+  padding: 1.25rem;
+}
+
+.clinical-workspace {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.history-workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.availability-workspace {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.availability-workspace .phase-table {
+  table-layout: fixed;
+}
+
+.availability-workspace .phase-table :is(th, td):first-child,
+.availability-workspace .phase-table :is(th, td):last-child {
+  width: 120px;
+  white-space: nowrap;
+}
+
+.availability-workspace .phase-table :is(th, td):nth-child(2) {
+  width: 180px;
+  white-space: nowrap;
+}
+
+.availability-workspace .phase-table :is(th, td):last-child {
+  text-align: right;
+}
+
+.availability-workspace .patient-column .phase-table :is(th, td):nth-child(2) {
+  width: 260px;
+}
+
+.availability-workspace .patient-column .phase-table :is(th, td):nth-child(3) {
+  padding-left: 1.25rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.clinical-column {
+  min-width: 0;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.doctor-column {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #fff, #f8fbff);
+}
+
+.patient-column {
+  border-color: #99f6e4;
+  background: linear-gradient(180deg, #fff, #f8fffd);
+}
+
+.clinical-column-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.clinical-column-head h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.source-pill {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.doctor-source {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.patient-source {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.patient-report-card {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.history-column {
+  background: linear-gradient(180deg, #fff, #f8fafc);
+}
+
+.prescription-card {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.create-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.create-modal {
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(760px, calc(100vh - 2rem));
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  border: 1px solid #dbe5f4;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.1rem 1.2rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-head h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.modal-form {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.2rem;
+}
+
 .detail-summary-panel {
   display: flex;
   align-items: center;
@@ -767,6 +933,8 @@
   .stats-grid,
   .workspace-grid,
   .detail-grid,
+  .clinical-workspace,
+  .history-workspace,
   .exception-grid,
   .meta-grid,
   .form-grid,

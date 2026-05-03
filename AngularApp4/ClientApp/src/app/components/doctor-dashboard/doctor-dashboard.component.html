@@ -125,16 +125,25 @@
     </div>
 
     <div class="workspace-grid availability-index" *ngIf="isAvailabilityRoute">
-      <section class="panel">
+      <section class="panel appointment-workspace-panel">
         <div class="section-head">
           <div>
             <p class="eyebrow">Availability</p>
             <h2>Schedule and leave</h2>
           </div>
+          <div class="toolbar-actions">
+            <button mat-raised-button color="primary" type="button" (click)="resetScheduleForm(); openCreatePanel('schedule')">New schedule</button>
+            <button mat-stroked-button type="button" (click)="openCreatePanel('exception')">New leave</button>
+          </div>
         </div>
 
-        <div class="availability-layout">
-          <div class="table-wrap compact-wrap">
+        <div class="availability-workspace">
+          <section class="clinical-column doctor-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Weekly availability</span>
+              <h3>Active schedules</h3>
+            </div>
+            <div class="table-wrap compact-wrap">
             <table class="phase-table" *ngIf="schedules.length > 0; else noSchedules">
               <thead>
                 <tr>
@@ -152,102 +161,41 @@
                   <td>{{ schedule.slotDurationMinutes }} min</td>
                   <td>{{ schedule.maxPatientsPerSlot }}</td>
                   <td>
-                    <button mat-button type="button" (click)="editSchedule(schedule)">Edit</button>
+                    <button mat-button type="button" (click)="editSchedule(schedule); openCreatePanel('schedule')">Edit</button>
                     <button mat-button color="warn" type="button" (click)="deleteSchedule(schedule.scheduleId)">Delete</button>
                   </td>
                 </tr>
               </tbody>
             </table>
-          </div>
-
-          <div class="form-grid">
-            <mat-form-field appearance="outline">
-              <mat-label>Day</mat-label>
-              <mat-select [(ngModel)]="scheduleForm.dayOfWeek">
-                <mat-option *ngFor="let day of dayOptions" [value]="day.value">{{ day.label }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Start time</mat-label>
-              <input matInput type="time" [(ngModel)]="scheduleForm.startTime" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>End time</mat-label>
-              <input matInput type="time" [(ngModel)]="scheduleForm.endTime" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Slot duration</mat-label>
-              <input matInput type="number" [(ngModel)]="scheduleForm.slotDurationMinutes" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Max patients per slot</mat-label>
-              <input matInput type="number" [(ngModel)]="scheduleForm.maxPatientsPerSlot" />
-            </mat-form-field>
-            <label class="toggle-box">
-              <input type="checkbox" [(ngModel)]="scheduleForm.isActive" />
-              <span>Schedule is active</span>
-            </label>
-          </div>
-
-          <div class="actions-row">
-            <button mat-raised-button color="primary" type="button" [disabled]="isSavingSchedule" (click)="saveSchedule()">Save schedule</button>
-            <button mat-stroked-button type="button" (click)="resetScheduleForm()">Reset</button>
-          </div>
-
-          <div class="exception-grid">
-            <div>
-              <h3>Leave and unavailable dates</h3>
-              <div class="table-wrap compact-wrap">
-                <table class="phase-table" *ngIf="availabilityExceptions.length > 0; else noExceptions">
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Dates</th>
-                      <th>Notes</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let item of availabilityExceptions">
-                      <td>{{ item.exceptionType }}</td>
-                      <td>{{ item.startDate | date:'mediumDate' }} - {{ item.endDate | date:'mediumDate' }}</td>
-                      <td>{{ item.notes || 'No note' }}</td>
-                      <td><button mat-button color="warn" type="button" (click)="deleteAvailabilityException(item.doctorAvailabilityExceptionId)">Delete</button></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
             </div>
+          </section>
 
-            <div class="form-grid compact-form">
-              <mat-form-field appearance="outline">
-                <mat-label>Type</mat-label>
-                <mat-select [(ngModel)]="availabilityExceptionForm.exceptionType">
-                  <mat-option value="Leave">Leave</mat-option>
-                  <mat-option value="Unavailable">Unavailable</mat-option>
-                </mat-select>
-              </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>Start date</mat-label>
-                <input matInput type="date" [(ngModel)]="availabilityExceptionForm.startDate" />
-              </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>End date</mat-label>
-                <input matInput type="date" [(ngModel)]="availabilityExceptionForm.endDate" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Notes</mat-label>
-                <textarea matInput rows="3" [(ngModel)]="availabilityExceptionForm.notes"></textarea>
-              </mat-form-field>
-              <label class="toggle-box">
-                <input type="checkbox" [(ngModel)]="availabilityExceptionForm.isActive" />
-                <span>Exception is active</span>
-              </label>
-              <div class="full-width">
-                <button mat-stroked-button type="button" [disabled]="isSavingSchedule" (click)="saveAvailabilityException()">Save exception</button>
-              </div>
+          <section class="clinical-column patient-column">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Unavailable dates</span>
+              <h3>Leave and blocks</h3>
             </div>
-          </div>
+            <div class="table-wrap compact-wrap">
+              <table class="phase-table" *ngIf="availabilityExceptions.length > 0; else noExceptions">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Dates</th>
+                    <th>Notes</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of availabilityExceptions">
+                    <td>{{ item.exceptionType }}</td>
+                    <td>{{ item.startDate | date:'mediumDate' }} - {{ item.endDate | date:'mediumDate' }}</td>
+                    <td>{{ item.notes || 'No note' }}</td>
+                    <td><button mat-button color="warn" type="button" (click)="deleteAvailabilityException(item.doctorAvailabilityExceptionId)">Delete</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </section>
     </div>
@@ -382,65 +330,284 @@
       </section>
     </div>
 
-    <div class="detail-grid consultation-grid" *ngIf="activeDoctorDetailSection === 'consultation'">
-      <section class="panel">
+    <div class="detail-grid single-section-grid" *ngIf="activeDoctorDetailSection === 'consultation'">
+      <section class="panel appointment-workspace-panel">
         <div class="section-head">
           <div>
             <p class="eyebrow">Consultation</p>
-            <h2>Clinical notes</h2>
+            <h2>Saved clinical notes</h2>
           </div>
+          <button mat-raised-button color="primary" type="button" (click)="openCreatePanel('consultation')">Create consultation</button>
         </div>
-        <div class="form-grid">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Symptoms</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="consultationForm.symptoms"></textarea>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Diagnosis</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="consultationForm.diagnosis"></textarea>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Notes</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="consultationForm.notes"></textarea>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Vital observations</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="consultationForm.vitalObservations"></textarea>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Advice</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="consultationForm.advice"></textarea>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Follow-up date</mat-label>
-            <input matInput type="date" [(ngModel)]="consultationForm.followUpDate" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Consultation status</mat-label>
-            <mat-select [(ngModel)]="consultationForm.status">
-              <mat-option *ngFor="let status of consultationStatuses" [value]="status">{{ status }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-        <div class="actions-row">
-          <button mat-raised-button color="primary" type="button" [disabled]="isSavingConsultation" (click)="saveConsultation()">Save consultation</button>
+        <div class="clinical-workspace">
+          <section class="clinical-column doctor-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Doctor-created</span>
+              <h3>Saved consultation</h3>
+            </div>
+            <div class="stack-grid">
+              <article><span>Symptoms</span><strong>{{ detail.consultation.symptoms || 'Not recorded' }}</strong></article>
+              <article><span>Diagnosis</span><strong>{{ detail.consultation.diagnosis || 'Not recorded' }}</strong></article>
+              <article><span>Advice</span><strong>{{ detail.consultation.advice || 'Not recorded' }}</strong></article>
+              <article><span>Vitals</span><strong>{{ detail.consultation.vitalObservations || 'Not recorded' }}</strong></article>
+              <article><span>Notes</span><strong>{{ detail.consultation.notes || 'Not recorded' }}</strong></article>
+              <article><span>Status</span><strong>{{ detail.consultation.status || 'Draft' }}</strong></article>
+            </div>
+          </section>
+
+          <section class="clinical-column patient-column">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Patient-submitted</span>
+              <h3>Reports and documents</h3>
+            </div>
+            <div class="report-list" *ngIf="detail.uploadedReports.length > 0; else noReports">
+              <a class="report-card patient-report-card" *ngFor="let report of detail.uploadedReports" [href]="report.fileUrl" target="_blank" rel="noreferrer">
+                <strong>{{ report.title }}</strong>
+                <span>{{ report.category }} | {{ report.uploadedAt | date:'mediumDate' }}</span>
+                <small>{{ report.notes || 'Open report' }}</small>
+              </a>
+            </div>
+          </section>
         </div>
       </section>
 
     </div>
 
     <div class="detail-grid single-section-grid" *ngIf="activeDoctorDetailSection === 'prescription'">
-      <section class="panel">
+      <section class="panel appointment-workspace-panel">
         <div class="section-head">
           <div>
             <p class="eyebrow">Prescription</p>
-            <h2>Medicines and dosage</h2>
+            <h2>Saved medicines and dosage</h2>
+          </div>
+          <button mat-raised-button color="primary" type="button" (click)="openCreatePanel('prescription')">Create prescription</button>
+        </div>
+        <div class="clinical-workspace">
+          <section class="clinical-column doctor-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Doctor-created</span>
+              <h3>Saved prescriptions</h3>
+            </div>
+            <div class="prescription-history" *ngIf="detail.previousPrescriptions.length > 0; else noPrescriptionHistory">
+              <article class="history-card prescription-card" *ngFor="let prescription of detail.previousPrescriptions">
+                <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
+                <span>{{ prescription.notes || 'No prescription note' }}</span>
+                <small>{{ prescriptionSummary(prescription.items) }}</small>
+              </article>
+            </div>
+          </section>
+
+          <section class="clinical-column patient-column">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Patient-submitted</span>
+              <h3>Reports used for prescription context</h3>
+            </div>
+            <div class="report-list" *ngIf="detail.uploadedReports.length > 0; else noReports">
+              <a class="report-card patient-report-card" *ngFor="let report of detail.uploadedReports" [href]="report.fileUrl" target="_blank" rel="noreferrer">
+                <strong>{{ report.title }}</strong>
+                <span>{{ report.category }} | {{ report.uploadedAt | date:'mediumDate' }}</span>
+                <small>{{ report.notes || 'Open report' }}</small>
+              </a>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+
+    <div class="detail-grid single-section-grid" *ngIf="activeDoctorDetailSection === 'diagnostics'">
+      <section class="panel appointment-workspace-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Diagnostics</p>
+            <h2>Saved lab and radiology requests</h2>
+          </div>
+          <button mat-raised-button color="primary" type="button" (click)="openCreatePanel('diagnostics')">Create request</button>
+        </div>
+        <div class="clinical-workspace">
+          <section class="clinical-column doctor-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Doctor-created</span>
+              <h3>Saved diagnostic requests</h3>
+            </div>
+            <div class="table-wrap">
+              <table class="phase-table" *ngIf="detail.diagnosticRequests.length > 0; else noRequests">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Item</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let request of detail.diagnosticRequests">
+                    <td>{{ request.requestType }}</td>
+                    <td>{{ request.requestedItemName }}</td>
+                    <td>{{ request.status }}</td>
+                    <td>{{ request.remarks || request.resultSummary || 'No remarks' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="clinical-column patient-column">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Patient-submitted</span>
+              <h3>Reports used for diagnostic context</h3>
+            </div>
+            <div class="report-list" *ngIf="detail.uploadedReports.length > 0; else noReports">
+              <a class="report-card patient-report-card" *ngFor="let report of detail.uploadedReports" [href]="report.fileUrl" target="_blank" rel="noreferrer">
+                <strong>{{ report.title }}</strong>
+                <span>{{ report.category }} | {{ report.uploadedAt | date:'mediumDate' }}</span>
+                <small>{{ report.notes || 'Open report' }}</small>
+              </a>
+            </div>
+          </section>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="detail-grid single-section-grid" *ngIf="activeDoctorDetailSection === 'history'">
+      <section class="panel appointment-workspace-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">History</p>
+            <h2>Past visits and admissions</h2>
           </div>
         </div>
+
+        <div class="history-workspace">
+          <section class="clinical-column history-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Visit history</span>
+              <h3>Past appointments</h3>
+            </div>
+            <div class="table-wrap" *ngIf="detail.pastAppointments.length > 0; else noPastAppointments">
+              <table class="phase-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Doctor</th>
+                    <th>Diagnosis</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of detail.pastAppointments">
+                    <td>{{ item.appointmentDate | date:'mediumDate' }}</td>
+                    <td>{{ item.doctorName }}</td>
+                    <td>{{ item.diagnosis || 'Not recorded' }}</td>
+                    <td>{{ item.status }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="clinical-column history-column">
+            <div class="clinical-column-head">
+              <span class="source-pill doctor-source">Doctor-created</span>
+              <h3>Previous prescriptions</h3>
+            </div>
+            <div class="prescription-history" *ngIf="detail.previousPrescriptions.length > 0; else noPrescriptionHistory">
+              <article class="history-card prescription-card" *ngFor="let prescription of detail.previousPrescriptions">
+                <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
+                <span>{{ prescription.notes || 'No prescription note' }}</span>
+                <small>{{ prescriptionSummary(prescription.items) }}</small>
+              </article>
+            </div>
+          </section>
+
+          <section class="clinical-column history-column full-width">
+            <div class="clinical-column-head">
+              <span class="source-pill patient-source">Admission history</span>
+              <h3>Admissions</h3>
+            </div>
+            <div class="table-wrap" *ngIf="detail.admissionHistory.length > 0; else noAdmissions">
+              <table class="phase-table">
+                <thead>
+                  <tr>
+                    <th>Admission</th>
+                    <th>Dates</th>
+                    <th>Ward / Bed</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let admission of detail.admissionHistory">
+                    <td>{{ admission.admissionNumber }}</td>
+                    <td>{{ admission.admissionDate | date:'mediumDate' }}{{ admission.dischargeDate ? ' - ' + (admission.dischargeDate | date:'mediumDate') : '' }}</td>
+                    <td>{{ admission.wardName || 'N/A' }} / {{ admission.bedNumber || 'N/A' }}</td>
+                    <td>{{ admission.status }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <div class="create-modal-backdrop" *ngIf="activeCreatePanel" (click)="closeCreatePanel()">
+    <section class="create-modal" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Doctor-created</p>
+          <h3 *ngIf="activeCreatePanel === 'consultation'">Create consultation</h3>
+          <h3 *ngIf="activeCreatePanel === 'prescription'">Create prescription</h3>
+          <h3 *ngIf="activeCreatePanel === 'diagnostics'">Create diagnostic request</h3>
+          <h3 *ngIf="activeCreatePanel === 'schedule'">{{ scheduleForm.scheduleId ? 'Edit schedule' : 'New schedule' }}</h3>
+          <h3 *ngIf="activeCreatePanel === 'exception'">New leave or unavailable date</h3>
+        </div>
+        <button mat-icon-button type="button" (click)="closeCreatePanel()" aria-label="Close create form">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <form class="modal-form" *ngIf="activeCreatePanel === 'consultation'">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Symptoms</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="consultationForm.symptoms" name="appointmentConsultationSymptoms"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Diagnosis</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="consultationForm.diagnosis" name="appointmentConsultationDiagnosis"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Notes</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="consultationForm.notes" name="appointmentConsultationNotes"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Vital observations</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="consultationForm.vitalObservations" name="appointmentConsultationVitals"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Advice</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="consultationForm.advice" name="appointmentConsultationAdvice"></textarea>
+        </mat-form-field>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Follow-up date</mat-label>
+            <input matInput type="date" [(ngModel)]="consultationForm.followUpDate" name="appointmentConsultationFollowUp" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Consultation status</mat-label>
+            <mat-select [(ngModel)]="consultationForm.status" name="appointmentConsultationStatus">
+              <mat-option *ngFor="let status of consultationStatuses" [value]="status">{{ status }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingConsultation" (click)="saveConsultation()">Save consultation</button>
+      </form>
+
+      <form class="modal-form" *ngIf="activeCreatePanel === 'prescription'">
         <div class="search-row">
           <mat-form-field appearance="outline">
             <mat-label>Search medicines</mat-label>
-            <input matInput [(ngModel)]="medicineSearchTerm" />
+            <input matInput [(ngModel)]="medicineSearchTerm" name="appointmentMedicineSearch" />
           </mat-form-field>
           <button mat-stroked-button type="button" (click)="searchMedicines()">Search</button>
         </div>
@@ -453,50 +620,42 @@
           <div class="form-grid">
             <mat-form-field appearance="outline">
               <mat-label>Medicine</mat-label>
-              <input matInput [(ngModel)]="item.medicineName" />
+              <input matInput [(ngModel)]="item.medicineName" name="appointmentMedicineName{{ i }}" />
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Dosage</mat-label>
-              <input matInput [(ngModel)]="item.dosage" />
+              <input matInput [(ngModel)]="item.dosage" name="appointmentMedicineDosage{{ i }}" />
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Frequency</mat-label>
-              <input matInput [(ngModel)]="item.frequency" />
+              <input matInput [(ngModel)]="item.frequency" name="appointmentMedicineFrequency{{ i }}" />
             </mat-form-field>
             <mat-form-field appearance="outline">
               <mat-label>Duration</mat-label>
-              <input matInput [(ngModel)]="item.duration" />
+              <input matInput [(ngModel)]="item.duration" name="appointmentMedicineDuration{{ i }}" />
             </mat-form-field>
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Instructions</mat-label>
-              <textarea matInput rows="2" [(ngModel)]="item.instructions"></textarea>
+              <textarea matInput rows="2" [(ngModel)]="item.instructions" name="appointmentMedicineInstructions{{ i }}"></textarea>
             </mat-form-field>
           </div>
           <button mat-button color="warn" type="button" (click)="removePrescriptionItem(i)">Remove medicine</button>
         </div>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Prescription notes</mat-label>
-          <textarea matInput rows="2" [(ngModel)]="prescriptionForm.notes"></textarea>
+          <textarea matInput rows="2" [(ngModel)]="prescriptionForm.notes" name="appointmentPrescriptionNotes"></textarea>
         </mat-form-field>
         <div class="actions-row">
           <button mat-stroked-button type="button" (click)="addPrescriptionItem()">Add medicine</button>
           <button mat-raised-button color="primary" type="button" [disabled]="isSavingPrescription" (click)="savePrescription()">Save prescription</button>
         </div>
-      </section>
-    </div>
+      </form>
 
-    <div class="detail-grid" *ngIf="activeDoctorDetailSection === 'diagnostics'">
-      <section class="panel">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Diagnostics</p>
-            <h2>Lab and radiology requests</h2>
-          </div>
-        </div>
+      <form class="modal-form" *ngIf="activeCreatePanel === 'diagnostics'">
         <div class="search-row" *ngIf="diagnosticRequestForm.requestType === 'Lab'">
           <mat-form-field appearance="outline">
             <mat-label>Search lab tests</mat-label>
-            <input matInput [(ngModel)]="labSearchTerm" />
+            <input matInput [(ngModel)]="labSearchTerm" name="appointmentLabSearch" />
           </mat-form-field>
           <button mat-stroked-button type="button" (click)="searchLabTests()">Search</button>
         </div>
@@ -508,119 +667,87 @@
         <div class="form-grid">
           <mat-form-field appearance="outline">
             <mat-label>Request type</mat-label>
-            <mat-select [(ngModel)]="diagnosticRequestForm.requestType">
+            <mat-select [(ngModel)]="diagnosticRequestForm.requestType" name="appointmentDiagnosticType">
               <mat-option *ngFor="let type of requestTypes" [value]="type">{{ type }}</mat-option>
             </mat-select>
           </mat-form-field>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Requested item</mat-label>
-            <input matInput [(ngModel)]="diagnosticRequestForm.requestedItemName" />
+            <input matInput [(ngModel)]="diagnosticRequestForm.requestedItemName" name="appointmentDiagnosticItem" />
           </mat-form-field>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Remarks</mat-label>
-            <textarea matInput rows="3" [(ngModel)]="diagnosticRequestForm.remarks"></textarea>
+            <textarea matInput rows="3" [(ngModel)]="diagnosticRequestForm.remarks" name="appointmentDiagnosticRemarks"></textarea>
           </mat-form-field>
         </div>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingRequest || !diagnosticRequestForm.requestedItemName.trim()" (click)="saveDiagnosticRequest()">Save request</button>
+      </form>
+
+      <form class="modal-form" *ngIf="activeCreatePanel === 'schedule'">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Day</mat-label>
+            <mat-select [(ngModel)]="scheduleForm.dayOfWeek" name="scheduleDay">
+              <mat-option *ngFor="let day of dayOptions" [value]="day.value">{{ day.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Start time</mat-label>
+            <input matInput type="time" [(ngModel)]="scheduleForm.startTime" name="scheduleStartTime" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>End time</mat-label>
+            <input matInput type="time" [(ngModel)]="scheduleForm.endTime" name="scheduleEndTime" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Slot duration</mat-label>
+            <input matInput type="number" [(ngModel)]="scheduleForm.slotDurationMinutes" name="scheduleSlotDuration" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Max patients per slot</mat-label>
+            <input matInput type="number" [(ngModel)]="scheduleForm.maxPatientsPerSlot" name="scheduleMaxPatients" />
+          </mat-form-field>
+          <label class="toggle-box">
+            <input type="checkbox" [(ngModel)]="scheduleForm.isActive" name="scheduleActive" />
+            <span>Schedule is active</span>
+          </label>
+        </div>
         <div class="actions-row">
-          <button mat-raised-button color="primary" type="button" [disabled]="isSavingRequest" (click)="saveDiagnosticRequest()">Save request</button>
+          <button mat-raised-button color="primary" type="button" [disabled]="isSavingSchedule" (click)="saveSchedule()">Save schedule</button>
+          <button mat-stroked-button type="button" (click)="resetScheduleForm()">Reset</button>
         </div>
+      </form>
 
-        <div class="history-section">
-          <h3>Tracked requests</h3>
-          <div class="table-wrap">
-            <table class="phase-table" *ngIf="detail.diagnosticRequests.length > 0; else noRequests">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Item</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let request of detail.diagnosticRequests">
-                  <td>{{ request.requestType }}</td>
-                  <td>{{ request.requestedItemName }}</td>
-                  <td>{{ request.status }}</td>
-                  <td>{{ request.remarks || request.resultSummary || 'No remarks' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      <form class="modal-form" *ngIf="activeCreatePanel === 'exception'">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Type</mat-label>
+            <mat-select [(ngModel)]="availabilityExceptionForm.exceptionType" name="exceptionType">
+              <mat-option value="Leave">Leave</mat-option>
+              <mat-option value="Unavailable">Unavailable</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Start date</mat-label>
+            <input matInput type="date" [(ngModel)]="availabilityExceptionForm.startDate" name="exceptionStartDate" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>End date</mat-label>
+            <input matInput type="date" [(ngModel)]="availabilityExceptionForm.endDate" name="exceptionEndDate" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Notes</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="availabilityExceptionForm.notes" name="exceptionNotes"></textarea>
+          </mat-form-field>
+          <label class="toggle-box">
+            <input type="checkbox" [(ngModel)]="availabilityExceptionForm.isActive" name="exceptionActive" />
+            <span>Exception is active</span>
+          </label>
         </div>
-      </section>
-
-    </div>
-
-    <div class="detail-grid single-section-grid" *ngIf="activeDoctorDetailSection === 'history'">
-      <section class="panel">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">History</p>
-            <h2>Past visits and admissions</h2>
-          </div>
-        </div>
-        <div class="history-section">
-          <h3>Past appointment history</h3>
-          <div class="table-wrap" *ngIf="detail.pastAppointments.length > 0; else noPastAppointments">
-            <table class="phase-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Doctor</th>
-                  <th>Diagnosis</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let item of detail.pastAppointments">
-                  <td>{{ item.appointmentDate | date:'mediumDate' }}</td>
-                  <td>{{ item.doctorName }}</td>
-                  <td>{{ item.diagnosis || 'Not recorded' }}</td>
-                  <td>{{ item.status }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="history-section">
-          <h3>Previous prescriptions</h3>
-          <div class="prescription-history" *ngIf="detail.previousPrescriptions.length > 0; else noPrescriptionHistory">
-            <article class="history-card" *ngFor="let prescription of detail.previousPrescriptions">
-              <strong>{{ prescription.createdAt | date:'mediumDate' }}</strong>
-              <span>{{ prescription.notes || 'No prescription note' }}</span>
-              <small>{{ prescriptionSummary(prescription.items) }}</small>
-            </article>
-          </div>
-        </div>
-
-        <div class="history-section">
-          <h3>Admission history</h3>
-          <div class="table-wrap" *ngIf="detail.admissionHistory.length > 0; else noAdmissions">
-            <table class="phase-table">
-              <thead>
-                <tr>
-                  <th>Admission</th>
-                  <th>Dates</th>
-                  <th>Ward / Bed</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let admission of detail.admissionHistory">
-                  <td>{{ admission.admissionNumber }}</td>
-                  <td>{{ admission.admissionDate | date:'mediumDate' }}{{ admission.dischargeDate ? ' - ' + (admission.dischargeDate | date:'mediumDate') : '' }}</td>
-                  <td>{{ admission.wardName || 'N/A' }} / {{ admission.bedNumber || 'N/A' }}</td>
-                  <td>{{ admission.status }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-    </div>
-  </section>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSavingSchedule" (click)="saveAvailabilityException()">Save exception</button>
+      </form>
+    </section>
+  </div>
 </section>
 
 <ng-template #noAppointments>
