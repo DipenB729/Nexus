@@ -11,6 +11,16 @@
   box-shadow: 14px 0 40px rgba(148, 163, 184, 0.08);
 }
 
+.sidebar.doctor-theme {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(240, 249, 255, 0.96) 100%);
+}
+
+.sidebar.user-theme {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(240, 253, 250, 0.96) 100%);
+}
+
 .sidebar.collapsed {
   width: 88px;
 }

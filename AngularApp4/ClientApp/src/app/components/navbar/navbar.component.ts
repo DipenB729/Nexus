@@ -123,13 +123,19 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   private readonly userSections: NavSection[] = [
     {
-      id: 'workspace',
-      label: 'Patient Portal',
+      id: 'patient-care',
+      label: 'Care',
       items: [
         { label: 'Dashboard', icon: 'space_dashboard', route: '/patient/dashboard', exact: true },
         { label: 'Doctors', icon: 'medical_services', route: '/patient/doctors' },
         { label: 'Book Appointment', icon: 'event_available', route: '/patient/book' },
-        { label: 'Appointments', icon: 'calendar_month', route: '/patient/appointments' },
+        { label: 'Appointments', icon: 'calendar_month', route: '/patient/appointments' }
+      ]
+    },
+    {
+      id: 'patient-records',
+      label: 'Records',
+      items: [
         { label: 'Reports', icon: 'assignment', route: '/patient/reports' },
         { label: 'Notifications', icon: 'notifications', route: '/patient/notifications' },
         { label: 'Profile', icon: 'person', route: '/patient/profile' }
@@ -139,12 +145,18 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   private readonly doctorSections: NavSection[] = [
     {
-      id: 'workspace',
-      label: 'Doctor Portal',
+      id: 'doctor-care',
+      label: 'Care',
       items: [
         { label: 'Dashboard', icon: 'space_dashboard', route: '/doctor/dashboard', exact: true },
         { label: 'Appointments', icon: 'calendar_month', route: '/doctor/appointments' },
-        { label: 'Reports', icon: 'assignment', route: '/doctor/reports' },
+        { label: 'Reports', icon: 'assignment', route: '/doctor/reports' }
+      ]
+    },
+    {
+      id: 'doctor-workspace',
+      label: 'Workspace',
+      items: [
         { label: 'Notifications', icon: 'notifications', route: '/doctor/notifications' },
         { label: 'Availability', icon: 'schedule', route: '/doctor/availability' },
         { label: 'Profile', icon: 'badge', route: '/doctor/profile' }

@@ -1,4 +1,9 @@
-<aside class="sidebar" [class.collapsed]="!isExpanded" [class.user-theme]="role === 'User'">
+<aside
+  class="sidebar"
+  [class.collapsed]="!isExpanded"
+  [class.admin-theme]="role === 'Admin'"
+  [class.doctor-theme]="role === 'Doctor'"
+  [class.user-theme]="role === 'User'">
   <div class="sidebar-header">
     <div class="logo-box">
       <div class="logo-mark">{{ role === 'Admin' ? 'A' : role === 'Doctor' ? 'D' : 'P' }}</div>
