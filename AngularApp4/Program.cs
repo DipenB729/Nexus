@@ -50,11 +50,26 @@ builder.Services.AddSingleton<IPasswordResetService, PasswordResetService>();
 
 builder.Services.AddCors(options =>
 {
+    var allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>()
+        ?? [];
+
+    if (allowedOrigins.Length == 0)
+    {
+        allowedOrigins =
+        [
+            "https://localhost:44432",
+            "http://localhost:4200",
+            "https://nexus-hospital.vercel.app",
+            "https://nexus-frontend-theta-ochre.vercel.app",
+            "https://hmskathmandu.vercel.app",
+            "https://nexusfrontent.vercel.app"
+        ];
+    }
+
     options.AddPolicy("AngularClient", policy =>
-        policy.WithOrigins(
-                "https://localhost:44432",
-                "http://localhost:4200",
-                "https://nexus-hospital.vercel.app")
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
