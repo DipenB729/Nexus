@@ -39,9 +39,26 @@ public sealed class CreateAdminUserDto
     public string Password { get; set; } = string.Empty;
 }
 
+public sealed class UpdateAdminUserDto
+{
+    public long HospitalProfileId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string? Password { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
 public sealed class UpdateAdminStatusDto
 {
     public bool IsActive { get; set; }
+}
+
+public sealed class AdminPasswordResetEmailDto
+{
+    public bool Sent { get; set; }
+    public string? ResetCodePreview { get; set; }
+    public DateTime? ExpiresAt { get; set; }
 }
 
 public sealed class UpsertBranchDto

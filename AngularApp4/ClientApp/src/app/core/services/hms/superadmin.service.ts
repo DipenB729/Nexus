@@ -3,12 +3,14 @@ import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiResponse } from '../../models/hms/auth.model';
 import {
+  AdminPasswordResetEmail,
   CreateAdminUser,
   SuperAdminBranch,
   SuperAdminHospital,
   SuperAdminHospitalProfile,
   SuperAdminSummary,
   SuperAdminUser,
+  UpdateAdminUser,
   UpsertBranch
 } from '../../models/hms/superadmin.model';
 
@@ -50,7 +52,19 @@ export class SuperAdminService {
     return this.http.post<ApiResponse<SuperAdminUser>>(`${this.api}/admins`, payload).pipe(map((res) => res.data));
   }
 
+  updateAdmin(userId: number, payload: UpdateAdminUser): Observable<SuperAdminUser> {
+    return this.http.put<ApiResponse<SuperAdminUser>>(`${this.api}/admins/${userId}`, payload).pipe(map((res) => res.data));
+  }
+
   updateAdminStatus(userId: number, isActive: boolean): Observable<SuperAdminUser> {
     return this.http.put<ApiResponse<SuperAdminUser>>(`${this.api}/admins/${userId}/status`, { isActive }).pipe(map((res) => res.data));
+  }
+
+  deleteAdmin(userId: number): Observable<void> {
+    return this.http.delete<ApiResponse<unknown>>(`${this.api}/admins/${userId}`).pipe(map(() => undefined));
+  }
+
+  sendAdminPasswordReset(userId: number): Observable<AdminPasswordResetEmail> {
+    return this.http.post<ApiResponse<AdminPasswordResetEmail>>(`${this.api}/admins/${userId}/password-reset`, {}).pipe(map((res) => res.data));
   }
 }

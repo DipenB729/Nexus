@@ -213,7 +213,7 @@ public class AuthController : ControllerBase
         var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
         var role = user is null ? null : await GetRoleNameAsync(user.RoleId);
 
-        if (role is not ("User" or "Doctor") || !_passwordReset.TryConsume(email, dto.ResetCode))
+        if (role is not ("User" or "Doctor" or "Admin") || !_passwordReset.TryConsume(email, dto.ResetCode))
         {
             return BadRequest(ApiResponse<object>.Fail("Invalid or expired reset code"));
         }

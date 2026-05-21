@@ -33,7 +33,8 @@
 
 .hero-actions,
 .section-head,
-.modal-actions {
+.modal-actions,
+.inline-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -194,6 +195,10 @@
   color: #0f172a;
 }
 
+.actions-cell {
+  white-space: nowrap;
+}
+
 .alert,
 .empty-state {
   padding: 1rem;
@@ -211,11 +216,19 @@
   color: #991b1b;
 }
 
+.modal-alert {
+  margin-top: 1rem;
+}
+
 .empty-state {
   border: 1px dashed #cbd5e1;
   background: #f8fafc;
   color: #64748b;
   text-align: center;
+}
+
+.empty-state button {
+  margin-top: 0.85rem;
 }
 
 .modal-backdrop {

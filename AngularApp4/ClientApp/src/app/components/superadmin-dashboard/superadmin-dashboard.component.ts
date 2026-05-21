@@ -6,6 +6,7 @@ import {
   SuperAdminHospitalProfile,
   SuperAdminSummary,
   SuperAdminUser,
+  UpdateAdminUser,
   UpsertBranch
 } from '../../core/models/hms/superadmin.model';
 import { SuperAdminService } from '../../core/services/hms/superadmin.service';
@@ -22,9 +23,11 @@ export class SuperAdminDashboardComponent implements OnInit {
   isLoading = true;
   isSaving = false;
   errorMessage = '';
+  modalErrorMessage = '';
   successMessage = '';
   activeModal: 'branch' | 'admin' | null = null;
   editingBranchId: number | null = null;
+  editingAdminId: number | null = null;
 
   summary: SuperAdminSummary = {
     totalHospitals: 0,
@@ -40,7 +43,7 @@ export class SuperAdminDashboardComponent implements OnInit {
   branches: SuperAdminBranch[] = [];
   admins: SuperAdminUser[] = [];
   branchForm: UpsertBranch = this.emptyBranch();
-  adminForm: CreateAdminUser = this.emptyAdmin();
+  adminForm: CreateAdminUser | UpdateAdminUser = this.emptyAdmin();
 
   constructor(
     private readonly superadmin: SuperAdminService,
@@ -49,8 +52,8 @@ export class SuperAdminDashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.route.url.subscribe((segments) => {
-      const section = segments[0]?.path as SuperAdminSection | undefined;
+    this.route.paramMap.subscribe((params) => {
+      const section = params.get('section') as SuperAdminSection | null;
       this.activeSection = section && ['dashboard', 'hospitals', 'admins'].includes(section) ? section : 'dashboard';
       this.load();
     });
@@ -102,6 +105,7 @@ export class SuperAdminDashboardComponent implements OnInit {
   }
 
   openBranchModal(branch?: SuperAdminBranch): void {
+    this.clearMessages();
     this.editingBranchId = branch?.branchId ?? null;
     this.branchForm = branch ? {
       name: branch.name,
@@ -136,15 +140,24 @@ export class SuperAdminDashboardComponent implements OnInit {
         this.loadHospital();
         this.refreshSummary();
       },
-      error: (error: { error?: { message?: string } }) => {
+      error: (error: { error?: { message?: string; errors?: string[] } }) => {
         this.isSaving = false;
-        this.errorMessage = error?.error?.message || 'Unable to save branch.';
+        this.modalErrorMessage = this.getApiErrorMessage(error, 'Unable to save branch.');
       }
     });
   }
 
-  openAdminModal(): void {
-    this.adminForm = this.emptyAdmin();
+  openAdminModal(admin?: SuperAdminUser): void {
+    this.clearMessages();
+    this.editingAdminId = admin?.userId ?? null;
+    this.adminForm = admin ? {
+      hospitalProfileId: admin.hospitalProfileId ?? this.hospitals[0]?.hospitalProfileId ?? 0,
+      fullName: admin.fullName,
+      email: admin.email,
+      phone: admin.phone ?? '',
+      password: '',
+      isActive: admin.isActive
+    } : this.emptyAdmin();
     this.activeModal = 'admin';
   }
 
@@ -154,23 +167,69 @@ export class SuperAdminDashboardComponent implements OnInit {
     }
 
     if (!this.adminForm.hospitalProfileId) {
-      this.errorMessage = 'Select a hospital for this admin account.';
+      this.modalErrorMessage = 'Select a hospital for this admin account.';
       return;
     }
 
     this.isSaving = true;
     this.clearMessages();
-    this.superadmin.createAdmin(this.adminForm).subscribe({
+    const request = this.editingAdminId
+      ? this.superadmin.updateAdmin(this.editingAdminId, this.adminForm as UpdateAdminUser)
+      : this.superadmin.createAdmin(this.adminForm as CreateAdminUser);
+
+    request.subscribe({
       next: () => {
         this.isSaving = false;
-        this.successMessage = 'Admin account created.';
+        this.successMessage = this.editingAdminId ? 'Admin account updated.' : 'Admin account created.';
         this.closeModal();
         this.loadAdmins();
         this.refreshSummary();
       },
+      error: (error: { error?: { message?: string; errors?: string[] } }) => {
+        this.isSaving = false;
+        this.modalErrorMessage = this.getApiErrorMessage(error, this.editingAdminId ? 'Unable to update admin account.' : 'Unable to create admin account.');
+      }
+    });
+  }
+
+  deleteAdmin(admin: SuperAdminUser): void {
+    if (this.isSaving || !confirm(`Delete admin account for ${admin.fullName}?`)) {
+      return;
+    }
+
+    this.isSaving = true;
+    this.clearMessages();
+    this.superadmin.deleteAdmin(admin.userId).subscribe({
+      next: () => {
+        this.admins = this.admins.filter((item) => item.userId !== admin.userId);
+        this.isSaving = false;
+        this.successMessage = 'Admin account deleted.';
+        this.refreshSummary();
+      },
       error: (error: { error?: { message?: string } }) => {
         this.isSaving = false;
-        this.errorMessage = error?.error?.message || 'Unable to create admin account.';
+        this.errorMessage = error?.error?.message || 'Unable to delete admin account.';
+      }
+    });
+  }
+
+  sendPasswordReset(admin: SuperAdminUser): void {
+    if (this.isSaving) {
+      return;
+    }
+
+    this.isSaving = true;
+    this.clearMessages();
+    this.superadmin.sendAdminPasswordReset(admin.userId).subscribe({
+      next: (result) => {
+        this.isSaving = false;
+        this.successMessage = result?.resetCodePreview
+          ? `Password reset email sent to ${admin.email}. Dev reset code: ${result.resetCodePreview}`
+          : `Password reset email sent to ${admin.email}.`;
+      },
+      error: (error: { error?: { message?: string; errors?: string[] } }) => {
+        this.isSaving = false;
+        this.errorMessage = this.getApiErrorMessage(error, 'Unable to send password reset email.');
       }
     });
   }
@@ -192,6 +251,8 @@ export class SuperAdminDashboardComponent implements OnInit {
   closeModal(): void {
     this.activeModal = null;
     this.editingBranchId = null;
+    this.editingAdminId = null;
+    this.modalErrorMessage = '';
   }
 
   private loadHospital(): void {
@@ -241,7 +302,12 @@ export class SuperAdminDashboardComponent implements OnInit {
 
   private clearMessages(): void {
     this.errorMessage = '';
+    this.modalErrorMessage = '';
     this.successMessage = '';
+  }
+
+  private getApiErrorMessage(error: { error?: { message?: string; errors?: string[] } }, fallback: string): string {
+    return error?.error?.errors?.[0] || error?.error?.message || fallback;
   }
 
   private emptyProfile(): SuperAdminHospitalProfile {

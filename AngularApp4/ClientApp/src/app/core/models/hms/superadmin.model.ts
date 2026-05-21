@@ -67,4 +67,19 @@ export interface CreateAdminUser {
   password: string;
 }
 
+export interface UpdateAdminUser {
+  hospitalProfileId: number;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  password?: string | null;
+  isActive: boolean;
+}
+
+export interface AdminPasswordResetEmail {
+  sent: boolean;
+  resetCodePreview?: string | null;
+  expiresAt?: string | null;
+}
+
 export type UpsertBranch = Omit<SuperAdminBranch, 'branchId'>;

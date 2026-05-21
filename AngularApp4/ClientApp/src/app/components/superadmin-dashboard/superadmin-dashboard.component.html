@@ -7,7 +7,7 @@
     </div>
     <div class="hero-actions">
       <button mat-stroked-button type="button" (click)="load()">Refresh</button>
-      <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'admins'" (click)="openAdminModal()">New admin</button>
+      <button mat-raised-button color="primary" type="button" *ngIf="activeSection !== 'hospitals'" (click)="openAdminModal()">New admin</button>
       <button mat-raised-button color="primary" type="button" *ngIf="activeSection === 'hospitals'" (click)="openBranchModal()">New branch</button>
     </div>
   </div>
@@ -56,7 +56,10 @@
         <span class="source-pill">Administrators</span>
         <h2>{{ summary.activeAdmins }} active admins</h2>
         <p>Superadmin controls admin account creation and access status.</p>
-        <button mat-stroked-button type="button" (click)="setSection('admins')">Manage admins</button>
+        <div class="inline-actions">
+          <button mat-raised-button color="primary" type="button" (click)="openAdminModal()">New admin</button>
+          <button mat-stroked-button type="button" (click)="setSection('admins')">Manage admins</button>
+        </div>
       </article>
     </section>
 
@@ -119,21 +122,27 @@
       <div class="section-head">
         <div>
           <p class="eyebrow">Administrators</p>
-          <h2>Admin accounts</h2>
+          <h2>Admin list</h2>
         </div>
         <button mat-raised-button color="primary" type="button" (click)="openAdminModal()">New admin</button>
       </div>
       <div class="table-wrap">
         <table class="data-table" *ngIf="admins.length; else noAdmins">
-          <thead><tr><th>Admin</th><th>Hospital</th><th>Contact</th><th>Created</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Admin</th><th>Hospital</th><th>Email</th><th>Phone</th><th>Created</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             <tr *ngFor="let admin of admins">
               <td><strong>{{ admin.fullName }}</strong><small>{{ admin.role }}</small></td>
               <td>{{ admin.hospitalName || 'Unassigned' }}</td>
-              <td>{{ admin.email }}<small>{{ admin.phone || 'No phone' }}</small></td>
+              <td>{{ admin.email }}</td>
+              <td>{{ admin.phone || 'No phone' }}</td>
               <td>{{ admin.createdAt | date:'mediumDate' }}</td>
               <td><span class="status-pill" [class.active]="admin.isActive">{{ admin.isActive ? 'Active' : 'Inactive' }}</span></td>
-              <td><button mat-button type="button" (click)="toggleAdmin(admin)">{{ admin.isActive ? 'Deactivate' : 'Activate' }}</button></td>
+              <td class="actions-cell">
+                <button mat-button type="button" (click)="openAdminModal(admin)">Edit</button>
+                <button mat-button type="button" [disabled]="isSaving || !admin.isActive" (click)="sendPasswordReset(admin)">Reset password</button>
+                <button mat-button type="button" (click)="toggleAdmin(admin)">{{ admin.isActive ? 'Deactivate' : 'Activate' }}</button>
+                <button mat-button color="warn" type="button" [disabled]="isSaving" (click)="deleteAdmin(admin)">Delete</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -147,10 +156,12 @@
     <div class="section-head">
       <div>
         <p class="eyebrow">Create</p>
-        <h2>{{ activeModal === 'branch' ? (editingBranchId ? 'Edit branch' : 'New branch') : 'New admin' }}</h2>
+        <h2>{{ activeModal === 'branch' ? (editingBranchId ? 'Edit branch' : 'New branch') : (editingAdminId ? 'Edit admin' : 'New admin') }}</h2>
       </div>
       <button mat-icon-button type="button" (click)="closeModal()"><mat-icon>close</mat-icon></button>
     </div>
+
+    <div class="alert danger modal-alert" *ngIf="modalErrorMessage">{{ modalErrorMessage }}</div>
 
     <form class="form-grid" *ngIf="activeModal === 'branch'">
       <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput [(ngModel)]="branchForm.name" name="branchName" /></mat-form-field>
@@ -178,10 +189,11 @@
       <mat-form-field appearance="outline"><mat-label>Full name</mat-label><input matInput [(ngModel)]="adminForm.fullName" name="adminFullName" /></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Email</mat-label><input matInput [(ngModel)]="adminForm.email" name="adminEmail" /></mat-form-field>
       <mat-form-field appearance="outline"><mat-label>Phone</mat-label><input matInput [(ngModel)]="adminForm.phone" name="adminPhone" /></mat-form-field>
-      <mat-form-field appearance="outline"><mat-label>Password</mat-label><input matInput type="password" [(ngModel)]="adminForm.password" name="adminPassword" /></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>{{ editingAdminId ? 'New password' : 'Password' }}</mat-label><input matInput type="password" [(ngModel)]="adminForm.password" name="adminPassword" /></mat-form-field>
+      <label class="check-row" *ngIf="editingAdminId"><input type="checkbox" [(ngModel)]="$any(adminForm).isActive" name="adminActive" /> Active</label>
       <div class="modal-actions wide">
         <button mat-stroked-button type="button" (click)="closeModal()">Cancel</button>
-        <button mat-raised-button color="primary" type="button" [disabled]="isSaving || !adminForm.hospitalProfileId" (click)="saveAdmin()">Create admin</button>
+        <button mat-raised-button color="primary" type="button" [disabled]="isSaving || !adminForm.hospitalProfileId" (click)="saveAdmin()">{{ editingAdminId ? 'Save admin' : 'Create admin' }}</button>
       </div>
     </form>
   </section>
@@ -192,4 +204,9 @@
 </ng-template>
 
 <ng-template #noBranches><div class="empty-state">No branches configured yet.</div></ng-template>
-<ng-template #noAdmins><div class="empty-state">No admin accounts found.</div></ng-template>
+<ng-template #noAdmins>
+  <div class="empty-state">
+    <span>No admin accounts found.</span>
+    <button mat-raised-button color="primary" type="button" (click)="openAdminModal()">New admin</button>
+  </div>
+</ng-template>

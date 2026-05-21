@@ -19,12 +19,24 @@ public sealed class SuperAdminController : ControllerBase
     private readonly AppDbContext _db;
     private readonly IAuditLogService _audit;
     private readonly IPasswordPolicyService _passwordPolicy;
+    private readonly IPasswordResetService _passwordReset;
+    private readonly IDoctorPortalEmailService _email;
+    private readonly IWebHostEnvironment _environment;
 
-    public SuperAdminController(AppDbContext db, IAuditLogService audit, IPasswordPolicyService passwordPolicy)
+    public SuperAdminController(
+        AppDbContext db,
+        IAuditLogService audit,
+        IPasswordPolicyService passwordPolicy,
+        IPasswordResetService passwordReset,
+        IDoctorPortalEmailService email,
+        IWebHostEnvironment environment)
     {
         _db = db;
         _audit = audit;
         _passwordPolicy = passwordPolicy;
+        _passwordReset = passwordReset;
+        _email = email;
+        _environment = environment;
     }
 
     [HttpGet("summary")]
@@ -184,27 +196,17 @@ public sealed class SuperAdminController : ControllerBase
             return Ok(ApiResponse<IEnumerable<SuperAdminUserDto>>.Ok(Array.Empty<SuperAdminUserDto>()));
         }
 
-        var admins = await _db.Users
+        var adminUsers = await _db.Users
             .AsNoTracking()
-            .Include(x => x.Role)
-            .Include(x => x.HospitalProfile)
             .Where(x => x.RoleId == adminRoleId.Value)
-            .OrderBy(x => x.HospitalProfile != null ? x.HospitalProfile.HospitalName : string.Empty)
-            .ThenBy(x => x.FullName)
-            .Select(x => new SuperAdminUserDto
-            {
-                UserId = x.UserId,
-                HospitalProfileId = x.HospitalProfileId,
-                HospitalName = x.HospitalProfile != null ? x.HospitalProfile.HospitalName : "Unassigned",
-                FullName = x.FullName,
-                Email = x.Email,
-                Phone = x.Phone,
-                Role = x.Role!.Name,
-                IsActive = x.IsActive,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt
-            })
             .ToListAsync(cancellationToken);
+        var hospitals = await _db.HospitalProfiles
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.HospitalProfileId, x => x.HospitalName, cancellationToken);
+        var admins = adminUsers
+            .Select(x => MapAdmin(x, "Admin", hospitals.GetValueOrDefault(x.HospitalProfileId ?? 0, "Unassigned")))
+            .OrderBy(x => x.HospitalName)
+            .ThenBy(x => x.FullName);
 
         return Ok(ApiResponse<IEnumerable<SuperAdminUserDto>>.Ok(admins));
     }
@@ -260,6 +262,64 @@ public sealed class SuperAdminController : ControllerBase
         return Ok(ApiResponse<SuperAdminUserDto>.Ok(await BuildAdminDtoAsync(user.UserId, cancellationToken), "Admin created"));
     }
 
+    [HttpPut("admins/{userId:long}")]
+    public async Task<ActionResult<ApiResponse<SuperAdminUserDto>>> UpdateAdmin(long userId, UpdateAdminUserDto dto, CancellationToken cancellationToken)
+    {
+        var email = NormalizeRequired(dto.Email).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(dto.FullName) || string.IsNullOrWhiteSpace(email))
+        {
+            return BadRequest(ApiResponse<SuperAdminUserDto>.Fail("Full name and email are required"));
+        }
+
+        var adminRoleId = await _db.Roles
+            .Where(x => x.Name == "Admin")
+            .Select(x => (long?)x.RoleId)
+            .FirstOrDefaultAsync(cancellationToken);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+        if (user is null || !adminRoleId.HasValue || user.RoleId != adminRoleId.Value)
+        {
+            return NotFound(ApiResponse<SuperAdminUserDto>.Fail("Admin account not found"));
+        }
+
+        var hospital = await _db.HospitalProfiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.HospitalProfileId == dto.HospitalProfileId, cancellationToken);
+        if (hospital is null)
+        {
+            return BadRequest(ApiResponse<SuperAdminUserDto>.Fail("Select a valid hospital for this admin account"));
+        }
+
+        if (await _db.Users.AnyAsync(x => x.Email == email && x.UserId != userId, cancellationToken))
+        {
+            return BadRequest(ApiResponse<SuperAdminUserDto>.Fail("Email already exists"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Password))
+        {
+            var policyValidation = await _passwordPolicy.ValidateAsync(dto.Password);
+            if (!policyValidation.IsValid)
+            {
+                return BadRequest(ApiResponse<SuperAdminUserDto>.Fail(policyValidation.Errors.First()));
+            }
+
+            CreatePasswordHash(dto.Password, out var hash, out var salt);
+            user.PasswordHash = hash;
+            user.PasswordSalt = salt;
+        }
+
+        user.HospitalProfileId = hospital.HospitalProfileId;
+        user.FullName = NormalizeRequired(dto.FullName);
+        user.Email = email;
+        user.Phone = Normalize(dto.Phone);
+        user.IsActive = dto.IsActive;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await WriteAuditAsync("AdminUpdated", "User", user.UserId, user.FullName, $"Superadmin updated admin account {user.Email} for {hospital.HospitalName}.");
+
+        return Ok(ApiResponse<SuperAdminUserDto>.Ok(await BuildAdminDtoAsync(user.UserId, cancellationToken), "Admin updated"));
+    }
+
     [HttpPut("admins/{userId:long}/status")]
     public async Task<ActionResult<ApiResponse<SuperAdminUserDto>>> UpdateAdminStatus(long userId, UpdateAdminStatusDto dto, CancellationToken cancellationToken)
     {
@@ -279,6 +339,76 @@ public sealed class SuperAdminController : ControllerBase
         await WriteAuditAsync("AdminStatusUpdated", "User", user.UserId, user.FullName, $"Superadmin {(dto.IsActive ? "activated" : "deactivated")} admin account {user.Email}.");
 
         return Ok(ApiResponse<SuperAdminUserDto>.Ok(await BuildAdminDtoAsync(user.UserId, cancellationToken), "Admin status updated"));
+    }
+
+    [HttpDelete("admins/{userId:long}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteAdmin(long userId, CancellationToken cancellationToken)
+    {
+        var adminRoleId = await _db.Roles
+            .Where(x => x.Name == "Admin")
+            .Select(x => (long?)x.RoleId)
+            .FirstOrDefaultAsync(cancellationToken);
+        var user = await _db.Users.Include(x => x.HospitalProfile).FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+        if (user is null || !adminRoleId.HasValue || user.RoleId != adminRoleId.Value)
+        {
+            return NotFound(ApiResponse<object>.Fail("Admin account not found"));
+        }
+
+        var displayName = user.FullName;
+        var email = user.Email;
+        var hospitalName = user.HospitalProfile?.HospitalName ?? "Unassigned";
+        _db.Users.Remove(user);
+        await _db.SaveChangesAsync(cancellationToken);
+        await WriteAuditAsync("AdminDeleted", "User", userId, displayName, $"Superadmin deleted admin account {email} for {hospitalName}.");
+
+        return Ok(ApiResponse<object>.Ok(new { userId }, "Admin deleted"));
+    }
+
+    [HttpPost("admins/{userId:long}/password-reset")]
+    public async Task<ActionResult<ApiResponse<AdminPasswordResetEmailDto>>> SendAdminPasswordReset(long userId, CancellationToken cancellationToken)
+    {
+        var adminRoleId = await _db.Roles
+            .Where(x => x.Name == "Admin")
+            .Select(x => (long?)x.RoleId)
+            .FirstOrDefaultAsync(cancellationToken);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+        if (user is null || !adminRoleId.HasValue || user.RoleId != adminRoleId.Value)
+        {
+            return NotFound(ApiResponse<AdminPasswordResetEmailDto>.Fail("Admin account not found"));
+        }
+
+        if (!user.IsActive)
+        {
+            return BadRequest(ApiResponse<AdminPasswordResetEmailDto>.Fail("Activate this admin account before sending a password reset email"));
+        }
+
+        var ticket = _passwordReset.CreateTicket(user.Email);
+        var portalUrl = $"{Request.Scheme}://{Request.Host}/auth/forgot-password";
+        var emailResult = await _email.SendPasswordResetAsync(
+            user.Email,
+            user.FullName,
+            ticket.Code,
+            ticket.ExpiresAtUtc,
+            portalUrl,
+            cancellationToken);
+
+        await WriteAuditAsync(
+            "AdminPasswordResetRequested",
+            "User",
+            user.UserId,
+            user.FullName,
+            $"Superadmin sent a password reset code to admin account {user.Email}.");
+
+        var payload = new AdminPasswordResetEmailDto
+        {
+            Sent = emailResult.Sent,
+            ResetCodePreview = _environment.IsDevelopment() ? ticket.Code : null,
+            ExpiresAt = _environment.IsDevelopment() ? ticket.ExpiresAtUtc : null
+        };
+
+        return emailResult.Sent
+            ? Ok(ApiResponse<AdminPasswordResetEmailDto>.Ok(payload, "Password reset email sent"))
+            : BadRequest(ApiResponse<AdminPasswordResetEmailDto>.Fail(emailResult.Message));
     }
 
     private async Task<HospitalProfileDto> BuildHospitalProfileDtoAsync(CancellationToken cancellationToken)
@@ -322,20 +452,42 @@ public sealed class SuperAdminController : ControllerBase
             OccupiedBeds = x.OccupiedBeds
         });
 
-    private async Task<SuperAdminUserDto> BuildAdminDtoAsync(long userId, CancellationToken cancellationToken) =>
-        await _db.Users.AsNoTracking().Include(x => x.Role).Include(x => x.HospitalProfile).Where(x => x.UserId == userId).Select(x => new SuperAdminUserDto
-        {
-            UserId = x.UserId,
-            HospitalProfileId = x.HospitalProfileId,
-            HospitalName = x.HospitalProfile != null ? x.HospitalProfile.HospitalName : "Unassigned",
-            FullName = x.FullName,
-            Email = x.Email,
-            Phone = x.Phone,
-            Role = x.Role != null ? x.Role.Name : string.Empty,
-            IsActive = x.IsActive,
-            CreatedAt = x.CreatedAt,
-            UpdatedAt = x.UpdatedAt
-        }).FirstAsync(cancellationToken);
+    private async Task<SuperAdminUserDto> BuildAdminDtoAsync(long userId, CancellationToken cancellationToken)
+    {
+        var users = await _db.Users
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .ToListAsync(cancellationToken);
+        var user = users.First();
+        var roleName = await _db.Roles
+            .AsNoTracking()
+            .Where(x => x.RoleId == user.RoleId)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? string.Empty;
+        var hospitalName = user.HospitalProfileId.HasValue
+            ? await _db.HospitalProfiles
+                .AsNoTracking()
+                .Where(x => x.HospitalProfileId == user.HospitalProfileId.Value)
+                .Select(x => x.HospitalName)
+                .FirstOrDefaultAsync(cancellationToken) ?? "Unassigned"
+            : "Unassigned";
+
+        return MapAdmin(user, roleName, hospitalName);
+    }
+
+    private static SuperAdminUserDto MapAdmin(User user, string roleName, string hospitalName) => new()
+    {
+        UserId = user.UserId,
+        HospitalProfileId = user.HospitalProfileId,
+        HospitalName = hospitalName,
+        FullName = user.FullName,
+        Email = user.Email,
+        Phone = user.Phone,
+        Role = roleName,
+        IsActive = user.IsActive,
+        CreatedAt = user.CreatedAt,
+        UpdatedAt = user.UpdatedAt
+    };
 
     private static BranchDto MapBranch(Branch branch) => new()
     {
