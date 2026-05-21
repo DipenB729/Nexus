@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
@@ -17,7 +17,7 @@ WORKDIR /src/AngularApp4
 RUN dotnet restore AngularApp4.csproj
 RUN dotnet publish AngularApp4.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 
 WORKDIR /app
 COPY --from=build /app/publish .

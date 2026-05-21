@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AngularApp4.Model.Hms;
@@ -69,7 +70,7 @@ public enum ApprovalStatus
 
 public class InventoryUnit
 {
-    [Key] public long InventoryUnitId { get; set; }
+    [Key, BsonElement("_id")] public long InventoryUnitId { get; set; }
     [Required, MaxLength(80)] public string Name { get; set; } = string.Empty;
     [MaxLength(30)] public string? ShortName { get; set; }
     [MaxLength(250)] public string? Description { get; set; }
@@ -80,7 +81,7 @@ public class InventoryUnit
 
 public class InventoryCategory
 {
-    [Key] public long InventoryCategoryId { get; set; }
+    [Key, BsonElement("_id")] public long InventoryCategoryId { get; set; }
     public InventoryCategoryType CategoryType { get; set; } = InventoryCategoryType.Item;
     [Required, MaxLength(120)] public string Name { get; set; } = string.Empty;
     [MaxLength(250)] public string? Description { get; set; }
@@ -91,7 +92,7 @@ public class InventoryCategory
 
 public class MedicineMaster
 {
-    [Key] public long MedicineMasterId { get; set; }
+    [Key, BsonElement("_id")] public long MedicineMasterId { get; set; }
     public long InventoryUnitId { get; set; }
     public long? InventoryCategoryId { get; set; }
     [Required, MaxLength(150)] public string MedicineName { get; set; } = string.Empty;
@@ -99,8 +100,8 @@ public class MedicineMaster
     [MaxLength(120)] public string? Brand { get; set; }
     [MaxLength(80)] public string? Strength { get; set; }
     public bool BatchRequired { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal MinimumStock { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal MaximumStock { get; set; }
+    public decimal MinimumStock { get; set; }
+    public decimal MaximumStock { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -111,14 +112,14 @@ public class MedicineMaster
 
 public class StockItemMaster
 {
-    [Key] public long StockItemMasterId { get; set; }
+    [Key, BsonElement("_id")] public long StockItemMasterId { get; set; }
     public long InventoryUnitId { get; set; }
     public long? InventoryCategoryId { get; set; }
     public InventoryItemType ItemType { get; set; } = InventoryItemType.Consumable;
     [Required, MaxLength(150)] public string ItemName { get; set; } = string.Empty;
     [MaxLength(150)] public string? Specification { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal MinimumStock { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal MaximumStock { get; set; }
+    public decimal MinimumStock { get; set; }
+    public decimal MaximumStock { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -129,7 +130,7 @@ public class StockItemMaster
 
 public class Supplier
 {
-    [Key] public long SupplierId { get; set; }
+    [Key, BsonElement("_id")] public long SupplierId { get; set; }
     [Required, MaxLength(150)] public string SupplierName { get; set; } = string.Empty;
     [Required, MaxLength(40)] public string SupplierCode { get; set; } = string.Empty;
     [MaxLength(120)] public string? ContactPerson { get; set; }
@@ -145,7 +146,7 @@ public class Supplier
 
 public class StockLocation
 {
-    [Key] public long StockLocationId { get; set; }
+    [Key, BsonElement("_id")] public long StockLocationId { get; set; }
     public long? BranchId { get; set; }
     [Required, MaxLength(120)] public string Name { get; set; } = string.Empty;
     [Required, MaxLength(40)] public string Code { get; set; } = string.Empty;
@@ -160,7 +161,7 @@ public class StockLocation
 
 public class PurchaseOrder
 {
-    [Key] public long PurchaseOrderId { get; set; }
+    [Key, BsonElement("_id")] public long PurchaseOrderId { get; set; }
     [Required, MaxLength(30)] public string OrderNumber { get; set; } = string.Empty;
     public long SupplierId { get; set; }
     public long StockLocationId { get; set; }
@@ -177,15 +178,15 @@ public class PurchaseOrder
 
 public class PurchaseOrderLine
 {
-    [Key] public long PurchaseOrderLineId { get; set; }
+    [Key, BsonElement("_id")] public long PurchaseOrderLineId { get; set; }
     public long PurchaseOrderId { get; set; }
     public long? MedicineMasterId { get; set; }
     public long? StockItemMasterId { get; set; }
     [Required, MaxLength(180)] public string ItemName { get; set; } = string.Empty;
     [MaxLength(40)] public string? UnitName { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal OrderedQuantity { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal ReceivedQuantity { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal UnitCost { get; set; }
+    public decimal OrderedQuantity { get; set; }
+    public decimal ReceivedQuantity { get; set; }
+    public decimal UnitCost { get; set; }
     [MaxLength(250)] public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -197,15 +198,15 @@ public class PurchaseOrderLine
 
 public class PurchaseInvoice
 {
-    [Key] public long PurchaseInvoiceId { get; set; }
+    [Key, BsonElement("_id")] public long PurchaseInvoiceId { get; set; }
     public long PurchaseOrderId { get; set; }
     public long SupplierId { get; set; }
     public long StockLocationId { get; set; }
     [Required, MaxLength(50)] public string InvoiceNumber { get; set; } = string.Empty;
     public DateTime InvoiceDate { get; set; } = DateTime.UtcNow.Date;
     public DateTime? DueDate { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal TotalAmount { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal PaidAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal PaidAmount { get; set; }
     public PurchaseInvoiceStatus Status { get; set; } = PurchaseInvoiceStatus.Open;
     [MaxLength(400)] public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -218,7 +219,7 @@ public class PurchaseInvoice
 
 public class PurchaseInvoiceLine
 {
-    [Key] public long PurchaseInvoiceLineId { get; set; }
+    [Key, BsonElement("_id")] public long PurchaseInvoiceLineId { get; set; }
     public long PurchaseInvoiceId { get; set; }
     public long? PurchaseOrderLineId { get; set; }
     public long? MedicineMasterId { get; set; }
@@ -227,9 +228,9 @@ public class PurchaseInvoiceLine
     [MaxLength(40)] public string? UnitName { get; set; }
     [MaxLength(60)] public string? BatchNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal Quantity { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal UnitCost { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal LineTotal { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+    public decimal LineTotal { get; set; }
     [MaxLength(250)] public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -241,12 +242,12 @@ public class PurchaseInvoiceLine
 
 public class PurchaseReturn
 {
-    [Key] public long PurchaseReturnId { get; set; }
+    [Key, BsonElement("_id")] public long PurchaseReturnId { get; set; }
     public long PurchaseInvoiceId { get; set; }
     public long SupplierId { get; set; }
     [Required, MaxLength(30)] public string ReturnNumber { get; set; } = string.Empty;
     public DateTime ReturnDate { get; set; } = DateTime.UtcNow.Date;
-    [Column(TypeName = "decimal(18,2)")] public decimal TotalAmount { get; set; }
+    public decimal TotalAmount { get; set; }
     [MaxLength(400)] public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -256,7 +257,7 @@ public class PurchaseReturn
 
 public class PurchaseReturnLine
 {
-    [Key] public long PurchaseReturnLineId { get; set; }
+    [Key, BsonElement("_id")] public long PurchaseReturnLineId { get; set; }
     public long PurchaseReturnId { get; set; }
     public long? PurchaseInvoiceLineId { get; set; }
     public long? MedicineMasterId { get; set; }
@@ -264,9 +265,9 @@ public class PurchaseReturnLine
     [Required, MaxLength(180)] public string ItemName { get; set; } = string.Empty;
     [MaxLength(60)] public string? BatchNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal Quantity { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal UnitCost { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal LineTotal { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal UnitCost { get; set; }
+    public decimal LineTotal { get; set; }
     [MaxLength(200)] public string? Reason { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -278,14 +279,14 @@ public class PurchaseReturnLine
 
 public class StockBatch
 {
-    [Key] public long StockBatchId { get; set; }
+    [Key, BsonElement("_id")] public long StockBatchId { get; set; }
     public long StockLocationId { get; set; }
     public long? MedicineMasterId { get; set; }
     public long? StockItemMasterId { get; set; }
     [MaxLength(60)] public string? BatchNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal QuantityOnHand { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal UnitCost { get; set; }
+    public decimal QuantityOnHand { get; set; }
+    public decimal UnitCost { get; set; }
     public DateTime LastMovementAt { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -297,7 +298,7 @@ public class StockBatch
 
 public class StockTransfer
 {
-    [Key] public long StockTransferId { get; set; }
+    [Key, BsonElement("_id")] public long StockTransferId { get; set; }
     [Required, MaxLength(30)] public string TransferNumber { get; set; } = string.Empty;
     public long FromStockLocationId { get; set; }
     public long ToStockLocationId { get; set; }
@@ -315,13 +316,13 @@ public class StockTransfer
 
 public class StockTransferLine
 {
-    [Key] public long StockTransferLineId { get; set; }
+    [Key, BsonElement("_id")] public long StockTransferLineId { get; set; }
     public long StockTransferId { get; set; }
     public long StockBatchId { get; set; }
     [Required, MaxLength(180)] public string ItemName { get; set; } = string.Empty;
     [MaxLength(60)] public string? BatchNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal Quantity { get; set; }
+    public decimal Quantity { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public StockTransfer? StockTransfer { get; set; }
@@ -330,7 +331,7 @@ public class StockTransferLine
 
 public class StockAdjustment
 {
-    [Key] public long StockAdjustmentId { get; set; }
+    [Key, BsonElement("_id")] public long StockAdjustmentId { get; set; }
     [Required, MaxLength(30)] public string AdjustmentNumber { get; set; } = string.Empty;
     public long StockLocationId { get; set; }
     public StockAdjustmentReason Reason { get; set; } = StockAdjustmentReason.ManualCorrection;
@@ -346,13 +347,13 @@ public class StockAdjustment
 
 public class StockAdjustmentLine
 {
-    [Key] public long StockAdjustmentLineId { get; set; }
+    [Key, BsonElement("_id")] public long StockAdjustmentLineId { get; set; }
     public long StockAdjustmentId { get; set; }
     public long StockBatchId { get; set; }
     [Required, MaxLength(180)] public string ItemName { get; set; } = string.Empty;
     [MaxLength(60)] public string? BatchNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    [Column(TypeName = "decimal(18,2)")] public decimal QuantityDelta { get; set; }
+    public decimal QuantityDelta { get; set; }
     [MaxLength(250)] public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

@@ -25,36 +25,30 @@ public class DepartmentsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<DepartmentDto>>>> GetAll([FromQuery] string? search = null, [FromQuery] bool? isActive = null)
     {
-        var query = _db.Departments
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .AsQueryable();
+        var departments = await _db.Departments.AsNoTracking().ToListAsync();
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(x => x.Name.Contains(term) || x.Code.Contains(term) || (x.Description ?? string.Empty).Contains(term) || x.Branch!.Name.Contains(term));
+            departments = departments
+                .Where(x => x.Name.Contains(term) ||
+                            x.Code.Contains(term) ||
+                            (x.Description ?? string.Empty).Contains(term) ||
+                            (branches.TryGetValue(x.BranchId, out var branch) && branch.Name.Contains(term)))
+                .ToList();
         }
 
         if (isActive.HasValue)
         {
-            query = query.Where(x => x.IsActive == isActive.Value);
+            departments = departments.Where(x => x.IsActive == isActive.Value).ToList();
         }
 
-        var items = await query
-            .OrderBy(x => x.Branch!.Name)
+        var items = departments
+            .OrderBy(x => branches.TryGetValue(x.BranchId, out var branch) ? branch.Name : string.Empty)
             .ThenBy(x => x.Name)
-            .Select(x => new DepartmentDto
-            {
-                DepartmentId = x.DepartmentId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                Name = x.Name,
-                Code = x.Code,
-                Description = x.Description,
-                IsActive = x.IsActive
-            })
-            .ToListAsync();
+            .Select(x => MapDepartment(x, branches))
+            .ToList();
 
         return Ok(ApiResponse<IEnumerable<DepartmentDto>>.Ok(items));
     }
@@ -144,22 +138,21 @@ public class DepartmentsController : ControllerBase
 
     private async Task<DepartmentDto> GetDepartmentAsync(long departmentId)
     {
-        return await _db.Departments
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Where(x => x.DepartmentId == departmentId)
-            .Select(x => new DepartmentDto
-            {
-                DepartmentId = x.DepartmentId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                Name = x.Name,
-                Code = x.Code,
-                Description = x.Description,
-                IsActive = x.IsActive
-            })
-            .FirstAsync();
+        var department = await _db.Departments.AsNoTracking().FirstAsync(x => x.DepartmentId == departmentId);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        return MapDepartment(department, branches);
     }
+
+    private static DepartmentDto MapDepartment(Department department, IReadOnlyDictionary<long, Branch> branches) => new()
+    {
+        DepartmentId = department.DepartmentId,
+        BranchId = department.BranchId,
+        BranchName = branches.TryGetValue(department.BranchId, out var branch) ? branch.Name : string.Empty,
+        Name = department.Name,
+        Code = department.Code,
+        Description = department.Description,
+        IsActive = department.IsActive
+    };
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

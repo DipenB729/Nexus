@@ -25,45 +25,32 @@ public class WardsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<WardDto>>>> GetAll([FromQuery] string? search = null, [FromQuery] bool? isActive = null)
     {
-        var query = _db.Wards
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .AsQueryable();
+        var wards = await _db.Wards.AsNoTracking().ToListAsync();
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(x =>
+            wards = wards.Where(x =>
                 x.Name.Contains(term) ||
                 x.WardType.Contains(term) ||
                 x.RoomType.Contains(term) ||
-                x.Branch!.Name.Contains(term) ||
-                (x.Department != null && x.Department.Name.Contains(term)));
+                (branches.TryGetValue(x.BranchId, out var branch) && branch.Name.Contains(term)) ||
+                (x.DepartmentId.HasValue && departments.TryGetValue(x.DepartmentId.Value, out var department) && department.Name.Contains(term)))
+                .ToList();
         }
 
         if (isActive.HasValue)
         {
-            query = query.Where(x => x.IsActive == isActive.Value);
+            wards = wards.Where(x => x.IsActive == isActive.Value).ToList();
         }
 
-        var items = await query
-            .OrderBy(x => x.Branch!.Name)
+        var items = wards
+            .OrderBy(x => branches.TryGetValue(x.BranchId, out var branch) ? branch.Name : string.Empty)
             .ThenBy(x => x.Name)
-            .Select(x => new WardDto
-            {
-                WardId = x.WardId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.Department != null ? x.Department.Name : string.Empty,
-                Name = x.Name,
-                WardType = x.WardType,
-                RoomType = x.RoomType,
-                ChargePerDay = x.ChargePerDay,
-                IsActive = x.IsActive
-            })
-            .ToListAsync();
+            .Select(x => MapWard(x, branches, departments))
+            .ToList();
 
         return Ok(ApiResponse<IEnumerable<WardDto>>.Ok(items));
     }
@@ -183,24 +170,23 @@ public class WardsController : ControllerBase
 
     private async Task<WardDto> GetWardAsync(long wardId)
     {
-        return await _db.Wards
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .Where(x => x.WardId == wardId)
-            .Select(x => new WardDto
-            {
-                WardId = x.WardId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.Department != null ? x.Department.Name : string.Empty,
-                Name = x.Name,
-                WardType = x.WardType,
-                RoomType = x.RoomType,
-                ChargePerDay = x.ChargePerDay,
-                IsActive = x.IsActive
-            })
-            .FirstAsync();
+        var ward = await _db.Wards.AsNoTracking().FirstAsync(x => x.WardId == wardId);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
+        return MapWard(ward, branches, departments);
     }
+
+    private static WardDto MapWard(Ward ward, IReadOnlyDictionary<long, Branch> branches, IReadOnlyDictionary<long, Department> departments) => new()
+    {
+        WardId = ward.WardId,
+        BranchId = ward.BranchId,
+        BranchName = branches.TryGetValue(ward.BranchId, out var branch) ? branch.Name : string.Empty,
+        DepartmentId = ward.DepartmentId,
+        DepartmentName = ward.DepartmentId.HasValue && departments.TryGetValue(ward.DepartmentId.Value, out var department) ? department.Name : string.Empty,
+        Name = ward.Name,
+        WardType = ward.WardType,
+        RoomType = ward.RoomType,
+        ChargePerDay = ward.ChargePerDay,
+        IsActive = ward.IsActive
+    };
 }

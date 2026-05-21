@@ -79,12 +79,14 @@ public class AuthController : ControllerBase
 
         if (roleName == "User")
         {
-            _db.Patients.Add(new Patient
+            var patient = new Patient
             {
                 UserId = user.UserId,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
-            });
+            };
+            _db.Patients.Add(patient);
+            patient.MedicalRecordNumber = GenerateMedicalRecordNumber(patient.PatientId);
             await _db.SaveChangesAsync();
         }
 
@@ -118,7 +120,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<ApiResponse<AuthResponseDto>>> Login(LoginRequestDto dto)
     {
         var email = dto.Email.Trim().ToLowerInvariant();
-        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
         if (user is null || !VerifyPassword(dto.Password, user.PasswordHash, user.PasswordSalt))
         {
             await _audit.WriteAsync(new AuditLogRequest
@@ -133,7 +135,7 @@ public class AuthController : ControllerBase
             return Unauthorized(ApiResponse<AuthResponseDto>.Fail("Invalid credentials"));
         }
 
-        var role = user.Role?.Name ?? "User";
+        var role = await GetRoleNameAsync(user.RoleId);
         await _audit.WriteAsync(new AuditLogRequest
         {
             Category = AuditLogCategories.Authentication,
@@ -168,11 +170,10 @@ public class AuthController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(email))
         {
-            var user = await _db.Users
-                .Include(x => x.Role)
-                .FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
+            var role = user is null ? null : await GetRoleNameAsync(user.RoleId);
 
-            if (user?.Role?.Name is "User" or "Doctor")
+            if (role is "User" or "Doctor")
             {
                 var ticket = _passwordReset.CreateTicket(email);
                 if (_environment.IsDevelopment())
@@ -191,7 +192,7 @@ public class AuthController : ControllerBase
                     Summary = $"{user.FullName} requested a password reset code.",
                     PerformedByUserId = user.UserId,
                     PerformedByName = user.FullName,
-                    PerformedByRole = user.Role.Name,
+                    PerformedByRole = role,
                     ActorEmail = user.Email
                 });
             }
@@ -209,11 +210,10 @@ public class AuthController : ControllerBase
             return BadRequest(ApiResponse<object>.Fail("Email and reset code are required"));
         }
 
-        var user = await _db.Users
-            .Include(x => x.Role)
-            .FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == email && x.IsActive);
+        var role = user is null ? null : await GetRoleNameAsync(user.RoleId);
 
-        if (user?.Role?.Name is not ("User" or "Doctor") || !_passwordReset.TryConsume(email, dto.ResetCode))
+        if (role is not ("User" or "Doctor") || !_passwordReset.TryConsume(email, dto.ResetCode))
         {
             return BadRequest(ApiResponse<object>.Fail("Invalid or expired reset code"));
         }
@@ -240,7 +240,7 @@ public class AuthController : ControllerBase
             Summary = $"{user.FullName} completed a password reset.",
             PerformedByUserId = user.UserId,
             PerformedByName = user.FullName,
-            PerformedByRole = user.Role.Name,
+            PerformedByRole = role,
             ActorEmail = user.Email
         });
 
@@ -252,7 +252,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<ApiResponse<object>>> ChangePassword(ChangePasswordRequestDto dto)
     {
         var userId = GetUserId();
-        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
         if (user is null)
         {
             return NotFound(ApiResponse<object>.Fail("User account not found"));
@@ -285,7 +285,7 @@ public class AuthController : ControllerBase
             Summary = $"{user.FullName} changed their password.",
             PerformedByUserId = user.UserId,
             PerformedByName = user.FullName,
-            PerformedByRole = user.Role?.Name,
+            PerformedByRole = await GetRoleNameAsync(user.RoleId),
             ActorEmail = user.Email
         });
 
@@ -371,7 +371,7 @@ public class AuthController : ControllerBase
         }
 
         var userId = GetUserId();
-        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
         if (user is null)
         {
             return NotFound(ApiResponse<DoctorProfileDto>.Fail("Doctor account not found"));
@@ -425,7 +425,7 @@ public class AuthController : ControllerBase
             Summary = $"{doctor.FullName} updated their doctor portal profile.",
             PerformedByUserId = user.UserId,
             PerformedByName = user.FullName,
-            PerformedByRole = user.Role?.Name,
+            PerformedByRole = await GetRoleNameAsync(user.RoleId),
             ActorEmail = user.Email
         });
 
@@ -437,19 +437,20 @@ public class AuthController : ControllerBase
     [Authorize(Policy = "DoctorOnly")]
     public async Task<ActionResult<ApiResponse<IEnumerable<DoctorProfileDepartmentOptionDto>>>> GetDoctorProfileOptions()
     {
-        var departments = await _db.Departments
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = (await _db.Departments
             .AsNoTracking()
-            .Include(x => x.Branch)
             .Where(x => x.IsActive)
-            .OrderBy(x => x.Branch!.Name)
+            .ToListAsync())
+            .OrderBy(x => branches.TryGetValue(x.BranchId, out var branch) ? branch.Name : string.Empty)
             .ThenBy(x => x.Name)
             .Select(x => new DoctorProfileDepartmentOptionDto
             {
                 DepartmentId = x.DepartmentId,
                 Name = x.Name,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty
+                BranchName = branches.TryGetValue(x.BranchId, out var branch) ? branch.Name : string.Empty
             })
-            .ToListAsync();
+            .ToList();
 
         return Ok(ApiResponse<IEnumerable<DoctorProfileDepartmentOptionDto>>.Ok(departments));
     }
@@ -472,7 +473,7 @@ public class AuthController : ControllerBase
         }
 
         var userId = GetUserId();
-        var user = await _db.Users.Include(x => x.Role).FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive);
         if (user is null)
         {
             return NotFound(ApiResponse<DoctorProfilePhotoDto>.Fail("Doctor account not found"));
@@ -512,7 +513,7 @@ public class AuthController : ControllerBase
             Summary = $"{doctor.FullName} updated their profile photo.",
             PerformedByUserId = user.UserId,
             PerformedByName = user.FullName,
-            PerformedByRole = user.Role?.Name,
+            PerformedByRole = await GetRoleNameAsync(user.RoleId),
             ActorEmail = user.Email
         });
 
@@ -538,29 +539,35 @@ public class AuthController : ControllerBase
 
     private async Task<PatientProfileDto?> BuildProfileAsync(long userId)
     {
-        return await _db.Patients
-            .AsNoTracking()
-            .Include(x => x.PatientCategory)
-            .Where(x => x.UserId == userId)
-            .Join(
-                _db.Users.AsNoTracking(),
-                patient => patient.UserId,
-                user => user.UserId,
-                (patient, user) => new PatientProfileDto
-                {
-                    PatientId = patient.PatientId,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    Phone = user.Phone,
-                    MedicalRecordNumber = patient.MedicalRecordNumber ?? GenerateMedicalRecordNumber(patient.PatientId),
-                    PatientCategoryName = patient.PatientCategory != null ? patient.PatientCategory.Name : "Unassigned",
-                    Gender = patient.Gender,
-                    DateOfBirth = patient.DateOfBirth,
-                    Address = patient.Address,
-                    BloodGroup = patient.BloodGroup,
-                    EmergencyContact = patient.EmergencyContact
-                })
-            .FirstOrDefaultAsync();
+        var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId);
+        if (patient is null || user is null)
+        {
+            return null;
+        }
+
+        var categoryName = patient.PatientCategoryId.HasValue
+            ? await _db.PatientCategories
+                .AsNoTracking()
+                .Where(x => x.PatientCategoryId == patient.PatientCategoryId.Value)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync()
+            : null;
+
+        return new PatientProfileDto
+        {
+            PatientId = patient.PatientId,
+            FullName = user.FullName,
+            Email = user.Email,
+            Phone = user.Phone,
+            MedicalRecordNumber = patient.MedicalRecordNumber ?? GenerateMedicalRecordNumber(patient.PatientId),
+            PatientCategoryName = categoryName ?? "Unassigned",
+            Gender = patient.Gender,
+            DateOfBirth = patient.DateOfBirth,
+            Address = patient.Address,
+            BloodGroup = patient.BloodGroup,
+            EmergencyContact = patient.EmergencyContact
+        };
     }
 
     private async Task<DoctorProfileDto?> BuildDoctorProfileAsync(long userId)
@@ -573,39 +580,54 @@ public class AuthController : ControllerBase
 
         var normalizedEmail = user.Email.Trim().ToLowerInvariant();
 
-        return await _db.Doctors
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .Where(x => x.Email == normalizedEmail && x.IsActive)
-            .Select(x => new DoctorProfileDto
-            {
-                DoctorId = x.DoctorId,
-                DepartmentId = x.DepartmentId,
-                FullName = x.FullName,
-                PhotoUrl = x.PhotoUrl,
-                Email = x.Email,
-                Phone = x.Phone,
-                Specialization = x.Specialization,
-                LicenseNumber = x.LicenseNumber,
-                ExperienceYears = x.ExperienceYears,
-                Qualification = x.Qualification,
-                ConsultationFee = x.ConsultationFee,
-                BranchName = x.Branch != null ? x.Branch.Name : null,
-                DepartmentName = x.Department != null ? x.Department.Name : null,
-                Bio = x.Bio,
-                Address = x.Address,
-                OpdDays = x.OpdDays,
-                OpdStartTime = x.OpdStartTime,
-                OpdEndTime = x.OpdEndTime
-            })
-            .FirstOrDefaultAsync();
+        var doctor = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.Email == normalizedEmail && x.IsActive);
+        if (doctor is null)
+        {
+            return null;
+        }
+
+        var branchName = doctor.BranchId.HasValue
+            ? await _db.Branches.AsNoTracking().Where(x => x.BranchId == doctor.BranchId.Value).Select(x => x.Name).FirstOrDefaultAsync()
+            : null;
+        var departmentName = doctor.DepartmentId.HasValue
+            ? await _db.Departments.AsNoTracking().Where(x => x.DepartmentId == doctor.DepartmentId.Value).Select(x => x.Name).FirstOrDefaultAsync()
+            : null;
+
+        return new DoctorProfileDto
+        {
+            DoctorId = doctor.DoctorId,
+            DepartmentId = doctor.DepartmentId,
+            FullName = doctor.FullName,
+            PhotoUrl = doctor.PhotoUrl,
+            Email = doctor.Email,
+            Phone = doctor.Phone,
+            Specialization = doctor.Specialization,
+            LicenseNumber = doctor.LicenseNumber,
+            ExperienceYears = doctor.ExperienceYears,
+            Qualification = doctor.Qualification,
+            ConsultationFee = doctor.ConsultationFee,
+            BranchName = branchName,
+            DepartmentName = departmentName,
+            Bio = doctor.Bio,
+            Address = doctor.Address,
+            OpdDays = doctor.OpdDays,
+            OpdStartTime = doctor.OpdStartTime,
+            OpdEndTime = doctor.OpdEndTime
+        };
     }
 
     private long GetUserId()
     {
         var raw = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         return long.Parse(raw!);
+    }
+
+    private async Task<string> GetRoleNameAsync(long roleId)
+    {
+        return await _db.Roles
+            .Where(x => x.RoleId == roleId)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync() ?? "User";
     }
 
     private static string GenerateMedicalRecordNumber(long patientId) => $"MRN-{patientId:D5}";

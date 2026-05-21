@@ -159,34 +159,18 @@ public class AppointmentsController : ControllerBase
             return Ok(ApiResponse<IEnumerable<PatientAppointmentSummaryDto>>.Ok(Array.Empty<PatientAppointmentSummaryDto>()));
         }
 
-        var query = BuildPatientAppointmentQuery().Where(x => x.PatientId == patient.PatientId);
+        var query = (await BuildPatientAppointmentRowsAsync()).Where(x => x.PatientId == patient.PatientId);
         if (status.HasValue)
         {
             var expectedStatus = status.Value.ToString();
             query = query.Where(x => x.Status == expectedStatus);
         }
 
-        var items = await query
+        var items = query
             .OrderByDescending(x => x.AppointmentDate)
             .ThenByDescending(x => x.SlotStartTime)
-            .Select(x => new PatientAppointmentSummaryDto
-            {
-                AppointmentId = x.AppointmentId,
-                AppointmentDate = x.AppointmentDate,
-                SlotStartTime = x.SlotStartTime,
-                SlotEndTime = x.SlotEndTime,
-                Status = x.Status,
-                TokenNumber = x.TokenNumber,
-                Reason = x.Reason,
-                AdminRemarks = x.AdminRemarks,
-                DoctorId = x.DoctorId,
-                DoctorName = x.DoctorName,
-                DoctorSpecialization = x.DoctorSpecialization,
-                ServiceId = x.ServiceId,
-                ServiceName = x.ServiceName,
-                ServicePrice = x.ServicePrice
-            })
-            .ToListAsync();
+            .Select(MapPatientAppointment)
+            .ToList();
 
         return Ok(ApiResponse<IEnumerable<PatientAppointmentSummaryDto>>.Ok(items));
     }
@@ -217,14 +201,18 @@ public class AppointmentsController : ControllerBase
             return NotFound(ApiResponse<DoctorWorkspaceAppointmentDetailDto>.Fail("Doctor profile not found"));
         }
 
-        var serviceName = await _db.Services.AsNoTracking()
-            .Where(x => x.Id == appointment.ServiceId)
-            .Select(x => x.Name)
-            .FirstOrDefaultAsync(cancellationToken);
-        var departmentName = await _db.Doctors.AsNoTracking()
-            .Where(x => x.DoctorId == doctor.DoctorId)
-            .Join(_db.Departments.AsNoTracking(), d => d.DepartmentId, dept => dept.DepartmentId, (d, dept) => dept.Name)
-            .FirstOrDefaultAsync(cancellationToken);
+        var serviceName = appointment.ServiceId.HasValue
+            ? await _db.Services.AsNoTracking()
+                .Where(x => x.Id == appointment.ServiceId.Value)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+        var departmentName = doctor.DepartmentId.HasValue
+            ? await _db.Departments.AsNoTracking()
+                .Where(x => x.DepartmentId == doctor.DepartmentId.Value)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
         var clinicalProfile = await _db.PatientClinicalProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.PatientId == patient.PatientId, cancellationToken);
         var consultation = await _db.DoctorConsultations.AsNoTracking().FirstOrDefaultAsync(x => x.AppointmentId == appointment.AppointmentId, cancellationToken);
 
@@ -283,32 +271,42 @@ public class AppointmentsController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
-        var pastAppointments = await (
-                from item in _db.Appointments.AsNoTracking()
-                join itemDoctor in _db.Doctors.AsNoTracking() on item.DoctorId equals itemDoctor.DoctorId
-                join itemService in _db.Services.AsNoTracking() on item.ServiceId equals itemService.Id into serviceJoin
-                from itemService in serviceJoin.DefaultIfEmpty()
-                join itemConsultation in _db.DoctorConsultations.AsNoTracking() on item.AppointmentId equals itemConsultation.AppointmentId into consultationJoin
-                from itemConsultation in consultationJoin.DefaultIfEmpty()
-                where item.PatientId == patient.PatientId && item.AppointmentId != appointment.AppointmentId
-                orderby item.AppointmentDate descending, item.SlotStartTime descending
-                select new PatientAppointmentHistoryDto
+        var doctors = await _db.Doctors.AsNoTracking().ToDictionaryAsync(x => x.DoctorId, cancellationToken);
+        var services = await _db.Services.AsNoTracking().ToDictionaryAsync(x => x.Id, cancellationToken);
+        var consultations = await _db.DoctorConsultations.AsNoTracking().ToDictionaryAsync(x => x.AppointmentId, cancellationToken);
+        var pastAppointments = (await _db.Appointments
+                .AsNoTracking()
+                .Where(x => x.PatientId == patient.PatientId && x.AppointmentId != appointment.AppointmentId)
+                .ToListAsync(cancellationToken))
+            .OrderByDescending(x => x.AppointmentDate)
+            .ThenByDescending(x => x.SlotStartTime)
+            .Take(12)
+            .Select(item =>
+            {
+                doctors.TryGetValue(item.DoctorId, out var itemDoctor);
+                var itemService = item.ServiceId.HasValue && services.TryGetValue((int)item.ServiceId.Value, out var service) ? service : null;
+                consultations.TryGetValue(item.AppointmentId, out var itemConsultation);
+                return new PatientAppointmentHistoryDto
                 {
                     AppointmentId = item.AppointmentId,
                     AppointmentDate = item.AppointmentDate,
-                    DoctorName = itemDoctor.FullName,
-                    Diagnosis = itemConsultation != null ? itemConsultation.Diagnosis : null,
-                    ServiceName = itemService != null ? itemService.Name : null,
+                    DoctorName = itemDoctor?.FullName ?? "Doctor",
+                    Diagnosis = itemConsultation?.Diagnosis,
+                    ServiceName = itemService?.Name,
                     Status = item.Status.ToString()
-                })
-            .Take(12)
-            .ToListAsync(cancellationToken);
+                };
+            })
+            .ToList();
 
-        var admissionHistory = await _db.PatientAdmissions
+        var wards = await _db.Wards.AsNoTracking().ToDictionaryAsync(x => x.WardId, cancellationToken);
+        var beds = await _db.Beds.AsNoTracking().ToDictionaryAsync(x => x.BedId, cancellationToken);
+        var admissionHistoryRows = await _db.PatientAdmissions
             .AsNoTracking()
             .Where(x => x.PatientId == patient.PatientId)
             .OrderByDescending(x => x.AdmissionDate)
             .Take(10)
+            .ToListAsync(cancellationToken);
+        var admissionHistory = admissionHistoryRows
             .Select(x => new PatientAdmissionHistoryDto
             {
                 PatientAdmissionId = x.PatientAdmissionId,
@@ -316,11 +314,11 @@ public class AppointmentsController : ControllerBase
                 AdmissionDate = x.AdmissionDate,
                 DischargeDate = x.DischargeDate,
                 Status = x.Status.ToString(),
-                WardName = x.Ward != null ? x.Ward.Name : null,
-                BedNumber = x.Bed != null ? x.Bed.BedNumber : null,
+                WardName = wards.TryGetValue(x.WardId, out var ward) ? ward.Name : null,
+                BedNumber = beds.TryGetValue(x.BedId, out var bed) ? bed.BedNumber : null,
                 Reason = x.Reason
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         return Ok(ApiResponse<DoctorWorkspaceAppointmentDetailDto>.Ok(new DoctorWorkspaceAppointmentDetailDto
         {
@@ -390,40 +388,18 @@ public class AppointmentsController : ControllerBase
             return Ok(ApiResponse<IEnumerable<DoctorAppointmentSummaryDto>>.Ok(Array.Empty<DoctorAppointmentSummaryDto>()));
         }
 
-        var query = BuildDoctorAppointmentQuery().Where(x => x.DoctorId == doctor.DoctorId);
+        var query = (await BuildDoctorAppointmentRowsAsync()).Where(x => x.DoctorId == doctor.DoctorId);
         if (status.HasValue)
         {
             var expectedStatus = status.Value.ToString();
             query = query.Where(x => x.Status == expectedStatus);
         }
 
-        var items = await query
+        var items = query
             .OrderBy(x => x.AppointmentDate)
             .ThenBy(x => x.SlotStartTime)
-            .Select(x => new DoctorAppointmentSummaryDto
-            {
-                AppointmentId = x.AppointmentId,
-                PatientId = x.PatientId,
-                ScheduleId = x.ScheduleId,
-                PatientName = x.PatientName,
-                MedicalRecordNumber = x.MedicalRecordNumber,
-                PatientGender = x.PatientGender,
-                PatientDateOfBirth = x.PatientDateOfBirth,
-                AppointmentDate = x.AppointmentDate,
-                SlotStartTime = x.SlotStartTime,
-                SlotEndTime = x.SlotEndTime,
-                Status = x.Status,
-                TokenNumber = x.TokenNumber,
-                Reason = x.Reason,
-                AdminRemarks = x.AdminRemarks,
-                DoctorId = x.DoctorId,
-                DoctorName = x.DoctorName,
-                DoctorSpecialization = x.DoctorSpecialization,
-                ServiceId = x.ServiceId,
-                ServiceName = x.ServiceName,
-                ServicePrice = x.ServicePrice
-            })
-            .ToListAsync();
+            .Select(MapDoctorAppointment)
+            .ToList();
 
         return Ok(ApiResponse<IEnumerable<DoctorAppointmentSummaryDto>>.Ok(items));
     }
@@ -487,32 +463,10 @@ public class AppointmentsController : ControllerBase
             await _notifications.QueueAppointmentCancelledAsync(appointment);
         }
 
-        var payload = await BuildDoctorAppointmentQuery()
+        var payload = (await BuildDoctorAppointmentRowsAsync())
             .Where(x => x.AppointmentId == appointmentId)
-            .Select(x => new DoctorAppointmentSummaryDto
-            {
-                AppointmentId = x.AppointmentId,
-                PatientId = x.PatientId,
-                ScheduleId = x.ScheduleId,
-                PatientName = x.PatientName,
-                MedicalRecordNumber = x.MedicalRecordNumber,
-                PatientGender = x.PatientGender,
-                PatientDateOfBirth = x.PatientDateOfBirth,
-                AppointmentDate = x.AppointmentDate,
-                SlotStartTime = x.SlotStartTime,
-                SlotEndTime = x.SlotEndTime,
-                Status = x.Status,
-                TokenNumber = x.TokenNumber,
-                Reason = x.Reason,
-                AdminRemarks = x.AdminRemarks,
-                DoctorId = x.DoctorId,
-                DoctorName = x.DoctorName,
-                DoctorSpecialization = x.DoctorSpecialization,
-                ServiceId = x.ServiceId,
-                ServiceName = x.ServiceName,
-                ServicePrice = x.ServicePrice
-            })
-            .FirstAsync();
+            .Select(MapDoctorAppointment)
+            .First();
 
         return Ok(ApiResponse<DoctorAppointmentSummaryDto>.Ok(payload, "Appointment status updated"));
     }
@@ -620,31 +574,10 @@ public class AppointmentsController : ControllerBase
             await _notifications.QueueAppointmentApprovedAsync(appointment);
         }
 
-        var payload = await BuildDoctorAppointmentQuery()
+        var payload = (await BuildDoctorAppointmentRowsAsync())
             .Where(x => x.AppointmentId == appointmentId)
-            .Select(x => new DoctorAppointmentSummaryDto
-            {
-                AppointmentId = x.AppointmentId,
-                PatientId = x.PatientId,
-                PatientName = x.PatientName,
-                MedicalRecordNumber = x.MedicalRecordNumber,
-                PatientGender = x.PatientGender,
-                PatientDateOfBirth = x.PatientDateOfBirth,
-                AppointmentDate = x.AppointmentDate,
-                SlotStartTime = x.SlotStartTime,
-                SlotEndTime = x.SlotEndTime,
-                Status = x.Status,
-                TokenNumber = x.TokenNumber,
-                Reason = x.Reason,
-                AdminRemarks = x.AdminRemarks,
-                DoctorId = x.DoctorId,
-                DoctorName = x.DoctorName,
-                DoctorSpecialization = x.DoctorSpecialization,
-                ServiceId = x.ServiceId,
-                ServiceName = x.ServiceName,
-                ServicePrice = x.ServicePrice
-            })
-            .FirstAsync();
+            .Select(MapDoctorAppointment)
+            .First();
 
         return Ok(ApiResponse<DoctorAppointmentSummaryDto>.Ok(payload, "Appointment updated"));
     }
@@ -793,64 +726,122 @@ public class AppointmentsController : ControllerBase
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private IQueryable<PatientAppointmentProjection> BuildPatientAppointmentQuery()
+    private async Task<List<PatientAppointmentProjection>> BuildPatientAppointmentRowsAsync()
     {
-        return from appointment in _db.Appointments.AsNoTracking()
-               join doctor in _db.Doctors.AsNoTracking() on appointment.DoctorId equals doctor.DoctorId
-               join service in _db.Services.AsNoTracking() on appointment.ServiceId equals service.Id into serviceGroup
-               from service in serviceGroup.DefaultIfEmpty()
-               select new PatientAppointmentProjection
-               {
-                   AppointmentId = appointment.AppointmentId,
-                   PatientId = appointment.PatientId,
-                   AppointmentDate = appointment.AppointmentDate,
-                   SlotStartTime = appointment.SlotStartTime,
-                   SlotEndTime = appointment.SlotEndTime,
-                   Status = appointment.Status.ToString(),
-                   TokenNumber = appointment.TokenNumber,
-                   Reason = appointment.Reason,
-                   AdminRemarks = appointment.AdminRemarks,
-                   DoctorId = doctor.DoctorId,
-                   DoctorName = doctor.FullName,
-                   DoctorSpecialization = doctor.Specialization,
-                   ServiceId = appointment.ServiceId,
-                   ServiceName = service != null ? service.Name : null,
-                   ServicePrice = service != null ? service.Price : null
-               };
+        var appointments = await _db.Appointments.AsNoTracking().ToListAsync();
+        var doctors = await _db.Doctors.AsNoTracking().ToDictionaryAsync(x => x.DoctorId);
+        var services = await _db.Services.AsNoTracking().ToDictionaryAsync(x => (long?)x.Id);
+        return appointments
+            .Where(x => doctors.ContainsKey(x.DoctorId))
+            .Select(appointment =>
+            {
+                var doctor = doctors[appointment.DoctorId];
+                services.TryGetValue(appointment.ServiceId, out var service);
+                return new PatientAppointmentProjection
+                {
+                    AppointmentId = appointment.AppointmentId,
+                    PatientId = appointment.PatientId,
+                    AppointmentDate = appointment.AppointmentDate,
+                    SlotStartTime = appointment.SlotStartTime,
+                    SlotEndTime = appointment.SlotEndTime,
+                    Status = appointment.Status.ToString(),
+                    TokenNumber = appointment.TokenNumber,
+                    Reason = appointment.Reason,
+                    AdminRemarks = appointment.AdminRemarks,
+                    DoctorId = doctor.DoctorId,
+                    DoctorName = doctor.FullName,
+                    DoctorSpecialization = doctor.Specialization,
+                    ServiceId = appointment.ServiceId,
+                    ServiceName = service?.Name,
+                    ServicePrice = service?.Price
+                };
+            })
+            .ToList();
     }
 
-    private IQueryable<DoctorAppointmentProjection> BuildDoctorAppointmentQuery()
+    private async Task<List<DoctorAppointmentProjection>> BuildDoctorAppointmentRowsAsync()
     {
-        return from appointment in _db.Appointments.AsNoTracking()
-               join patient in _db.Patients.AsNoTracking() on appointment.PatientId equals patient.PatientId
-               join patientUser in _db.Users.AsNoTracking() on patient.UserId equals patientUser.UserId
-               join doctor in _db.Doctors.AsNoTracking() on appointment.DoctorId equals doctor.DoctorId
-               join service in _db.Services.AsNoTracking() on appointment.ServiceId equals service.Id into serviceGroup
-               from service in serviceGroup.DefaultIfEmpty()
-               select new DoctorAppointmentProjection
-               {
-                   AppointmentId = appointment.AppointmentId,
-                   PatientId = appointment.PatientId,
-                   ScheduleId = appointment.ScheduleId,
-                   PatientName = patientUser.FullName,
-                   MedicalRecordNumber = patient.MedicalRecordNumber ?? $"MRN-{appointment.PatientId:D5}",
-                   PatientGender = patient.Gender,
-                   PatientDateOfBirth = patient.DateOfBirth,
-                   AppointmentDate = appointment.AppointmentDate,
-                   SlotStartTime = appointment.SlotStartTime,
-                   SlotEndTime = appointment.SlotEndTime,
-                   Status = appointment.Status.ToString(),
-                   TokenNumber = appointment.TokenNumber,
-                   Reason = appointment.Reason,
-                   AdminRemarks = appointment.AdminRemarks,
-                   DoctorId = doctor.DoctorId,
-                   DoctorName = doctor.FullName,
-                   DoctorSpecialization = doctor.Specialization,
-                   ServiceId = appointment.ServiceId,
-                   ServiceName = service != null ? service.Name : null,
-                   ServicePrice = service != null ? service.Price : null
-               };
+        var appointments = await _db.Appointments.AsNoTracking().ToListAsync();
+        var patients = await _db.Patients.AsNoTracking().ToDictionaryAsync(x => x.PatientId);
+        var users = await _db.Users.AsNoTracking().ToDictionaryAsync(x => x.UserId);
+        var doctors = await _db.Doctors.AsNoTracking().ToDictionaryAsync(x => x.DoctorId);
+        var services = await _db.Services.AsNoTracking().ToDictionaryAsync(x => (long?)x.Id);
+        return appointments
+            .Where(x => patients.ContainsKey(x.PatientId) && doctors.ContainsKey(x.DoctorId))
+            .Select(appointment =>
+            {
+                var patient = patients[appointment.PatientId];
+                users.TryGetValue(patient.UserId, out var patientUser);
+                var doctor = doctors[appointment.DoctorId];
+                services.TryGetValue(appointment.ServiceId, out var service);
+                return new DoctorAppointmentProjection
+                {
+                    AppointmentId = appointment.AppointmentId,
+                    PatientId = appointment.PatientId,
+                    ScheduleId = appointment.ScheduleId,
+                    PatientName = patientUser?.FullName ?? "Patient",
+                    MedicalRecordNumber = patient.MedicalRecordNumber ?? $"MRN-{appointment.PatientId:D5}",
+                    PatientGender = patient.Gender,
+                    PatientDateOfBirth = patient.DateOfBirth,
+                    AppointmentDate = appointment.AppointmentDate,
+                    SlotStartTime = appointment.SlotStartTime,
+                    SlotEndTime = appointment.SlotEndTime,
+                    Status = appointment.Status.ToString(),
+                    TokenNumber = appointment.TokenNumber,
+                    Reason = appointment.Reason,
+                    AdminRemarks = appointment.AdminRemarks,
+                    DoctorId = doctor.DoctorId,
+                    DoctorName = doctor.FullName,
+                    DoctorSpecialization = doctor.Specialization,
+                    ServiceId = appointment.ServiceId,
+                    ServiceName = service?.Name,
+                    ServicePrice = service?.Price
+                };
+            })
+            .ToList();
     }
+
+    private static PatientAppointmentSummaryDto MapPatientAppointment(PatientAppointmentProjection x) => new()
+    {
+        AppointmentId = x.AppointmentId,
+        AppointmentDate = x.AppointmentDate,
+        SlotStartTime = x.SlotStartTime,
+        SlotEndTime = x.SlotEndTime,
+        Status = x.Status,
+        TokenNumber = x.TokenNumber,
+        Reason = x.Reason,
+        AdminRemarks = x.AdminRemarks,
+        DoctorId = x.DoctorId,
+        DoctorName = x.DoctorName,
+        DoctorSpecialization = x.DoctorSpecialization,
+        ServiceId = x.ServiceId,
+        ServiceName = x.ServiceName,
+        ServicePrice = x.ServicePrice
+    };
+
+    private static DoctorAppointmentSummaryDto MapDoctorAppointment(DoctorAppointmentProjection x) => new()
+    {
+        AppointmentId = x.AppointmentId,
+        PatientId = x.PatientId,
+        ScheduleId = x.ScheduleId,
+        PatientName = x.PatientName,
+        MedicalRecordNumber = x.MedicalRecordNumber,
+        PatientGender = x.PatientGender,
+        PatientDateOfBirth = x.PatientDateOfBirth,
+        AppointmentDate = x.AppointmentDate,
+        SlotStartTime = x.SlotStartTime,
+        SlotEndTime = x.SlotEndTime,
+        Status = x.Status,
+        TokenNumber = x.TokenNumber,
+        Reason = x.Reason,
+        AdminRemarks = x.AdminRemarks,
+        DoctorId = x.DoctorId,
+        DoctorName = x.DoctorName,
+        DoctorSpecialization = x.DoctorSpecialization,
+        ServiceId = x.ServiceId,
+        ServiceName = x.ServiceName,
+        ServicePrice = x.ServicePrice
+    };
 
     private sealed class PatientAppointmentProjection
     {

@@ -7,13 +7,10 @@ using AngularApp4.Serialization;
 using AngularApp4.Services.Hms;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Npgsql;
-
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+using MongoDB.EntityFrameworkCore.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 var renderPort = Environment.GetEnvironmentVariable("PORT");
@@ -28,13 +25,17 @@ builder.Logging.AddDebug();
 
 var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
-defaultConnection = NormalizePostgresConnectionString(defaultConnection);
+var mongoDatabaseName = builder.Configuration["MongoDb:DatabaseName"];
+if (string.IsNullOrWhiteSpace(mongoDatabaseName))
+{
+    throw new InvalidOperationException("MongoDb:DatabaseName is not configured.");
+}
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(defaultConnection));
+    options.UseMongoDB(defaultConnection, mongoDatabaseName));
 builder.Services.AddScoped<DatabaseInitializer>();
 
 builder.Services.AddHttpContextAccessor();
@@ -148,12 +149,12 @@ using (var scope = app.Services.CreateScope())
             var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
             await initializer.InitializeAsync();
         }
-        catch (NpgsqlException ex)
+        catch (Exception ex) when (ex.GetType().Namespace?.StartsWith("MongoDB", StringComparison.Ordinal) == true)
         {
             app.Logger.LogCritical(
                 ex,
-                "PostgreSQL connection failed for '{Host}'. Update ConnectionStrings:DefaultConnection or start the matching PostgreSQL instance before running the app.",
-                new NpgsqlConnectionStringBuilder(defaultConnection).Host);
+                "MongoDB connection failed for database '{DatabaseName}'. Update ConnectionStrings:DefaultConnection or MongoDb:DatabaseName before running the app.",
+                mongoDatabaseName);
             throw;
         }
     }
@@ -185,51 +186,3 @@ app.MapControllers();
 app.MapFallbackToFile("index.html");
 
 app.Run();
-
-static string NormalizePostgresConnectionString(string connectionString)
-{
-    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri) ||
-        (uri.Scheme != "postgres" && uri.Scheme != "postgresql"))
-    {
-        return connectionString;
-    }
-
-    var builder = new NpgsqlConnectionStringBuilder
-    {
-        Host = uri.Host,
-        Port = uri.IsDefaultPort ? 5432 : uri.Port,
-        Database = uri.AbsolutePath.Trim('/'),
-        SslMode = SslMode.Require,
-        TrustServerCertificate = true
-    };
-
-    if (!string.IsNullOrEmpty(uri.UserInfo))
-    {
-        var userInfo = uri.UserInfo.Split(':', 2);
-        builder.Username = Uri.UnescapeDataString(userInfo[0]);
-        if (userInfo.Length > 1)
-        {
-            builder.Password = Uri.UnescapeDataString(userInfo[1]);
-        }
-    }
-
-    if (!string.IsNullOrWhiteSpace(uri.Query))
-    {
-        var query = QueryHelpers.ParseQuery(uri.Query);
-        if (query.TryGetValue("sslmode", out var sslModeValue) &&
-            !string.IsNullOrWhiteSpace(sslModeValue) &&
-            Enum.TryParse<SslMode>(sslModeValue.ToString(), true, out var sslMode))
-        {
-            builder.SslMode = sslMode;
-        }
-
-        if (query.TryGetValue("trust server certificate", out var trustServerCertificateValue) &&
-            !string.IsNullOrWhiteSpace(trustServerCertificateValue) &&
-            bool.TryParse(trustServerCertificateValue.ToString(), out var trustServerCertificate))
-        {
-            builder.TrustServerCertificate = trustServerCertificate;
-        }
-    }
-
-    return builder.ConnectionString;
-}

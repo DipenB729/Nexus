@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AngularApp4.Model.Hms;
 
 public class NotificationSetting
 {
-    [Key] public long NotificationSettingId { get; set; }
+    [Key, BsonElement("_id")] public long NotificationSettingId { get; set; }
     public bool LowStockAlertsEnabled { get; set; } = true;
     [MaxLength(80)] public string LowStockAlertChannels { get; set; } = "Dashboard,Email";
     public int LowStockReminderFrequencyHours { get; set; } = 12;
@@ -24,7 +25,7 @@ public class NotificationSetting
 
 public class SystemControlSetting
 {
-    [Key] public long SystemControlSettingId { get; set; }
+    [Key, BsonElement("_id")] public long SystemControlSettingId { get; set; }
     [Required, MaxLength(10)] public string DefaultCurrencyCode { get; set; } = "NPR";
     [Required, MaxLength(80)] public string TimeZoneId { get; set; } = "Asia/Kathmandu";
     [Required, MaxLength(20)] public string InvoicePrefix { get; set; } = "NEX";
@@ -50,7 +51,7 @@ public class SystemControlSetting
 
 public class SecuritySetting
 {
-    [Key] public long SecuritySettingId { get; set; }
+    [Key, BsonElement("_id")] public long SecuritySettingId { get; set; }
     public int SessionTimeoutMinutes { get; set; } = 120;
     public int MinPasswordLength { get; set; } = 8;
     public bool RequireUppercase { get; set; } = true;
@@ -66,7 +67,7 @@ public class SecuritySetting
 
 public class BackupLog
 {
-    [Key] public long BackupLogId { get; set; }
+    [Key, BsonElement("_id")] public long BackupLogId { get; set; }
     [Required, MaxLength(120)] public string BackupName { get; set; } = string.Empty;
     [Required, MaxLength(40)] public string BackupType { get; set; } = string.Empty;
     [Required, MaxLength(40)] public string Status { get; set; } = string.Empty;
@@ -81,7 +82,7 @@ public class BackupLog
 
 public class AppNotification
 {
-    [Key] public long AppNotificationId { get; set; }
+    [Key, BsonElement("_id")] public long AppNotificationId { get; set; }
     public long RecipientUserId { get; set; }
     [Required, MaxLength(60)] public string Category { get; set; } = "Appointment";
     [Required, MaxLength(80)] public string NotificationType { get; set; } = string.Empty;

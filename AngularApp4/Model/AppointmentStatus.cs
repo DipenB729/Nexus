@@ -1,4 +1,4 @@
-﻿namespace AngularApp4.Model
+namespace AngularApp4.Model
 {
     public enum AppointmentStatus
     {

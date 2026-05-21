@@ -328,14 +328,18 @@ public class DoctorWorkspaceController : ControllerBase
         }
 
         var patientUser = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == patient.UserId, cancellationToken);
-        var serviceName = await _db.Services.AsNoTracking()
-            .Where(x => x.Id == appointment.ServiceId)
-            .Select(x => x.Name)
-            .FirstOrDefaultAsync(cancellationToken);
-        var departmentName = await _db.Doctors.AsNoTracking()
-            .Where(x => x.DoctorId == doctor.DoctorId)
-            .Join(_db.Departments.AsNoTracking(), d => d.DepartmentId, dept => dept.DepartmentId, (d, dept) => dept.Name)
-            .FirstOrDefaultAsync(cancellationToken);
+        var serviceName = appointment.ServiceId.HasValue
+            ? await _db.Services.AsNoTracking()
+                .Where(x => x.Id == appointment.ServiceId.Value)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
+        var departmentName = doctor.DepartmentId.HasValue
+            ? await _db.Departments.AsNoTracking()
+                .Where(x => x.DepartmentId == doctor.DepartmentId.Value)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
         var clinicalProfile = await _db.PatientClinicalProfiles.AsNoTracking().FirstOrDefaultAsync(x => x.PatientId == patient.PatientId, cancellationToken);
         var consultation = await _db.DoctorConsultations.AsNoTracking().FirstOrDefaultAsync(x => x.AppointmentId == appointment.AppointmentId, cancellationToken);
 
@@ -394,32 +398,42 @@ public class DoctorWorkspaceController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
-        var pastAppointments = await (
-                from item in _db.Appointments.AsNoTracking()
-                join itemDoctor in _db.Doctors.AsNoTracking() on item.DoctorId equals itemDoctor.DoctorId
-                join itemService in _db.Services.AsNoTracking() on item.ServiceId equals itemService.Id into serviceJoin
-                from itemService in serviceJoin.DefaultIfEmpty()
-                join itemConsultation in _db.DoctorConsultations.AsNoTracking() on item.AppointmentId equals itemConsultation.AppointmentId into consultationJoin
-                from itemConsultation in consultationJoin.DefaultIfEmpty()
-                where item.PatientId == patient.PatientId && item.AppointmentId != appointment.AppointmentId
-                orderby item.AppointmentDate descending, item.SlotStartTime descending
-                select new PatientAppointmentHistoryDto
+        var doctors = await _db.Doctors.AsNoTracking().ToDictionaryAsync(x => x.DoctorId, cancellationToken);
+        var services = await _db.Services.AsNoTracking().ToDictionaryAsync(x => x.Id, cancellationToken);
+        var consultations = await _db.DoctorConsultations.AsNoTracking().ToDictionaryAsync(x => x.AppointmentId, cancellationToken);
+        var pastAppointments = (await _db.Appointments
+                .AsNoTracking()
+                .Where(x => x.PatientId == patient.PatientId && x.AppointmentId != appointment.AppointmentId)
+                .ToListAsync(cancellationToken))
+            .OrderByDescending(x => x.AppointmentDate)
+            .ThenByDescending(x => x.SlotStartTime)
+            .Take(12)
+            .Select(item =>
+            {
+                doctors.TryGetValue(item.DoctorId, out var itemDoctor);
+                var itemService = item.ServiceId.HasValue && services.TryGetValue((int)item.ServiceId.Value, out var service) ? service : null;
+                consultations.TryGetValue(item.AppointmentId, out var itemConsultation);
+                return new PatientAppointmentHistoryDto
                 {
                     AppointmentId = item.AppointmentId,
                     AppointmentDate = item.AppointmentDate,
-                    DoctorName = itemDoctor.FullName,
-                    Diagnosis = itemConsultation != null ? itemConsultation.Diagnosis : null,
-                    ServiceName = itemService != null ? itemService.Name : null,
+                    DoctorName = itemDoctor?.FullName ?? "Doctor",
+                    Diagnosis = itemConsultation?.Diagnosis,
+                    ServiceName = itemService?.Name,
                     Status = item.Status.ToString()
-                })
-            .Take(12)
-            .ToListAsync(cancellationToken);
+                };
+            })
+            .ToList();
 
-        var admissionHistory = await _db.PatientAdmissions
+        var wards = await _db.Wards.AsNoTracking().ToDictionaryAsync(x => x.WardId, cancellationToken);
+        var beds = await _db.Beds.AsNoTracking().ToDictionaryAsync(x => x.BedId, cancellationToken);
+        var admissionHistoryRows = await _db.PatientAdmissions
             .AsNoTracking()
             .Where(x => x.PatientId == patient.PatientId)
             .OrderByDescending(x => x.AdmissionDate)
             .Take(10)
+            .ToListAsync(cancellationToken);
+        var admissionHistory = admissionHistoryRows
             .Select(x => new PatientAdmissionHistoryDto
             {
                 PatientAdmissionId = x.PatientAdmissionId,
@@ -427,11 +441,11 @@ public class DoctorWorkspaceController : ControllerBase
                 AdmissionDate = x.AdmissionDate,
                 DischargeDate = x.DischargeDate,
                 Status = x.Status.ToString(),
-                WardName = x.Ward != null ? x.Ward.Name : null,
-                BedNumber = x.Bed != null ? x.Bed.BedNumber : null,
+                WardName = wards.TryGetValue(x.WardId, out var ward) ? ward.Name : null,
+                BedNumber = beds.TryGetValue(x.BedId, out var bed) ? bed.BedNumber : null,
                 Reason = x.Reason
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         var documents = await _db.PatientDocuments
             .AsNoTracking()

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AngularApp4.Model.Hms;
@@ -12,7 +13,7 @@ public enum DoctorAvailabilityExceptionType
 
 public class DoctorAvailabilityException
 {
-    [Key] public long DoctorAvailabilityExceptionId { get; set; }
+    [Key, BsonElement("_id")] public long DoctorAvailabilityExceptionId { get; set; }
     public long DoctorId { get; set; }
     public DoctorAvailabilityExceptionType ExceptionType { get; set; } = DoctorAvailabilityExceptionType.Unavailable;
     public DateTime StartDate { get; set; }
@@ -27,7 +28,7 @@ public class DoctorAvailabilityException
 
 public class DoctorBlockedSlot
 {
-    [Key] public long DoctorBlockedSlotId { get; set; }
+    [Key, BsonElement("_id")] public long DoctorBlockedSlotId { get; set; }
     public long DoctorId { get; set; }
     public DateTime BlockDate { get; set; }
     public TimeSpan StartTime { get; set; }
@@ -42,7 +43,7 @@ public class DoctorBlockedSlot
 
 public class PatientClinicalProfile
 {
-    [Key] public long PatientClinicalProfileId { get; set; }
+    [Key, BsonElement("_id")] public long PatientClinicalProfileId { get; set; }
     public long PatientId { get; set; }
     [MaxLength(4000)] public string? MedicalHistory { get; set; }
     [MaxLength(2000)] public string? Allergies { get; set; }
@@ -63,7 +64,7 @@ public enum DoctorConsultationStatus
 
 public class DoctorConsultation
 {
-    [Key] public long DoctorConsultationId { get; set; }
+    [Key, BsonElement("_id")] public long DoctorConsultationId { get; set; }
     public long AppointmentId { get; set; }
     public long DoctorId { get; set; }
     public long PatientId { get; set; }
@@ -84,7 +85,7 @@ public class DoctorConsultation
 
 public class DoctorPrescription
 {
-    [Key] public long DoctorPrescriptionId { get; set; }
+    [Key, BsonElement("_id")] public long DoctorPrescriptionId { get; set; }
     public long AppointmentId { get; set; }
     public long DoctorId { get; set; }
     public long PatientId { get; set; }
@@ -99,7 +100,7 @@ public class DoctorPrescription
 
 public class DoctorPrescriptionItem
 {
-    [Key] public long DoctorPrescriptionItemId { get; set; }
+    [Key, BsonElement("_id")] public long DoctorPrescriptionItemId { get; set; }
     public long DoctorPrescriptionId { get; set; }
     public long? MedicineMasterId { get; set; }
     [Required, MaxLength(200)] public string MedicineName { get; set; } = string.Empty;
@@ -129,7 +130,7 @@ public enum DiagnosticRequestStatus
 
 public class DiagnosticRequest
 {
-    [Key] public long DiagnosticRequestId { get; set; }
+    [Key, BsonElement("_id")] public long DiagnosticRequestId { get; set; }
     public long AppointmentId { get; set; }
     public long DoctorId { get; set; }
     public long PatientId { get; set; }
@@ -150,7 +151,7 @@ public class DiagnosticRequest
 
 public class PatientDocument
 {
-    [Key] public long PatientDocumentId { get; set; }
+    [Key, BsonElement("_id")] public long PatientDocumentId { get; set; }
     public long PatientId { get; set; }
     public long? AppointmentId { get; set; }
     [Required, MaxLength(120)] public string Category { get; set; } = string.Empty;
@@ -166,7 +167,7 @@ public class PatientDocument
 
 public class PatientCaseReport
 {
-    [Key] public long PatientCaseReportId { get; set; }
+    [Key, BsonElement("_id")] public long PatientCaseReportId { get; set; }
     public long AppointmentId { get; set; }
     public long PatientId { get; set; }
     public long DoctorId { get; set; }
@@ -184,7 +185,7 @@ public class PatientCaseReport
 
 public class CareConversationMessage
 {
-    [Key] public long CareConversationMessageId { get; set; }
+    [Key, BsonElement("_id")] public long CareConversationMessageId { get; set; }
     public long AppointmentId { get; set; }
     public long PatientId { get; set; }
     public long DoctorId { get; set; }

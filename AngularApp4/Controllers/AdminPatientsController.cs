@@ -90,8 +90,6 @@ public class AdminPatientsController : ControllerBase
         };
 
         _db.Patients.Add(patient);
-        await _db.SaveChangesAsync();
-
         patient.MedicalRecordNumber = GenerateMedicalRecordNumber(patient.PatientId);
         await _db.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -278,8 +276,10 @@ public class AdminPatientsController : ControllerBase
     {
         var patients = await _db.Patients
             .AsNoTracking()
-            .Include(x => x.PatientCategory)
             .ToListAsync();
+        var patientCategories = await _db.PatientCategories
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.PatientCategoryId);
 
         var patientIds = patients.Select(x => x.PatientId).ToList();
         var userIds = patients.Select(x => x.UserId).Distinct().ToList();
@@ -289,19 +289,21 @@ public class AdminPatientsController : ControllerBase
             .Where(x => userIds.Contains(x.UserId))
             .ToDictionaryAsync(x => x.UserId);
 
-        var appointmentCounts = await _db.Appointments
+        var appointmentRows = await _db.Appointments
             .AsNoTracking()
             .Where(x => patientIds.Contains(x.PatientId))
+            .ToListAsync();
+        var appointmentCounts = appointmentRows
             .GroupBy(x => x.PatientId)
-            .Select(group => new { PatientId = group.Key, Count = group.Count() })
-            .ToDictionaryAsync(x => x.PatientId, x => x.Count);
+            .ToDictionary(x => x.Key, x => x.Count());
 
-        var activeAdmissionCounts = await _db.PatientAdmissions
+        var activeAdmissionRows = await _db.PatientAdmissions
             .AsNoTracking()
             .Where(x => patientIds.Contains(x.PatientId) && x.Status != AdmissionStatus.Discharged)
+            .ToListAsync();
+        var activeAdmissionCounts = activeAdmissionRows
             .GroupBy(x => x.PatientId)
-            .Select(group => new { PatientId = group.Key, Count = group.Count() })
-            .ToDictionaryAsync(x => x.PatientId, x => x.Count);
+            .ToDictionary(x => x.Key, x => x.Count());
 
         var rows = patients
             .Where(x => includeMerged || !x.MergedIntoPatientId.HasValue)
@@ -317,7 +319,7 @@ public class AdminPatientsController : ControllerBase
                     Email = user?.Email ?? string.Empty,
                     Phone = user?.Phone,
                     PatientCategoryId = patient.PatientCategoryId,
-                    PatientCategoryName = patient.PatientCategory?.Name ?? "Unassigned",
+                    PatientCategoryName = patient.PatientCategoryId.HasValue && patientCategories.TryGetValue(patient.PatientCategoryId.Value, out var category) ? category.Name : "Unassigned",
                     Gender = patient.Gender,
                     DateOfBirth = patient.DateOfBirth,
                     Address = patient.Address,

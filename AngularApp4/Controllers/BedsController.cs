@@ -25,47 +25,33 @@ public class BedsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<BedDto>>>> GetAll([FromQuery] string? search = null, [FromQuery] bool? isActive = null)
     {
-        var query = _db.Beds
-            .AsNoTracking()
-            .Include(x => x.Ward)
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .AsQueryable();
+        var beds = await _db.Beds.AsNoTracking().ToListAsync();
+        var wards = await _db.Wards.AsNoTracking().ToDictionaryAsync(x => x.WardId);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(x =>
+            beds = beds.Where(x =>
                 x.BedNumber.Contains(term) ||
-                x.Ward!.Name.Contains(term) ||
-                x.Branch!.Name.Contains(term) ||
-                (x.Department != null && x.Department.Name.Contains(term)));
+                (wards.TryGetValue(x.WardId, out var ward) && ward.Name.Contains(term)) ||
+                (branches.TryGetValue(x.BranchId, out var branch) && branch.Name.Contains(term)) ||
+                (x.DepartmentId.HasValue && departments.TryGetValue(x.DepartmentId.Value, out var department) && department.Name.Contains(term)))
+                .ToList();
         }
 
         if (isActive.HasValue)
         {
-            query = query.Where(x => x.IsActive == isActive.Value);
+            beds = beds.Where(x => x.IsActive == isActive.Value).ToList();
         }
 
-        var items = await query
-            .OrderBy(x => x.Branch!.Name)
-            .ThenBy(x => x.Ward!.Name)
+        var items = beds
+            .OrderBy(x => branches.TryGetValue(x.BranchId, out var branch) ? branch.Name : string.Empty)
+            .ThenBy(x => wards.TryGetValue(x.WardId, out var ward) ? ward.Name : string.Empty)
             .ThenBy(x => x.BedNumber)
-            .Select(x => new BedDto
-            {
-                BedId = x.BedId,
-                WardId = x.WardId,
-                WardName = x.Ward != null ? x.Ward.Name : string.Empty,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.Department != null ? x.Department.Name : string.Empty,
-                BedNumber = x.BedNumber,
-                ChargePerDay = x.ChargePerDay,
-                IsOccupied = x.IsOccupied,
-                IsActive = x.IsActive
-            })
-            .ToListAsync();
+            .Select(x => MapBed(x, wards, branches, departments))
+            .ToList();
 
         return Ok(ApiResponse<IEnumerable<BedDto>>.Ok(items));
     }
@@ -191,26 +177,25 @@ public class BedsController : ControllerBase
 
     private async Task<BedDto> GetBedAsync(long bedId)
     {
-        return await _db.Beds
-            .AsNoTracking()
-            .Include(x => x.Ward)
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .Where(x => x.BedId == bedId)
-            .Select(x => new BedDto
-            {
-                BedId = x.BedId,
-                WardId = x.WardId,
-                WardName = x.Ward != null ? x.Ward.Name : string.Empty,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.Department != null ? x.Department.Name : string.Empty,
-                BedNumber = x.BedNumber,
-                ChargePerDay = x.ChargePerDay,
-                IsOccupied = x.IsOccupied,
-                IsActive = x.IsActive
-            })
-            .FirstAsync();
+        var bed = await _db.Beds.AsNoTracking().FirstAsync(x => x.BedId == bedId);
+        var wards = await _db.Wards.AsNoTracking().ToDictionaryAsync(x => x.WardId);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
+        return MapBed(bed, wards, branches, departments);
     }
+
+    private static BedDto MapBed(Bed bed, IReadOnlyDictionary<long, Ward> wards, IReadOnlyDictionary<long, Branch> branches, IReadOnlyDictionary<long, Department> departments) => new()
+    {
+        BedId = bed.BedId,
+        WardId = bed.WardId,
+        WardName = wards.TryGetValue(bed.WardId, out var ward) ? ward.Name : string.Empty,
+        BranchId = bed.BranchId,
+        BranchName = branches.TryGetValue(bed.BranchId, out var branch) ? branch.Name : string.Empty,
+        DepartmentId = bed.DepartmentId,
+        DepartmentName = bed.DepartmentId.HasValue && departments.TryGetValue(bed.DepartmentId.Value, out var department) ? department.Name : string.Empty,
+        BedNumber = bed.BedNumber,
+        ChargePerDay = bed.ChargePerDay,
+        IsOccupied = bed.IsOccupied,
+        IsActive = bed.IsActive
+    };
 }

@@ -34,81 +34,41 @@ public class DoctorsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<DoctorMasterDto>>>> GetAll([FromQuery] string? search = null, [FromQuery] bool? isActive = null)
     {
-        var query = _db.Doctors
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .AsQueryable();
+        var doctors = await _db.Doctors.AsNoTracking().ToListAsync();
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(x =>
+            doctors = doctors.Where(x =>
                 x.FullName.Contains(term) ||
                 x.Specialization.Contains(term) ||
-                (x.Department != null && x.Department.Name.Contains(term)) ||
-                (x.Branch != null && x.Branch.Name.Contains(term)));
+                (x.DepartmentId.HasValue && departments.TryGetValue(x.DepartmentId.Value, out var department) && department.Name.Contains(term)) ||
+                (x.BranchId.HasValue && branches.TryGetValue(x.BranchId.Value, out var branch) && branch.Name.Contains(term)))
+                .ToList();
         }
 
         if (isActive.HasValue)
         {
-            query = query.Where(x => x.IsActive == isActive.Value);
+            doctors = doctors.Where(x => x.IsActive == isActive.Value).ToList();
         }
 
-        var doctors = await query
+        var payload = doctors
             .OrderBy(x => x.FullName)
-            .Select(x => new DoctorMasterDto
-            {
-                DoctorId = x.DoctorId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.Department != null ? x.Department.Name : string.Empty,
-                FullName = x.FullName,
-                Specialization = x.Specialization,
-                Email = x.Email,
-                Phone = x.Phone,
-                ExperienceYears = x.ExperienceYears,
-                Qualification = x.Qualification,
-                OpdDays = x.OpdDays,
-                OpdStartTime = x.OpdStartTime,
-                OpdEndTime = x.OpdEndTime,
-                ConsultationFee = x.ConsultationFee,
-                IsActive = x.IsActive
-            })
-            .ToListAsync();
+            .Select(x => MapDoctor(x, branches, departments))
+            .ToList();
 
-        return Ok(ApiResponse<IEnumerable<DoctorMasterDto>>.Ok(doctors));
+        return Ok(ApiResponse<IEnumerable<DoctorMasterDto>>.Ok(payload));
     }
 
     [HttpGet("{doctorId:long}")]
     public async Task<ActionResult<ApiResponse<DoctorMasterDto>>> GetById(long doctorId)
     {
-        var doctor = await _db.Doctors
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .Where(x => x.DoctorId == doctorId)
-            .Select(x => new DoctorMasterDto
-            {
-                DoctorId = x.DoctorId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.Department != null ? x.Department.Name : string.Empty,
-                FullName = x.FullName,
-                Specialization = x.Specialization,
-                Email = x.Email,
-                Phone = x.Phone,
-                ExperienceYears = x.ExperienceYears,
-                Qualification = x.Qualification,
-                OpdDays = x.OpdDays,
-                OpdStartTime = x.OpdStartTime,
-                OpdEndTime = x.OpdEndTime,
-                ConsultationFee = x.ConsultationFee,
-                IsActive = x.IsActive
-            })
-            .FirstOrDefaultAsync();
+        var entity = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.DoctorId == doctorId);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
+        var doctor = entity is null ? null : MapDoctor(entity, branches, departments);
 
         return doctor is null
             ? NotFound(ApiResponse<DoctorMasterDto>.Fail("Doctor not found"))
@@ -352,9 +312,7 @@ public class DoctorsController : ControllerBase
 
     private async Task<string?> ValidatePortalEmailAvailabilityAsync(string normalizedEmail, string? previousEmail)
     {
-        var user = await _db.Users
-            .Include(x => x.Role)
-            .FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
 
         if (user is null)
         {
@@ -367,36 +325,20 @@ public class DoctorsController : ControllerBase
             return null;
         }
 
-        return user.Role?.Name == "Doctor" ? null : "Email is already used by another portal account.";
+        var roleName = await _db.Roles
+            .Where(x => x.RoleId == user.RoleId)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync();
+
+        return roleName == "Doctor" ? null : "Email is already used by another portal account.";
     }
 
     private async Task<DoctorMasterDto> GetDoctorDtoAsync(long doctorId)
     {
-        return await _db.Doctors
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.Department)
-            .Where(x => x.DoctorId == doctorId)
-            .Select(x => new DoctorMasterDto
-            {
-                DoctorId = x.DoctorId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.Department != null ? x.Department.Name : string.Empty,
-                FullName = x.FullName,
-                Specialization = x.Specialization,
-                Email = x.Email,
-                Phone = x.Phone,
-                ExperienceYears = x.ExperienceYears,
-                Qualification = x.Qualification,
-                OpdDays = x.OpdDays,
-                OpdStartTime = x.OpdStartTime,
-                OpdEndTime = x.OpdEndTime,
-                ConsultationFee = x.ConsultationFee,
-                IsActive = x.IsActive
-            })
-            .FirstAsync();
+        var doctor = await _db.Doctors.AsNoTracking().FirstAsync(x => x.DoctorId == doctorId);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
+        return MapDoctor(doctor, branches, departments);
     }
 
     private async Task<DoctorPortalProvisioningResult> EnsureDoctorPortalAccountAsync(Doctor doctor, string? previousEmail, bool sendCredentials)
@@ -515,10 +457,39 @@ public class DoctorsController : ControllerBase
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
 
-        return await _db.Users
-            .Include(x => x.Role)
-            .FirstOrDefaultAsync(x => x.Email == normalizedEmail && x.Role != null && x.Role.Name == "Doctor");
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var roleName = await _db.Roles
+            .Where(x => x.RoleId == user.RoleId)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync();
+
+        return roleName == "Doctor" ? user : null;
     }
+
+    private static DoctorMasterDto MapDoctor(Doctor doctor, IReadOnlyDictionary<long, Branch> branches, IReadOnlyDictionary<long, Department> departments) => new()
+    {
+        DoctorId = doctor.DoctorId,
+        BranchId = doctor.BranchId,
+        BranchName = doctor.BranchId.HasValue && branches.TryGetValue(doctor.BranchId.Value, out var branch) ? branch.Name : string.Empty,
+        DepartmentId = doctor.DepartmentId,
+        DepartmentName = doctor.DepartmentId.HasValue && departments.TryGetValue(doctor.DepartmentId.Value, out var department) ? department.Name : string.Empty,
+        FullName = doctor.FullName,
+        Specialization = doctor.Specialization,
+        Email = doctor.Email,
+        Phone = doctor.Phone,
+        ExperienceYears = doctor.ExperienceYears,
+        Qualification = doctor.Qualification,
+        OpdDays = doctor.OpdDays,
+        OpdStartTime = doctor.OpdStartTime,
+        OpdEndTime = doctor.OpdEndTime,
+        ConsultationFee = doctor.ConsultationFee,
+        IsActive = doctor.IsActive
+    };
 
     private static void ApplyProvisioning(DoctorMasterDto dto, DoctorPortalProvisioningResult provisioning)
     {

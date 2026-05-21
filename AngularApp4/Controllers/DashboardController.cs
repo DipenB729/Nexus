@@ -24,62 +24,72 @@ public class DashboardController : ControllerBase
     {
         var today = DateTime.Today;
 
-        var totalPatients = await _db.Patients.CountAsync();
-        var todayAppointments = await _db.Appointments.CountAsync(x => x.AppointmentDate.Date == today);
-        var todaySales = await _db.BillingInvoices
+        var patients = await _db.Patients.AsNoTracking().ToListAsync();
+        var users = await _db.Users.AsNoTracking().ToListAsync();
+        var appointments = await _db.Appointments.AsNoTracking().ToListAsync();
+        var invoices = await _db.BillingInvoices.AsNoTracking().ToListAsync();
+        var batches = await _db.StockBatches.AsNoTracking().ToListAsync();
+        var locations = await _db.StockLocations.AsNoTracking().ToListAsync();
+        var branches = await _db.Branches.AsNoTracking().ToListAsync();
+        var medicines = await _db.MedicineMasters.AsNoTracking().ToListAsync();
+        var stockItems = await _db.StockItemMasters.AsNoTracking().ToListAsync();
+        var beds = await _db.Beds.AsNoTracking().ToListAsync();
+
+        var totalPatients = patients.Count;
+        var todayAppointments = appointments.Count(x => x.AppointmentDate.Date == today);
+        var todaySales = invoices
             .Where(x => x.LastPaymentDate.HasValue && x.LastPaymentDate.Value.Date == today && x.Status != InvoiceStatus.Cancelled)
-            .SumAsync(x => (decimal?)x.AmountPaid) ?? 0m;
+            .Sum(x => x.AmountPaid);
 
-        var stockBatchQuery =
-            from batch in _db.StockBatches.AsNoTracking()
-            join location in _db.StockLocations.AsNoTracking() on batch.StockLocationId equals location.StockLocationId
-            join branchRow in _db.Branches.AsNoTracking() on location.BranchId equals branchRow.BranchId into branchJoin
-            from branch in branchJoin.DefaultIfEmpty()
-            join medicineRow in _db.MedicineMasters.AsNoTracking() on batch.MedicineMasterId equals medicineRow.MedicineMasterId into medicineJoin
-            from medicine in medicineJoin.DefaultIfEmpty()
-            join itemRow in _db.StockItemMasters.AsNoTracking() on batch.StockItemMasterId equals itemRow.StockItemMasterId into itemJoin
-            from item in itemJoin.DefaultIfEmpty()
-            where batch.QuantityOnHand > 0
-            select new
+        var branchMap = branches.ToDictionary(x => x.BranchId);
+        var locationMap = locations.ToDictionary(x => x.StockLocationId);
+        var medicineMap = medicines.ToDictionary(x => x.MedicineMasterId);
+        var stockItemMap = stockItems.ToDictionary(x => x.StockItemMasterId);
+
+        var stockBatchRows = batches
+            .Where(x => x.QuantityOnHand > 0)
+            .Select(batch =>
             {
-                batch.StockBatchId,
-                Name = medicine != null ? medicine.MedicineName : item != null ? item.ItemName : "Unknown item",
-                BranchName = branch != null ? branch.Name : location.Name,
-                QuantityOnHand = batch.QuantityOnHand,
-                ReorderLevel = medicine != null ? medicine.MinimumStock : item != null ? item.MinimumStock : 0m,
-                batch.ExpiryDate
-            };
+                locationMap.TryGetValue(batch.StockLocationId, out var location);
+                var branchName = location?.BranchId is long branchId && branchMap.TryGetValue(branchId, out var branch)
+                    ? branch.Name
+                    : location?.Name ?? "Unassigned";
+                var medicine = batch.MedicineMasterId.HasValue && medicineMap.TryGetValue(batch.MedicineMasterId.Value, out var medicineRow)
+                    ? medicineRow
+                    : null;
+                var item = batch.StockItemMasterId.HasValue && stockItemMap.TryGetValue(batch.StockItemMasterId.Value, out var itemRow)
+                    ? itemRow
+                    : null;
 
-        var lowStockQuery = stockBatchQuery
-            .Where(x => x.QuantityOnHand <= x.ReorderLevel && (!x.ExpiryDate.HasValue || x.ExpiryDate.Value.Date >= today));
+                return new
+                {
+                    batch.StockBatchId,
+                    Name = medicine?.MedicineName ?? item?.ItemName ?? "Unknown item",
+                    BranchName = branchName,
+                    batch.QuantityOnHand,
+                    ReorderLevel = medicine?.MinimumStock ?? item?.MinimumStock ?? 0m,
+                    batch.ExpiryDate
+                };
+            })
+            .ToList();
 
-        var expiredMedicineQuery = stockBatchQuery
-            .Where(x => x.ExpiryDate.HasValue && x.ExpiryDate.Value.Date < today);
+        var lowStockRows = stockBatchRows
+            .Where(x => x.QuantityOnHand <= x.ReorderLevel && (!x.ExpiryDate.HasValue || x.ExpiryDate.Value.Date >= today))
+            .ToList();
 
-        var pendingInvoiceRows = await _db.BillingInvoices
-            .AsNoTracking()
+        var expiredMedicineRows = stockBatchRows
+            .Where(x => x.ExpiryDate.HasValue && x.ExpiryDate.Value.Date < today)
+            .ToList();
+
+        var pendingInvoiceRows = invoices
             .Where(x => x.Status == InvoiceStatus.Pending || x.Status == InvoiceStatus.Partial)
             .OrderBy(x => x.DueDate)
             .ThenBy(x => x.InvoiceDate)
             .Take(6)
-            .ToListAsync();
-
-        var patientIds = pendingInvoiceRows
-            .Where(x => x.PatientId.HasValue)
-            .Select(x => x.PatientId!.Value)
-            .Distinct()
             .ToList();
 
-        var patientMap = await _db.Patients
-            .AsNoTracking()
-            .Where(x => patientIds.Contains(x.PatientId))
-            .ToDictionaryAsync(x => x.PatientId, cancellationToken: default);
-
-        var userIds = patientMap.Values.Select(x => x.UserId).Distinct().ToList();
-        var userMap = await _db.Users
-            .AsNoTracking()
-            .Where(x => userIds.Contains(x.UserId))
-            .ToDictionaryAsync(x => x.UserId, cancellationToken: default);
+        var patientMap = patients.ToDictionary(x => x.PatientId);
+        var userMap = users.ToDictionary(x => x.UserId);
 
         var pendingInvoices = pendingInvoiceRows.Select(invoice =>
         {
@@ -102,8 +112,7 @@ public class DashboardController : ControllerBase
             };
         }).ToList();
 
-        var bedOccupancyGroups = await _db.Beds
-            .AsNoTracking()
+        var bedOccupancyGroups = beds
             .Where(x => x.IsActive)
             .GroupBy(x => x.BranchId)
             .Select(group => new
@@ -112,21 +121,20 @@ public class DashboardController : ControllerBase
                 TotalBeds = group.Count(),
                 OccupiedBeds = group.Count(x => x.IsOccupied)
             })
-            .ToListAsync();
+            .ToList();
 
         List<BranchOccupancyDto> branchOccupancy;
         if (bedOccupancyGroups.Count != 0)
         {
-            var branches = await _db.Branches
-                .AsNoTracking()
+            var activeBranches = branches
                 .Where(x => x.IsActive)
-                .ToDictionaryAsync(x => x.BranchId);
+                .ToDictionary(x => x.BranchId);
 
             branchOccupancy = bedOccupancyGroups
-                .Where(x => branches.ContainsKey(x.BranchId))
+                .Where(x => activeBranches.ContainsKey(x.BranchId))
                 .Select(x =>
                 {
-                    var branch = branches[x.BranchId];
+                    var branch = activeBranches[x.BranchId];
                     return new BranchOccupancyDto
                     {
                         BranchId = x.BranchId,
@@ -142,8 +150,7 @@ public class DashboardController : ControllerBase
         }
         else
         {
-            branchOccupancy = await _db.Branches
-                .AsNoTracking()
+            branchOccupancy = branches
                 .Where(x => x.IsActive)
                 .OrderByDescending(x => x.IsPrimary)
                 .ThenBy(x => x.Name)
@@ -155,7 +162,7 @@ public class DashboardController : ControllerBase
                     OccupiedBeds = x.OccupiedBeds,
                     OccupancyRate = x.TotalBeds == 0 ? 0 : Math.Round((decimal)x.OccupiedBeds / x.TotalBeds * 100m, 1)
                 })
-                .ToListAsync();
+                .ToList();
         }
 
         var totalBeds = branchOccupancy.Sum(x => x.TotalBeds);
@@ -166,14 +173,14 @@ public class DashboardController : ControllerBase
             TotalPatients = totalPatients,
             TodayAppointments = todayAppointments,
             TodaySales = todaySales,
-            LowStockItems = await lowStockQuery.CountAsync(),
-            ExpiredMedicines = await expiredMedicineQuery.CountAsync(),
+            LowStockItems = lowStockRows.Count,
+            ExpiredMedicines = expiredMedicineRows.Count,
             PendingPayments = pendingInvoices.Count,
             PendingPaymentAmount = pendingInvoices.Sum(x => x.DueAmount),
             TotalBeds = totalBeds,
             OccupiedBeds = occupiedBeds,
             BedOccupancyRate = totalBeds == 0 ? 0 : Math.Round((decimal)occupiedBeds / totalBeds * 100m, 1),
-            LowStockAlerts = await lowStockQuery
+            LowStockAlerts = lowStockRows
                 .OrderBy(x => x.QuantityOnHand)
                 .Take(5)
                 .Select(x => new StockAlertDto
@@ -185,8 +192,8 @@ public class DashboardController : ControllerBase
                     ReorderLevel = (int)Math.Round(x.ReorderLevel, MidpointRounding.AwayFromZero),
                     ExpiryDate = x.ExpiryDate ?? today
                 })
-                .ToListAsync(),
-            ExpiredMedicineAlerts = await expiredMedicineQuery
+                .ToList(),
+            ExpiredMedicineAlerts = expiredMedicineRows
                 .OrderBy(x => x.ExpiryDate)
                 .Take(5)
                 .Select(x => new StockAlertDto
@@ -198,7 +205,7 @@ public class DashboardController : ControllerBase
                     ReorderLevel = (int)Math.Round(x.ReorderLevel, MidpointRounding.AwayFromZero),
                     ExpiryDate = x.ExpiryDate ?? today
                 })
-                .ToListAsync(),
+                .ToList(),
             PendingPaymentDetails = pendingInvoices,
             BedOccupancyByBranch = branchOccupancy
         };

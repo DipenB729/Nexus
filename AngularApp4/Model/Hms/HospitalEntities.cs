@@ -1,11 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AngularApp4.Model.Hms;
 
 public class Role
 {
-    [Key] public long RoleId { get; set; }
+    [Key, BsonElement("_id")] public long RoleId { get; set; }
     [Required, MaxLength(50)] public string Name { get; set; } = string.Empty;
     [MaxLength(250)] public string? Description { get; set; }
     public bool IsSystemRole { get; set; } = true;
@@ -15,7 +16,7 @@ public class Role
 
 public class User
 {
-    [Key] public long UserId { get; set; }
+    [Key, BsonElement("_id")] public long UserId { get; set; }
     public long RoleId { get; set; }
     public long? HospitalProfileId { get; set; }
     [Required, MaxLength(150)] public string FullName { get; set; } = string.Empty;
@@ -33,7 +34,7 @@ public class User
 
 public class Patient
 {
-    [Key] public long PatientId { get; set; }
+    [Key, BsonElement("_id")] public long PatientId { get; set; }
     public long UserId { get; set; }
     public long? PatientCategoryId { get; set; }
     [MaxLength(30)] public string? MedicalRecordNumber { get; set; }
@@ -53,7 +54,7 @@ public class Patient
 
 public class Doctor
 {
-    [Key] public long DoctorId { get; set; }
+    [Key, BsonElement("_id")] public long DoctorId { get; set; }
     public long? BranchId { get; set; }
     public long? DepartmentId { get; set; }
     [Required, MaxLength(150)] public string FullName { get; set; } = string.Empty;
@@ -69,7 +70,7 @@ public class Doctor
     [MaxLength(80)] public string? OpdDays { get; set; }
     public TimeSpan? OpdStartTime { get; set; }
     public TimeSpan? OpdEndTime { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal ConsultationFee { get; set; }
+    public decimal ConsultationFee { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -80,7 +81,7 @@ public class Doctor
 
 public class DoctorSchedule
 {
-    [Key] public long ScheduleId { get; set; }
+    [Key, BsonElement("_id")] public long ScheduleId { get; set; }
     public long DoctorId { get; set; }
     [Range(1, 7)] public byte DayOfWeek { get; set; }
     public TimeSpan StartTime { get; set; }
@@ -99,7 +100,7 @@ public class DoctorSchedule
 
 public class Staff
 {
-    [Key] public long StaffId { get; set; }
+    [Key, BsonElement("_id")] public long StaffId { get; set; }
     public long? BranchId { get; set; }
     public long? DepartmentId { get; set; }
     [Required, MaxLength(150)] public string FullName { get; set; } = string.Empty;
@@ -120,10 +121,10 @@ public class Staff
 
 public class HospitalService
 {
-    [Key] public long ServiceId { get; set; }
+    [Key, BsonElement("_id")] public long ServiceId { get; set; }
     [Required, MaxLength(150)] public string ServiceName { get; set; } = string.Empty;
     [MaxLength(500)] public string? Description { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal Price { get; set; }
+    public decimal Price { get; set; }
     public int? EstimatedDurationMinutes { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -132,10 +133,10 @@ public class HospitalService
 
 public class LabTestMaster
 {
-    [Key] public long LabTestMasterId { get; set; }
+    [Key, BsonElement("_id")] public long LabTestMasterId { get; set; }
     [Required, MaxLength(150)] public string TestName { get; set; } = string.Empty;
     [Required, MaxLength(120)] public string DepartmentName { get; set; } = string.Empty;
-    [Column(TypeName = "decimal(10,2)")] public decimal Price { get; set; }
+    public decimal Price { get; set; }
     [Required, MaxLength(80)] public string SampleType { get; set; } = string.Empty;
     [Required, MaxLength(120)] public string ReportFormat { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
@@ -153,12 +154,12 @@ public enum ServicePackageKind
 
 public class ServicePackage
 {
-    [Key] public long ServicePackageId { get; set; }
+    [Key, BsonElement("_id")] public long ServicePackageId { get; set; }
     public ServicePackageKind Kind { get; set; } = ServicePackageKind.HealthPackage;
     [Required, MaxLength(150)] public string PackageName { get; set; } = string.Empty;
     [MaxLength(120)] public string? DepartmentName { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal Price { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal DiscountAmount { get; set; }
+    public decimal Price { get; set; }
+    public decimal DiscountAmount { get; set; }
     [MaxLength(500)] public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -167,7 +168,7 @@ public class ServicePackage
 
 public class AuditLogEntry
 {
-    [Key] public long AuditLogEntryId { get; set; }
+    [Key, BsonElement("_id")] public long AuditLogEntryId { get; set; }
     [Required, MaxLength(80)] public string Category { get; set; } = string.Empty;
     [Required, MaxLength(80)] public string Action { get; set; } = string.Empty;
     [MaxLength(120)] public string? EntityName { get; set; }
@@ -186,7 +187,7 @@ public class AuditLogEntry
 
 public class RolePermission
 {
-    [Key] public long RolePermissionId { get; set; }
+    [Key, BsonElement("_id")] public long RolePermissionId { get; set; }
     public long RoleId { get; set; }
     [Required, MaxLength(80)] public string ModuleKey { get; set; } = string.Empty;
     [Required, MaxLength(120)] public string ModuleName { get; set; } = string.Empty;
@@ -201,7 +202,7 @@ public class RolePermission
 
 public class HospitalProfile
 {
-    [Key] public long HospitalProfileId { get; set; }
+    [Key, BsonElement("_id")] public long HospitalProfileId { get; set; }
     [Required, MaxLength(150)] public string HospitalName { get; set; } = string.Empty;
     [MaxLength(500)] public string? LogoUrl { get; set; }
     [MaxLength(300)] public string AddressLine1 { get; set; } = string.Empty;
@@ -213,7 +214,7 @@ public class HospitalProfile
     [MaxLength(30)] public string ContactPhone { get; set; } = string.Empty;
     [MaxLength(50)] public string TaxLabel { get; set; } = "VAT";
     [MaxLength(50)] public string TaxRegistrationNumber { get; set; } = string.Empty;
-    [Column(TypeName = "decimal(5,2)")] public decimal TaxPercentage { get; set; }
+    public decimal TaxPercentage { get; set; }
     [MaxLength(10)] public string CurrencyCode { get; set; } = "NPR";
     [MaxLength(20)] public string InvoicePrefix { get; set; } = "INV";
     public int InvoiceStartingNumber { get; set; } = 1001;
@@ -224,7 +225,7 @@ public class HospitalProfile
 
 public class Branch
 {
-    [Key] public long BranchId { get; set; }
+    [Key, BsonElement("_id")] public long BranchId { get; set; }
     [Required, MaxLength(150)] public string Name { get; set; } = string.Empty;
     [Required, MaxLength(20)] public string Code { get; set; } = string.Empty;
     [MaxLength(250)] public string Address { get; set; } = string.Empty;
@@ -240,7 +241,7 @@ public class Branch
 
 public class Department
 {
-    [Key] public long DepartmentId { get; set; }
+    [Key, BsonElement("_id")] public long DepartmentId { get; set; }
     public long BranchId { get; set; }
     [Required, MaxLength(120)] public string Name { get; set; } = string.Empty;
     [Required, MaxLength(20)] public string Code { get; set; } = string.Empty;
@@ -254,7 +255,7 @@ public class Department
 
 public class PatientCategory
 {
-    [Key] public long PatientCategoryId { get; set; }
+    [Key, BsonElement("_id")] public long PatientCategoryId { get; set; }
     [Required, MaxLength(100)] public string Name { get; set; } = string.Empty;
     [MaxLength(250)] public string? Description { get; set; }
     public int PriorityOrder { get; set; }
@@ -265,13 +266,13 @@ public class PatientCategory
 
 public class Ward
 {
-    [Key] public long WardId { get; set; }
+    [Key, BsonElement("_id")] public long WardId { get; set; }
     public long BranchId { get; set; }
     public long? DepartmentId { get; set; }
     [Required, MaxLength(120)] public string Name { get; set; } = string.Empty;
     [Required, MaxLength(80)] public string WardType { get; set; } = string.Empty;
     [Required, MaxLength(80)] public string RoomType { get; set; } = string.Empty;
-    [Column(TypeName = "decimal(10,2)")] public decimal ChargePerDay { get; set; }
+    public decimal ChargePerDay { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -282,12 +283,12 @@ public class Ward
 
 public class Bed
 {
-    [Key] public long BedId { get; set; }
+    [Key, BsonElement("_id")] public long BedId { get; set; }
     public long WardId { get; set; }
     public long BranchId { get; set; }
     public long? DepartmentId { get; set; }
     [Required, MaxLength(50)] public string BedNumber { get; set; } = string.Empty;
-    [Column(TypeName = "decimal(10,2)")] public decimal ChargePerDay { get; set; }
+    public decimal ChargePerDay { get; set; }
     public bool IsOccupied { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -300,7 +301,7 @@ public class Bed
 
 public class MedicineInventoryItem
 {
-    [Key] public long MedicineInventoryItemId { get; set; }
+    [Key, BsonElement("_id")] public long MedicineInventoryItemId { get; set; }
     public long? BranchId { get; set; }
     [Required, MaxLength(150)] public string Name { get; set; } = string.Empty;
     [MaxLength(100)] public string Category { get; set; } = string.Empty;
@@ -308,7 +309,7 @@ public class MedicineInventoryItem
     public int QuantityInStock { get; set; }
     public int ReorderLevel { get; set; }
     public DateTime ExpiryDate { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal UnitPrice { get; set; }
+    public decimal UnitPrice { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -327,13 +328,13 @@ public enum BillingChargeType
 
 public class BillingChargeDefinition
 {
-    [Key] public long BillingChargeDefinitionId { get; set; }
+    [Key, BsonElement("_id")] public long BillingChargeDefinitionId { get; set; }
     public BillingChargeType ChargeType { get; set; } = BillingChargeType.Consultation;
     [Required, MaxLength(120)] public string Name { get; set; } = string.Empty;
     [Required, MaxLength(30)] public string Code { get; set; } = string.Empty;
     [MaxLength(250)] public string? Description { get; set; }
     [MaxLength(30)] public string UnitLabel { get; set; } = "unit";
-    [Column(TypeName = "decimal(10,2)")] public decimal DefaultAmount { get; set; }
+    public decimal DefaultAmount { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -350,7 +351,7 @@ public enum PaymentMethodType
 
 public class BillingPaymentMethod
 {
-    [Key] public long BillingPaymentMethodId { get; set; }
+    [Key, BsonElement("_id")] public long BillingPaymentMethodId { get; set; }
     [Required, MaxLength(100)] public string Name { get; set; } = string.Empty;
     public PaymentMethodType MethodType { get; set; } = PaymentMethodType.Cash;
     [MaxLength(100)] public string? ProviderName { get; set; }
@@ -369,14 +370,14 @@ public enum BillingPartnerKind
 
 public class BillingPartner
 {
-    [Key] public long BillingPartnerId { get; set; }
+    [Key, BsonElement("_id")] public long BillingPartnerId { get; set; }
     public BillingPartnerKind Kind { get; set; } = BillingPartnerKind.InsuranceCompany;
     [Required, MaxLength(150)] public string Name { get; set; } = string.Empty;
     [Required, MaxLength(40)] public string Code { get; set; } = string.Empty;
     [MaxLength(150)] public string? ContactPerson { get; set; }
     [MaxLength(150)] public string? ContactEmail { get; set; }
     [MaxLength(30)] public string? ContactPhone { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal CreditLimit { get; set; }
+    public decimal CreditLimit { get; set; }
     [MaxLength(80)] public string ClaimSubmissionMode { get; set; } = "Manual";
     [MaxLength(250)] public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;
@@ -386,13 +387,13 @@ public class BillingPartner
 
 public class BillingRule
 {
-    [Key] public long BillingRuleId { get; set; }
+    [Key, BsonElement("_id")] public long BillingRuleId { get; set; }
     public long BillingPartnerId { get; set; }
     [Required, MaxLength(120)] public string RuleName { get; set; } = string.Empty;
     [MaxLength(120)] public string? PolicyName { get; set; }
-    [Column(TypeName = "decimal(5,2)")] public decimal DiscountPercentage { get; set; }
-    [Column(TypeName = "decimal(5,2)")] public decimal CoPayPercentage { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal CreditLimit { get; set; }
+    public decimal DiscountPercentage { get; set; }
+    public decimal CoPayPercentage { get; set; }
+    public decimal CreditLimit { get; set; }
     public int ClaimSubmissionWindowDays { get; set; }
     public bool RequiresPreApproval { get; set; }
     [MaxLength(300)] public string? Notes { get; set; }
@@ -431,7 +432,7 @@ public enum BillingClaimStatus
 
 public class BillingInvoice
 {
-    [Key] public long BillingInvoiceId { get; set; }
+    [Key, BsonElement("_id")] public long BillingInvoiceId { get; set; }
     [Required, MaxLength(30)] public string InvoiceNumber { get; set; } = string.Empty;
     public long? PatientId { get; set; }
     public long? AppointmentId { get; set; }
@@ -439,11 +440,11 @@ public class BillingInvoice
     public InvoicePayerType PayerType { get; set; } = InvoicePayerType.SelfPay;
     public long? BillingPartnerId { get; set; }
     public long? BillingRuleId { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal TotalAmount { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal AmountPaid { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal RequestedDiscountAmount { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal ApprovedDiscountAmount { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal RefundedAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal AmountPaid { get; set; }
+    public decimal RequestedDiscountAmount { get; set; }
+    public decimal ApprovedDiscountAmount { get; set; }
+    public decimal RefundedAmount { get; set; }
     public InvoiceStatus Status { get; set; } = InvoiceStatus.Pending;
     public BillingClaimStatus ClaimStatus { get; set; } = BillingClaimStatus.None;
     public DateTime InvoiceDate { get; set; } = DateTime.UtcNow.Date;
@@ -466,15 +467,15 @@ public class BillingInvoice
 
 public class BillingInvoiceItem
 {
-    [Key] public long BillingInvoiceItemId { get; set; }
+    [Key, BsonElement("_id")] public long BillingInvoiceItemId { get; set; }
     public long BillingInvoiceId { get; set; }
     public long? BillingChargeDefinitionId { get; set; }
     public BillingChargeType ChargeType { get; set; } = BillingChargeType.Consultation;
     [Required, MaxLength(150)] public string Description { get; set; } = string.Empty;
-    [Column(TypeName = "decimal(10,2)")] public decimal Quantity { get; set; } = 1m;
-    [Column(TypeName = "decimal(10,2)")] public decimal UnitPrice { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal DiscountAmount { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal TotalAmount { get; set; }
+    public decimal Quantity { get; set; } = 1m;
+    public decimal UnitPrice { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal TotalAmount { get; set; }
     [MaxLength(250)] public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -485,10 +486,10 @@ public class BillingInvoiceItem
 
 public class BillingInvoicePayment
 {
-    [Key] public long BillingInvoicePaymentId { get; set; }
+    [Key, BsonElement("_id")] public long BillingInvoicePaymentId { get; set; }
     public long BillingInvoiceId { get; set; }
     public long BillingPaymentMethodId { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal Amount { get; set; }
+    public decimal Amount { get; set; }
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     [MaxLength(100)] public string? ReferenceNumber { get; set; }
     [MaxLength(250)] public string? Notes { get; set; }
@@ -508,10 +509,10 @@ public enum RefundStatus
 
 public class BillingRefund
 {
-    [Key] public long BillingRefundId { get; set; }
+    [Key, BsonElement("_id")] public long BillingRefundId { get; set; }
     public long BillingInvoiceId { get; set; }
     public long? BillingPaymentMethodId { get; set; }
-    [Column(TypeName = "decimal(10,2)")] public decimal Amount { get; set; }
+    public decimal Amount { get; set; }
     public RefundStatus Status { get; set; } = RefundStatus.Requested;
     [Required, MaxLength(250)] public string Reason { get; set; } = string.Empty;
     [MaxLength(250)] public string? Notes { get; set; }
@@ -535,7 +536,7 @@ public enum AppointmentStatus
 
 public class Appointment
 {
-    [Key] public long AppointmentId { get; set; }
+    [Key, BsonElement("_id")] public long AppointmentId { get; set; }
     public long PatientId { get; set; }
     public long DoctorId { get; set; }
     public long? ScheduleId { get; set; }
@@ -554,7 +555,7 @@ public class Appointment
 
 public class AppointmentTokenSetting
 {
-    [Key] public long AppointmentTokenSettingId { get; set; }
+    [Key, BsonElement("_id")] public long AppointmentTokenSettingId { get; set; }
     [Required, MaxLength(20)] public string Prefix { get; set; } = "OPD";
     public int StartingNumber { get; set; } = 1;
     public int NumberPadding { get; set; } = 3;
@@ -571,7 +572,7 @@ public enum AdmissionStatus
 
 public class PatientAdmission
 {
-    [Key] public long PatientAdmissionId { get; set; }
+    [Key, BsonElement("_id")] public long PatientAdmissionId { get; set; }
     [Required, MaxLength(30)] public string AdmissionNumber { get; set; } = string.Empty;
     public long PatientId { get; set; }
     public long? AppointmentId { get; set; }
@@ -601,7 +602,7 @@ public class PatientAdmission
 
 public class AdmissionTransfer
 {
-    [Key] public long AdmissionTransferId { get; set; }
+    [Key, BsonElement("_id")] public long AdmissionTransferId { get; set; }
     public long PatientAdmissionId { get; set; }
     public long? FromWardId { get; set; }
     public long? FromBedId { get; set; }

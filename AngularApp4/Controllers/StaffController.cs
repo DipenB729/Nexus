@@ -25,47 +25,31 @@ public class StaffController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<StaffMasterDto>>>> GetAll([FromQuery] string? search = null, [FromQuery] bool? isActive = null)
     {
-        var query = _db.Staff
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.DepartmentMaster)
-            .AsQueryable();
+        var staff = await _db.Staff.AsNoTracking().ToListAsync();
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query = query.Where(x =>
+            staff = staff.Where(x =>
                 x.FullName.Contains(term) ||
                 x.Designation.Contains(term) ||
                 (x.EmployeeCode ?? string.Empty).Contains(term) ||
-                (x.DepartmentMaster != null && x.DepartmentMaster.Name.Contains(term)) ||
-                (x.Branch != null && x.Branch.Name.Contains(term)));
+                (x.DepartmentId.HasValue && departments.TryGetValue(x.DepartmentId.Value, out var department) && department.Name.Contains(term)) ||
+                (x.BranchId.HasValue && branches.TryGetValue(x.BranchId.Value, out var branch) && branch.Name.Contains(term)))
+                .ToList();
         }
 
         if (isActive.HasValue)
         {
-            query = query.Where(x => x.IsActive == isActive.Value);
+            staff = staff.Where(x => x.IsActive == isActive.Value).ToList();
         }
 
-        var items = await query
+        var items = staff
             .OrderBy(x => x.FullName)
-            .Select(x => new StaffMasterDto
-            {
-                StaffId = x.StaffId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.DepartmentMaster != null ? x.DepartmentMaster.Name : x.Department,
-                FullName = x.FullName,
-                EmployeeCode = x.EmployeeCode,
-                Designation = x.Designation,
-                Shift = x.Shift,
-                Email = x.Email,
-                Phone = x.Phone,
-                JoinDate = x.JoinDate,
-                IsActive = x.IsActive
-            })
-            .ToListAsync();
+            .Select(x => MapStaff(x, branches, departments))
+            .ToList();
 
         return Ok(ApiResponse<IEnumerable<StaffMasterDto>>.Ok(items));
     }
@@ -213,29 +197,28 @@ public class StaffController : ControllerBase
 
     private async Task<StaffMasterDto> GetStaffDtoAsync(long staffId)
     {
-        return await _db.Staff
-            .AsNoTracking()
-            .Include(x => x.Branch)
-            .Include(x => x.DepartmentMaster)
-            .Where(x => x.StaffId == staffId)
-            .Select(x => new StaffMasterDto
-            {
-                StaffId = x.StaffId,
-                BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : string.Empty,
-                DepartmentId = x.DepartmentId,
-                DepartmentName = x.DepartmentMaster != null ? x.DepartmentMaster.Name : x.Department,
-                FullName = x.FullName,
-                EmployeeCode = x.EmployeeCode,
-                Designation = x.Designation,
-                Shift = x.Shift,
-                Email = x.Email,
-                Phone = x.Phone,
-                JoinDate = x.JoinDate,
-                IsActive = x.IsActive
-            })
-            .FirstAsync();
+        var staff = await _db.Staff.AsNoTracking().FirstAsync(x => x.StaffId == staffId);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+        var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(x => x.DepartmentId);
+        return MapStaff(staff, branches, departments);
     }
+
+    private static StaffMasterDto MapStaff(Staff staff, IReadOnlyDictionary<long, Branch> branches, IReadOnlyDictionary<long, Department> departments) => new()
+    {
+        StaffId = staff.StaffId,
+        BranchId = staff.BranchId,
+        BranchName = staff.BranchId.HasValue && branches.TryGetValue(staff.BranchId.Value, out var branch) ? branch.Name : string.Empty,
+        DepartmentId = staff.DepartmentId,
+        DepartmentName = staff.DepartmentId.HasValue && departments.TryGetValue(staff.DepartmentId.Value, out var department) ? department.Name : staff.Department,
+        FullName = staff.FullName,
+        EmployeeCode = staff.EmployeeCode,
+        Designation = staff.Designation,
+        Shift = staff.Shift,
+        Email = staff.Email,
+        Phone = staff.Phone,
+        JoinDate = staff.JoinDate,
+        IsActive = staff.IsActive
+    };
 
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

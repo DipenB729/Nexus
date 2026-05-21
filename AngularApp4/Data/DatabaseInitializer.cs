@@ -97,7 +97,7 @@ public sealed class DatabaseInitializer
 
     private async Task EnsureDatabaseAsync(CancellationToken cancellationToken)
     {
-        await _db.Database.MigrateAsync(cancellationToken);
+        await _db.Database.EnsureCreatedAsync(cancellationToken);
     }
 
     private async Task EnsureRolesAsync(CancellationToken cancellationToken)
@@ -998,15 +998,25 @@ public sealed class DatabaseInitializer
         var doctors = await _db.Doctors.OrderBy(x => x.DoctorId).ToListAsync(cancellationToken);
         var appointments = await _db.Appointments.OrderBy(x => x.AppointmentId).ToListAsync(cancellationToken);
         var beds = await _db.Beds
-            .Include(x => x.Ward)
             .OrderBy(x => x.BedId)
             .ToListAsync(cancellationToken);
+        var wardIds = beds.Select(x => x.WardId).Distinct().ToList();
+        var wardMap = await _db.Wards
+            .Where(x => wardIds.Contains(x.WardId))
+            .ToDictionaryAsync(x => x.WardId, cancellationToken);
 
         var icuBed = beds.FirstOrDefault(x => x.BedNumber == "ICU-01");
         var generalBed = beds.FirstOrDefault(x => x.BedNumber == "GEN-12");
         var recoveryBed = beds.FirstOrDefault(x => x.BedNumber == "REC-01");
 
-        if (patients.Count < 4 || doctors.Count < 3 || icuBed?.Ward is null || generalBed?.Ward is null || recoveryBed?.Ward is null)
+        if (patients.Count < 4 ||
+            doctors.Count < 3 ||
+            icuBed is null ||
+            generalBed is null ||
+            recoveryBed is null ||
+            !wardMap.ContainsKey(icuBed.WardId) ||
+            !wardMap.ContainsKey(generalBed.WardId) ||
+            !wardMap.ContainsKey(recoveryBed.WardId))
         {
             return;
         }
@@ -2443,11 +2453,13 @@ public sealed class DatabaseInitializer
 
         if (ensurePatientProfile && !await _db.Patients.AnyAsync(x => x.UserId == user.UserId, cancellationToken))
         {
-            _db.Patients.Add(new Patient
+            var patient = new Patient
             {
                 UserId = user.UserId,
                 CreatedAt = DateTime.UtcNow
-            });
+            };
+            _db.Patients.Add(patient);
+            patient.MedicalRecordNumber = $"MRN-{patient.PatientId:D5}";
             await _db.SaveChangesAsync(cancellationToken);
         }
     }
@@ -2510,12 +2522,15 @@ public sealed class DatabaseInitializer
 
     private async Task RefreshBranchOccupancyAsync(CancellationToken cancellationToken)
     {
-        var occupancyMap = await _db.Beds
+        var beds = await _db.Beds
             .AsNoTracking()
             .Where(x => x.IsActive)
+            .ToListAsync(cancellationToken);
+
+        var occupancyMap = beds
             .GroupBy(x => x.BranchId)
             .Select(group => new { BranchId = group.Key, OccupiedBeds = group.Count(x => x.IsOccupied) })
-            .ToDictionaryAsync(x => x.BranchId, x => x.OccupiedBeds, cancellationToken);
+            .ToDictionary(x => x.BranchId, x => x.OccupiedBeds);
 
         var branches = await _db.Branches.ToListAsync(cancellationToken);
         foreach (var branch in branches)
@@ -2616,9 +2631,13 @@ public sealed class DatabaseInitializer
             return;
         }
 
-        var adminUser = await _db.Users
-            .Include(x => x.Role)
-            .FirstOrDefaultAsync(x => x.Email == "admin@nexus.local", cancellationToken);
+        var adminUser = await _db.Users.FirstOrDefaultAsync(x => x.Email == "admin@nexus.local", cancellationToken);
+        var adminRoleName = adminUser is null
+            ? "Admin"
+            : await _db.Roles
+                .Where(x => x.RoleId == adminUser.RoleId)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync(cancellationToken) ?? "Admin";
         var department = await _db.Departments.AsNoTracking().OrderBy(x => x.DepartmentId).FirstOrDefaultAsync(cancellationToken);
         var labTest = await _db.LabTestMasters.AsNoTracking().OrderBy(x => x.LabTestMasterId).FirstOrDefaultAsync(cancellationToken);
         var adjustment = await _db.StockAdjustments.AsNoTracking().OrderByDescending(x => x.StockAdjustmentId).FirstOrDefaultAsync(cancellationToken);
@@ -2637,7 +2656,7 @@ public sealed class DatabaseInitializer
                 Summary = "Administrator signed in to the admin workspace.",
                 PerformedByUserId = adminUser?.UserId,
                 PerformedByName = adminUser?.FullName ?? "Nexus Admin",
-                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                PerformedByRole = adminRoleName,
                 ActorEmail = adminUser?.Email ?? "admin@nexus.local",
                 CreatedAt = now.AddHours(-18)
             },
@@ -2651,7 +2670,7 @@ public sealed class DatabaseInitializer
                 Summary = $"Department {(department?.Name ?? "Outpatient Department")} was added during master setup.",
                 PerformedByUserId = adminUser?.UserId,
                 PerformedByName = adminUser?.FullName ?? "Nexus Admin",
-                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                PerformedByRole = adminRoleName,
                 ActorEmail = adminUser?.Email ?? "admin@nexus.local",
                 CreatedAt = now.AddHours(-15)
             },
@@ -2665,7 +2684,7 @@ public sealed class DatabaseInitializer
                 Summary = $"Lab test {(labTest?.TestName ?? "Complete Blood Count")} pricing and sample details were updated.",
                 PerformedByUserId = adminUser?.UserId,
                 PerformedByName = adminUser?.FullName ?? "Nexus Admin",
-                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                PerformedByRole = adminRoleName,
                 ActorEmail = adminUser?.Email ?? "admin@nexus.local",
                 CreatedAt = now.AddHours(-11)
             },
@@ -2679,7 +2698,7 @@ public sealed class DatabaseInitializer
                 Summary = $"Stock adjustment {(adjustment?.AdjustmentNumber ?? "ADJ-1001")} was approved for inventory correction.",
                 PerformedByUserId = adminUser?.UserId,
                 PerformedByName = adminUser?.FullName ?? "Nexus Admin",
-                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                PerformedByRole = adminRoleName,
                 ActorEmail = adminUser?.Email ?? "admin@nexus.local",
                 CreatedAt = now.AddHours(-8)
             },
@@ -2693,7 +2712,7 @@ public sealed class DatabaseInitializer
                 Summary = $"Billing invoice {(invoice?.InvoiceNumber ?? "NEX-5001")} totals and claim metadata were updated.",
                 PerformedByUserId = adminUser?.UserId,
                 PerformedByName = adminUser?.FullName ?? "Nexus Admin",
-                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                PerformedByRole = adminRoleName,
                 ActorEmail = adminUser?.Email ?? "admin@nexus.local",
                 CreatedAt = now.AddHours(-5)
             },
@@ -2707,7 +2726,7 @@ public sealed class DatabaseInitializer
                 Summary = $"Refund {(refund?.BillingRefundId.ToString() ?? "request")} was processed against invoice {(invoice?.InvoiceNumber ?? "NEX-5001")}.",
                 PerformedByUserId = adminUser?.UserId,
                 PerformedByName = adminUser?.FullName ?? "Nexus Admin",
-                PerformedByRole = adminUser?.Role?.Name ?? "Admin",
+                PerformedByRole = adminRoleName,
                 ActorEmail = adminUser?.Email ?? "admin@nexus.local",
                 CreatedAt = now.AddHours(-2)
             });

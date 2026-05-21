@@ -1,10 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace AngularApp4.Model
 {
     public class Appointment
     {
-        [Key]
+        [Key, BsonElement("_id")]
         public int Id { get; set; }
 
         // Customer Info

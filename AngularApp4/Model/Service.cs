@@ -1,11 +1,12 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AngularApp4.Model
 {
     public class Service
     {
-        [Key]
+        [Key, BsonElement("_id")]
         public int Id { get; set; }
 
         [Required]
@@ -22,7 +23,7 @@ namespace AngularApp4.Model
         public int DurationMinutes { get; set; } // We store as integer for easy math
 
         [Required]
-        [Column(TypeName = "decimal(18,2)")] // Accurate for currency
+        // Accurate for currency
         public decimal Price { get; set; }
 
         public string Icon { get; set; } = "settings";

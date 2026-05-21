@@ -1164,31 +1164,38 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
     {
         var batches = await _db.StockBatches
             .AsNoTracking()
-            .Include(x => x.StockLocation)
-            .Include(x => x.MedicineMaster)!.ThenInclude(x => x!.InventoryUnit)
-            .Include(x => x.MedicineMaster)!.ThenInclude(x => x!.InventoryCategory)
-            .Include(x => x.StockItemMaster)!.ThenInclude(x => x!.InventoryUnit)
-            .Include(x => x.StockItemMaster)!.ThenInclude(x => x!.InventoryCategory)
             .OrderBy(x => x.StockBatchId)
             .ToListAsync();
+        var locations = await _db.StockLocations.AsNoTracking().ToDictionaryAsync(x => x.StockLocationId);
+        var medicines = await _db.MedicineMasters.AsNoTracking().ToDictionaryAsync(x => x.MedicineMasterId);
+        var items = await _db.StockItemMasters.AsNoTracking().ToDictionaryAsync(x => x.StockItemMasterId);
+        var units = await _db.InventoryUnits.AsNoTracking().ToDictionaryAsync(x => x.InventoryUnitId);
+        var categories = await _db.InventoryCategories.AsNoTracking().ToDictionaryAsync(x => x.InventoryCategoryId);
 
         var today = DateTime.UtcNow.Date;
         return batches.Select(batch =>
         {
-            var medicine = batch.MedicineMaster;
-            var item = batch.StockItemMaster;
+            var medicine = batch.MedicineMasterId.HasValue && medicines.TryGetValue(batch.MedicineMasterId.Value, out var medicineRow)
+                ? medicineRow
+                : null;
+            var item = batch.StockItemMasterId.HasValue && items.TryGetValue(batch.StockItemMasterId.Value, out var itemRow)
+                ? itemRow
+                : null;
             var itemType = medicine is not null ? "Medicine" : item?.ItemType.ToString() ?? "Item";
             var itemName = medicine?.MedicineName ?? item?.ItemName ?? "Unknown item";
-            var unitName = medicine?.InventoryUnit?.Name ?? item?.InventoryUnit?.Name ?? string.Empty;
-            var categoryName = medicine?.InventoryCategory?.Name ?? item?.InventoryCategory?.Name;
+            var unitId = medicine?.InventoryUnitId ?? item?.InventoryUnitId;
+            var categoryId = medicine?.InventoryCategoryId ?? item?.InventoryCategoryId;
+            var unitName = unitId.HasValue && units.TryGetValue(unitId.Value, out var unit) ? unit.Name : string.Empty;
+            var categoryName = categoryId.HasValue && categories.TryGetValue(categoryId.Value, out var category) ? category.Name : null;
             var minimumStock = medicine?.MinimumStock ?? item?.MinimumStock ?? 0m;
             var maximumStock = medicine?.MaximumStock ?? item?.MaximumStock ?? 0m;
+            locations.TryGetValue(batch.StockLocationId, out var location);
 
             return new StockBatchDto
             {
                 StockBatchId = batch.StockBatchId,
                 StockLocationId = batch.StockLocationId,
-                LocationName = batch.StockLocation?.Name ?? string.Empty,
+                LocationName = location?.Name ?? string.Empty,
                 ItemType = itemType,
                 MedicineMasterId = batch.MedicineMasterId,
                 StockItemMasterId = batch.StockItemMasterId,

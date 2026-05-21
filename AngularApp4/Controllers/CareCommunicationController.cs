@@ -33,8 +33,7 @@ public class CareCommunicationController : ControllerBase
             return Unauthorized(ApiResponse<IEnumerable<CareThreadSummaryDto>>.Fail("Session profile not found"));
         }
 
-        var query = BuildThreadQuery(participant);
-        var rows = await query
+        var rows = (await BuildThreadRowsAsync(participant, cancellationToken))
             .OrderByDescending(x => x.AppointmentDate)
             .ThenByDescending(x => x.SlotStartTime)
             .Select(x => new CareThreadSummaryDto
@@ -52,7 +51,7 @@ public class CareCommunicationController : ControllerBase
                 Status = x.Status,
                 ServiceName = x.ServiceName
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         var appointmentIds = rows.Select(x => x.AppointmentId).ToList();
         var lastMessageRows = await _db.CareConversationMessages
@@ -70,12 +69,13 @@ public class CareCommunicationController : ControllerBase
             .GroupBy(x => x.AppointmentId)
             .ToDictionary(x => x.Key, x => x.First());
 
-        var reportCounts = await _db.PatientCaseReports
+        var reportRows = await _db.PatientCaseReports
             .AsNoTracking()
             .Where(x => appointmentIds.Contains(x.AppointmentId))
-            .GroupBy(x => x.AppointmentId)
-            .Select(x => new { AppointmentId = x.Key, Count = x.Count() })
             .ToListAsync(cancellationToken);
+        var reportCounts = reportRows
+            .GroupBy(x => x.AppointmentId)
+            .ToDictionary(x => x.Key, x => x.Count());
 
         foreach (var row in rows)
         {
@@ -84,7 +84,7 @@ public class CareCommunicationController : ControllerBase
                 row.LastMessage = lastMessage.Message;
                 row.LastMessageAt = lastMessage.CreatedAt;
             }
-            row.ReportCount = reportCounts.FirstOrDefault(x => x.AppointmentId == row.AppointmentId)?.Count ?? 0;
+            row.ReportCount = reportCounts.GetValueOrDefault(row.AppointmentId);
         }
 
         return Ok(ApiResponse<IEnumerable<CareThreadSummaryDto>>.Ok(rows));
@@ -99,7 +99,7 @@ public class CareCommunicationController : ControllerBase
             return Unauthorized(ApiResponse<CareThreadDetailDto>.Fail("Session profile not found"));
         }
 
-        var thread = await BuildThreadQuery(participant)
+        var thread = (await BuildThreadRowsAsync(participant, cancellationToken))
             .Where(x => x.AppointmentId == appointmentId)
             .Select(x => new CareThreadSummaryDto
             {
@@ -116,7 +116,7 @@ public class CareCommunicationController : ControllerBase
                 Status = x.Status,
                 ServiceName = x.ServiceName
             })
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefault();
 
         if (thread is null)
         {
@@ -138,30 +138,49 @@ public class CareCommunicationController : ControllerBase
             })
             .ToListAsync(cancellationToken);
 
-        var reports = await _db.PatientCaseReports
+        var reportRows = await _db.PatientCaseReports
             .AsNoTracking()
             .Where(x => x.AppointmentId == appointmentId)
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new PatientCaseReportDto
-            {
-                PatientCaseReportId = x.PatientCaseReportId,
-                AppointmentId = x.AppointmentId,
-                Symptoms = x.Symptoms,
-                PreviousReportSummary = x.PreviousReportSummary,
-                CreatedAt = x.CreatedAt,
-                UpdatedAt = x.UpdatedAt,
-                Document = x.PatientDocument == null ? null : new PatientDocumentDto
-                {
-                    PatientDocumentId = x.PatientDocument.PatientDocumentId,
-                    Category = x.PatientDocument.Category,
-                    Title = x.PatientDocument.Title,
-                    FileUrl = x.PatientDocument.FileUrl,
-                    Notes = x.PatientDocument.Notes,
-                    UploadedByRole = x.PatientDocument.UploadedByRole,
-                    UploadedAt = x.PatientDocument.UploadedAt
-                }
-            })
             .ToListAsync(cancellationToken);
+        var documentIds = reportRows
+            .Where(x => x.PatientDocumentId.HasValue)
+            .Select(x => x.PatientDocumentId!.Value)
+            .Distinct()
+            .ToList();
+        var documentMap = await _db.PatientDocuments
+            .AsNoTracking()
+            .Where(x => documentIds.Contains(x.PatientDocumentId))
+            .ToDictionaryAsync(x => x.PatientDocumentId, cancellationToken);
+
+        var reports = reportRows
+            .Select(x =>
+            {
+                var document = x.PatientDocumentId.HasValue && documentMap.TryGetValue(x.PatientDocumentId.Value, out var doc)
+                    ? new PatientDocumentDto
+                    {
+                        PatientDocumentId = doc.PatientDocumentId,
+                        Category = doc.Category,
+                        Title = doc.Title,
+                        FileUrl = doc.FileUrl,
+                        Notes = doc.Notes,
+                        UploadedByRole = doc.UploadedByRole,
+                        UploadedAt = doc.UploadedAt
+                    }
+                    : null;
+
+                return new PatientCaseReportDto
+                {
+                    PatientCaseReportId = x.PatientCaseReportId,
+                    AppointmentId = x.AppointmentId,
+                    Symptoms = x.Symptoms,
+                    PreviousReportSummary = x.PreviousReportSummary,
+                    CreatedAt = x.CreatedAt,
+                    UpdatedAt = x.UpdatedAt,
+                    Document = document
+                };
+            })
+            .ToList();
 
         var consultation = await _db.DoctorConsultations
             .AsNoTracking()
@@ -437,20 +456,25 @@ public class CareCommunicationController : ControllerBase
     private async Task<CareParticipant?> ResolveParticipantAsync(CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var user = await _db.Users.AsNoTracking().Include(x => x.Role).FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive, cancellationToken);
-        if (user is null || user.Role is null)
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId && x.IsActive, cancellationToken);
+        if (user is null)
         {
             return null;
         }
+        var roleName = await _db.Roles
+            .AsNoTracking()
+            .Where(x => x.RoleId == user.RoleId)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (string.Equals(user.Role.Name, "Doctor", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(roleName, "Doctor", StringComparison.OrdinalIgnoreCase))
         {
             var email = user.Email.Trim().ToLowerInvariant();
             var doctor = await _db.Doctors.AsNoTracking().FirstOrDefaultAsync(x => x.Email == email && x.IsActive, cancellationToken);
             return doctor is null ? null : new CareParticipant(user.UserId, "Doctor", user.FullName, null, doctor.DoctorId);
         }
 
-        if (string.Equals(user.Role.Name, "User", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(roleName, "User", StringComparison.OrdinalIgnoreCase))
         {
             var patient = await _db.Patients.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == user.UserId && x.IsActive, cancellationToken);
             return patient is null ? null : new CareParticipant(user.UserId, "Patient", user.FullName, patient.PatientId, null);
@@ -459,34 +483,41 @@ public class CareCommunicationController : ControllerBase
         return null;
     }
 
-    private IQueryable<CareThreadProjection> BuildThreadQuery(CareParticipant participant)
+    private async Task<List<CareThreadProjection>> BuildThreadRowsAsync(CareParticipant participant, CancellationToken cancellationToken)
     {
-        var query = from appointment in _db.Appointments.AsNoTracking()
-                    join patient in _db.Patients.AsNoTracking() on appointment.PatientId equals patient.PatientId
-                    join patientUser in _db.Users.AsNoTracking() on patient.UserId equals patientUser.UserId
-                    join doctor in _db.Doctors.AsNoTracking() on appointment.DoctorId equals doctor.DoctorId
-                    join service in _db.Services.AsNoTracking() on appointment.ServiceId equals service.Id into serviceGroup
-                    from service in serviceGroup.DefaultIfEmpty()
-                    where OpenCareStatuses.Contains(appointment.Status)
-                    select new CareThreadProjection
-                    {
-                        AppointmentId = appointment.AppointmentId,
-                        PatientId = appointment.PatientId,
-                        DoctorId = appointment.DoctorId,
-                        PatientName = patientUser.FullName,
-                        DoctorName = doctor.FullName,
-                        DoctorSpecialization = doctor.Specialization,
-                        MedicalRecordNumber = patient.MedicalRecordNumber,
-                        AppointmentDate = appointment.AppointmentDate,
-                        SlotStartTime = appointment.SlotStartTime,
-                        SlotEndTime = appointment.SlotEndTime,
-                        Status = appointment.Status.ToString(),
-                        ServiceName = service != null ? service.Name : null
-                    };
+        var appointments = await _db.Appointments.AsNoTracking().Where(x => OpenCareStatuses.Contains(x.Status)).ToListAsync(cancellationToken);
+        var patients = await _db.Patients.AsNoTracking().ToDictionaryAsync(x => x.PatientId, cancellationToken);
+        var users = await _db.Users.AsNoTracking().ToDictionaryAsync(x => x.UserId, cancellationToken);
+        var doctors = await _db.Doctors.AsNoTracking().ToDictionaryAsync(x => x.DoctorId, cancellationToken);
+        var services = await _db.Services.AsNoTracking().ToDictionaryAsync(x => (long?)x.Id, cancellationToken);
 
-        return participant.Role == "Doctor"
-            ? query.Where(x => x.DoctorId == participant.DoctorId)
-            : query.Where(x => x.PatientId == participant.PatientId);
+        return appointments
+            .Where(x => (participant.Role == "Doctor" ? x.DoctorId == participant.DoctorId : x.PatientId == participant.PatientId) &&
+                        patients.ContainsKey(x.PatientId) &&
+                        doctors.ContainsKey(x.DoctorId))
+            .Select(appointment =>
+            {
+                var patient = patients[appointment.PatientId];
+                users.TryGetValue(patient.UserId, out var patientUser);
+                var doctor = doctors[appointment.DoctorId];
+                services.TryGetValue(appointment.ServiceId, out var service);
+                return new CareThreadProjection
+                {
+                    AppointmentId = appointment.AppointmentId,
+                    PatientId = appointment.PatientId,
+                    DoctorId = appointment.DoctorId,
+                    PatientName = patientUser?.FullName ?? "Patient",
+                    DoctorName = doctor.FullName,
+                    DoctorSpecialization = doctor.Specialization,
+                    MedicalRecordNumber = patient.MedicalRecordNumber,
+                    AppointmentDate = appointment.AppointmentDate,
+                    SlotStartTime = appointment.SlotStartTime,
+                    SlotEndTime = appointment.SlotEndTime,
+                    Status = appointment.Status.ToString(),
+                    ServiceName = service?.Name
+                };
+            })
+            .ToList();
     }
 
     private Task<Appointment?> ResolveThreadAppointmentAsync(long appointmentId, CareParticipant participant, CancellationToken cancellationToken)

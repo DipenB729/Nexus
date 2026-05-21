@@ -1,10 +1,17 @@
 using AngularApp4.Model.Hms;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
+using System.ComponentModel.DataAnnotations;
+using System.Reflection;
+using System.Threading;
 
 namespace AngularApp4.Data;
 
 public class AppDbContext : DbContext
 {
+    private static long _nextId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -72,6 +79,57 @@ public class AppDbContext : DbContext
     public DbSet<BillingInvoiceItem> BillingInvoiceItems => Set<BillingInvoiceItem>();
     public DbSet<BillingInvoicePayment> BillingInvoicePayments => Set<BillingInvoicePayment>();
     public DbSet<BillingRefund> BillingRefunds => Set<BillingRefund>();
+
+    public override int SaveChanges()
+    {
+        AssignMongoNumericIds();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        AssignMongoNumericIds();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        AssignMongoNumericIds();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        AssignMongoNumericIds();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void AssignMongoNumericIds()
+    {
+        foreach (var entry in ChangeTracker.Entries().Where(x => x.State == EntityState.Added))
+        {
+            var keyProperty = GetLongKeyProperty(entry);
+            if (keyProperty is null)
+            {
+                continue;
+            }
+
+            var currentValue = (long)(keyProperty.GetValue(entry.Entity) ?? 0L);
+            if (currentValue != 0L)
+            {
+                continue;
+            }
+
+            keyProperty.SetValue(entry.Entity, Interlocked.Increment(ref _nextId));
+        }
+    }
+
+    private static PropertyInfo? GetLongKeyProperty(EntityEntry entry)
+    {
+        return entry.Entity.GetType()
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .FirstOrDefault(x => x.PropertyType == typeof(long) && x.GetCustomAttribute<KeyAttribute>() is not null);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -816,5 +874,52 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BillingRefund>()
             .Property(x => x.Status)
             .HasConversion<string>();
+
+        ConfigureMongoNumericKeys(modelBuilder);
     }
+
+    private static void ConfigureMongoNumericKeys(ModelBuilder modelBuilder)
+    {
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var key = entityType.FindPrimaryKey();
+            if (key?.Properties.Count != 1)
+            {
+                continue;
+            }
+
+            if (key.Properties[0].ClrType == typeof(long))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property<long>(key.Properties[0].Name)
+                    .ValueGeneratedOnAdd()
+                    .HasValueGenerator<MongoLongIdValueGenerator>();
+            }
+            else if (key.Properties[0].ClrType == typeof(int))
+            {
+                modelBuilder.Entity(entityType.ClrType)
+                    .Property<int>(key.Properties[0].Name)
+                    .ValueGeneratedOnAdd()
+                    .HasValueGenerator<MongoIntIdValueGenerator>();
+            }
+        }
+    }
+}
+
+public sealed class MongoLongIdValueGenerator : ValueGenerator<long>
+{
+    private static long _nextId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1000;
+
+    public override bool GeneratesTemporaryValues => false;
+
+    public override long Next(EntityEntry entry) => Interlocked.Increment(ref _nextId);
+}
+
+public sealed class MongoIntIdValueGenerator : ValueGenerator<int>
+{
+    private static int _nextId = (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % int.MaxValue);
+
+    public override bool GeneratesTemporaryValues => false;
+
+    public override int Next(EntityEntry entry) => Interlocked.Increment(ref _nextId);
 }
