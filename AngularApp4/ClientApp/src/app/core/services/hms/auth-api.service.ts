@@ -145,6 +145,10 @@ export class AuthApiService {
       return '/patient/doctors';
     }
 
+    if (role) {
+      return '/admin/dashboard';
+    }
+
     return '/auth/login';
   }
 
@@ -165,7 +169,7 @@ export class AuthApiService {
       return 'Patient';
     }
 
-    return 'Guest';
+    return role ?? 'Guest';
   }
 
   logout(): void {

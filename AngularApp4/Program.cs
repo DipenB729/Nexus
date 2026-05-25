@@ -120,7 +120,15 @@ builder.Services.AddSignalR();
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
+    options.AddPolicy("AdminOnly", p => p.RequireAssertion(context =>
+        context.User.IsInRole("Admin") ||
+        context.User.IsInRole("Receptionist") ||
+        context.User.IsInRole("Pharmacist") ||
+        context.User.IsInRole("Lab") ||
+        context.User.IsInRole("Storekeeper") ||
+        context.User.IsInRole("Accountant") ||
+        context.User.Claims.Any(x => x.Type == System.Security.Claims.ClaimTypes.Role
+            && x.Value is not ("SuperAdmin" or "Doctor" or "User"))));
     options.AddPolicy("SuperAdminOnly", p => p.RequireRole("SuperAdmin"));
     options.AddPolicy("UserOnly", p => p.RequireRole("User"));
     options.AddPolicy("DoctorOnly", p => p.RequireRole("Doctor"));

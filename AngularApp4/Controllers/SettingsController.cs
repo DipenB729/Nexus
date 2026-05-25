@@ -522,9 +522,9 @@ public class SettingsController : ControllerBase
                     RoleName = role.Name,
                     IsActive = role.IsActive,
                     UserCount = users.Count(x => x.RoleId == role.RoleId && x.IsActive),
-                    ModulesWithView = rolePermissions.Count(x => x.CanView),
-                    ModulesWithEdit = rolePermissions.Count(x => x.CanEdit),
-                    ModulesWithDelete = rolePermissions.Count(x => x.CanDelete)
+                    ModulesWithView = rolePermissions.Count(x => x.CanView == true),
+                    ModulesWithEdit = rolePermissions.Count(x => x.CanEdit == true),
+                    ModulesWithDelete = rolePermissions.Count(x => x.CanDelete == true)
                 };
             }).ToList()
         };

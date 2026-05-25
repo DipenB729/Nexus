@@ -51,6 +51,10 @@ public class RolePermissionDto
 {
     public string ModuleKey { get; set; } = string.Empty;
     public string ModuleName { get; set; } = string.Empty;
+    public string MenuKey { get; set; } = string.Empty;
+    public string PageRoute { get; set; } = string.Empty;
+    public bool CanAccessMenu { get; set; }
+    public bool CanAccessPage { get; set; }
     public bool CanView { get; set; }
     public bool CanAdd { get; set; }
     public bool CanEdit { get; set; }
@@ -79,6 +83,41 @@ public class UpdateRoleDto
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
+    public IEnumerable<RolePermissionDto> Permissions { get; set; } = Array.Empty<RolePermissionDto>();
+}
+
+public class AdminUserDto
+{
+    public long UserId { get; set; }
+    public long RoleId { get; set; }
+    public string RoleName { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class CreateRoleAccountDto
+{
+    public long RoleId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public string Password { get; set; } = string.Empty;
+}
+
+public class UpdateRoleAccountDto
+{
+    public long RoleId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string? Phone { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+public class AccessProfileDto
+{
+    public string Role { get; set; } = string.Empty;
     public IEnumerable<RolePermissionDto> Permissions { get; set; } = Array.Empty<RolePermissionDto>();
 }
 

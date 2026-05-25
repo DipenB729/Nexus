@@ -33,6 +33,47 @@
   gap: 16px;
 }
 
+.tabs-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #dde5f0;
+  border-radius: 18px;
+  background: #ffffff;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+
+  button {
+    appearance: none;
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    color: #475569;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 14px;
+    font: inherit;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  button.active {
+    background: #ede9fe;
+    color: #5b21b6;
+  }
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
 .summary-card,
 .sidebar-panel,
 .editor-panel,
@@ -63,11 +104,19 @@
   }
 }
 
-.layout-grid {
+.access-layout {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+}
+
+.tab-panel {
+  display: block;
+}
+
+.account-setup-panel {
+  max-width: 720px;
 }
 
 .sidebar-panel,
@@ -91,6 +140,47 @@
     margin: 0;
     font-size: 1.15rem;
   }
+}
+
+.section-head h2 {
+  margin: 8px 0 0;
+  font-size: 1.15rem;
+}
+
+.account-card {
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.accounts-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.account-editor {
+  min-width: 0;
+}
+
+.empty-account {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  border: 1px dashed #cbd5e1;
+  border-radius: 18px;
+  padding: 24px;
+  text-align: center;
 }
 
 .roles-list {
@@ -197,7 +287,7 @@
 
 .permission-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1.4fr) repeat(4, minmax(52px, 0.45fr)) minmax(110px, 1fr);
+  grid-template-columns: minmax(140px, 1.4fr) repeat(6, minmax(50px, 0.38fr)) minmax(120px, 1fr);
   gap: 10px;
   align-items: center;
   padding: 14px 18px;
@@ -272,7 +362,7 @@
 }
 
 @media (max-width: 1200px) {
-  .layout-grid {
+  .access-layout {
     grid-template-columns: 1fr;
   }
 }
@@ -287,9 +377,13 @@
   }
 
   .permission-row {
-    grid-template-columns: minmax(110px, 1fr) repeat(4, minmax(44px, 0.42fr)) minmax(86px, 0.8fr);
+    grid-template-columns: minmax(110px, 1fr) repeat(6, minmax(42px, 0.36fr)) minmax(86px, 0.8fr);
     gap: 6px;
     padding: 12px 10px;
+  }
+
+  .accounts-grid {
+    grid-template-columns: 1fr;
   }
 
   .actions-row,
@@ -302,5 +396,9 @@
 @media (max-width: 620px) {
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tabs-bar {
+    width: 100%;
   }
 }

@@ -3,7 +3,10 @@ import { Injectable } from '@angular/core';
 import { map, Observable } from 'rxjs';
 import { ApiResponse } from '../../models/hms/auth.model';
 import {
+  AccessProfile,
+  AdminUser,
   BackupCenter,
+  CreateAdminUserRequest,
   ControlCenterSettings,
   DashboardSummary,
   NotificationSettings,
@@ -11,7 +14,8 @@ import {
   RoleDetails,
   SecurityCenter,
   SecuritySettings,
-  SystemSettings
+  SystemSettings,
+  UpdateAdminUserRequest
 } from '../../models/hms/admin-ops.model';
 
 @Injectable({ providedIn: 'root' })
@@ -39,6 +43,30 @@ export class AdminOpsService {
   updateRole(roleId: number, payload: Partial<RoleDetails>): Observable<RoleDetails> {
     return this.http
       .put<ApiResponse<RoleDetails>>(`/api/roles/${roleId}`, payload)
+      .pipe(map((res) => res.data));
+  }
+
+  getAdminUsers(): Observable<AdminUser[]> {
+    return this.http
+      .get<ApiResponse<AdminUser[]>>('/api/roles/users')
+      .pipe(map((res) => res.data));
+  }
+
+  createAdminUser(payload: CreateAdminUserRequest): Observable<AdminUser> {
+    return this.http
+      .post<ApiResponse<AdminUser>>('/api/roles/users', payload)
+      .pipe(map((res) => res.data));
+  }
+
+  updateAdminUser(userId: number, payload: UpdateAdminUserRequest): Observable<AdminUser> {
+    return this.http
+      .put<ApiResponse<AdminUser>>(`/api/roles/users/${userId}`, payload)
+      .pipe(map((res) => res.data));
+  }
+
+  getAccessProfile(): Observable<AccessProfile> {
+    return this.http
+      .get<ApiResponse<AccessProfile>>('/api/roles/access-profile')
       .pipe(map((res) => res.data));
   }
 

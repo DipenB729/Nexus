@@ -46,6 +46,10 @@ export interface DashboardSummary {
 export interface RolePermission {
   moduleKey: string;
   moduleName: string;
+  menuKey: string;
+  pageRoute: string;
+  canAccessMenu: boolean;
+  canAccessPage: boolean;
   canView: boolean;
   canAdd: boolean;
   canEdit: boolean;
@@ -58,6 +62,37 @@ export interface RoleDetails {
   description?: string | null;
   isActive: boolean;
   isSystemRole: boolean;
+  permissions: RolePermission[];
+}
+
+export interface AdminUser {
+  userId: number;
+  roleId: number;
+  roleName: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateAdminUserRequest {
+  roleId: number;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  password: string;
+}
+
+export interface UpdateAdminUserRequest {
+  roleId: number;
+  fullName: string;
+  phone?: string | null;
+  isActive: boolean;
+}
+
+export interface AccessProfile {
+  role: string;
   permissions: RolePermission[];
 }
 

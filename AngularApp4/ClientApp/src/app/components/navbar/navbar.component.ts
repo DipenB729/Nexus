@@ -1,6 +1,8 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
+import { RolePermission } from '../../core/models/hms/admin-ops.model';
+import { AdminOpsService } from '../../core/services/hms/admin-ops.service';
 
 type DashboardRole = 'SuperAdmin' | 'Admin' | 'User' | 'Doctor';
 
@@ -30,7 +32,9 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
   @Output() toggleEvent = new EventEmitter<void>();
   @Output() logoutEvent = new EventEmitter<void>();
   expandedSections: Record<string, boolean> = {};
+  accessPermissions: RolePermission[] = [];
   private routeSub?: Subscription;
+  private accessSub?: Subscription;
 
   private readonly adminSections: NavSection[] = [
     {
@@ -120,6 +124,7 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
       ]
     }
   ];
+  private permittedAdminSections: NavSection[] = this.adminSections;
 
   private readonly superAdminSections: NavSection[] = [
     {
@@ -194,7 +199,7 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
     }
 
     if (this.role === 'Admin') {
-      return this.adminSections;
+      return this.permittedAdminSections;
     }
 
     if (this.role === 'Doctor') {
@@ -204,7 +209,10 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
     return this.userSections;
   }
 
-  constructor(private readonly router: Router) {}
+  constructor(
+    private readonly router: Router,
+    private readonly adminOps: AdminOpsService
+  ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['role'] && !changes['role'].firstChange) {
@@ -213,6 +221,7 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadAccessProfile();
     this.syncExpandedSections(this.router.url);
     this.routeSub = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
@@ -221,6 +230,7 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routeSub?.unsubscribe();
+    this.accessSub?.unsubscribe();
   }
 
   get brandText(): string {
@@ -311,6 +321,41 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
     }
 
     this.expandedSections = nextState;
+  }
+
+  private loadAccessProfile(): void {
+    this.accessSub?.unsubscribe();
+    this.accessSub = this.adminOps.getAccessProfile().subscribe({
+      next: (profile) => {
+        this.accessPermissions = profile.permissions ?? [];
+        this.permittedAdminSections = this.buildPermittedAdminSections();
+        this.syncExpandedSections(this.router.url);
+      },
+      error: () => {
+        this.accessPermissions = [];
+        this.permittedAdminSections = this.adminSections;
+      }
+    });
+  }
+
+  private buildPermittedAdminSections(): NavSection[] {
+    if (!this.accessPermissions.length) {
+      return this.adminSections;
+    }
+
+    return this.adminSections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => this.canUseAdminItem(section.id, item.route))
+      }))
+      .filter((section) => section.items.length > 0);
+  }
+
+  private canUseAdminItem(sectionId: string, route: string): boolean {
+    return this.accessPermissions.some((permission) =>
+      permission.canAccessMenu &&
+      permission.canAccessPage &&
+      (permission.menuKey === sectionId || route.startsWith(permission.pageRoute) || permission.pageRoute.startsWith(route)));
   }
 
   private getSectionKey(section: NavSection): string {

@@ -10,6 +10,21 @@
   <p class="error-box" *ngIf="errorMessage">{{ errorMessage }}</p>
   <p class="success-box" *ngIf="statusMessage">{{ statusMessage }}</p>
 
+  <div class="tabs-bar" role="tablist" aria-label="Role and access sections">
+    <button type="button" role="tab" [class.active]="activeTab === 'accounts'" (click)="setTab('accounts')">
+      <mat-icon>manage_accounts</mat-icon>
+      <span>Account Section</span>
+    </button>
+    <button type="button" role="tab" [class.active]="activeTab === 'access'" (click)="setTab('access')">
+      <mat-icon>admin_panel_settings</mat-icon>
+      <span>Access Profile</span>
+    </button>
+    <button type="button" role="tab" [class.active]="activeTab === 'roleAccounts'" (click)="setTab('roleAccounts')">
+      <mat-icon>group</mat-icon>
+      <span>Role Accounts</span>
+    </button>
+  </div>
+
   <div class="summary-grid">
     <article class="summary-card">
       <span>Total roles</span>
@@ -27,10 +42,18 @@
       <span>Custom roles</span>
       <strong>{{ customRoles }}</strong>
     </article>
+    <article class="summary-card">
+      <span>Role accounts</span>
+      <strong>{{ staffUsers }}</strong>
+    </article>
+    <article class="summary-card">
+      <span>Active accounts</span>
+      <strong>{{ activeUsers }}</strong>
+    </article>
   </div>
 
-  <div class="layout-grid">
-    <aside class="sidebar-panel">
+  <div class="tab-panel" *ngIf="activeTab === 'accounts'">
+    <section class="editor-panel account-setup-panel">
       <div class="create-card">
         <h2>Create role</h2>
 
@@ -50,6 +73,52 @@
         </button>
       </div>
 
+      <div class="create-card account-card">
+        <h2>Create role account</h2>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Role</mat-label>
+          <mat-select [(ngModel)]="draftUser.roleId">
+            <mat-option *ngFor="let role of assignableRoles" [value]="role.roleId">{{ role.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Full name</mat-label>
+          <input matInput [(ngModel)]="draftUser.fullName" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" [(ngModel)]="draftUser.email" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput [(ngModel)]="draftUser.phone" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Temporary password</mat-label>
+          <input matInput type="password" [(ngModel)]="draftUser.password" />
+          <mat-hint>At least 8 characters with uppercase, lowercase, number, and special character.</mat-hint>
+        </mat-form-field>
+
+        <button mat-raised-button color="primary" (click)="createUser()" [disabled]="isSavingUser">
+          <mat-icon>person_add</mat-icon>
+          Create Account
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="access-layout" *ngIf="activeTab === 'access'">
+    <aside class="sidebar-panel">
+      <div class="section-head">
+        <span class="eyebrow">Access profiles</span>
+        <h2>Roles</h2>
+      </div>
+
       <div class="roles-list">
         <button
           type="button"
@@ -66,7 +135,7 @@
       </div>
     </aside>
 
-    <section class="editor-panel" *ngIf="editingRole as role">
+    <section class="editor-panel permission-editor" *ngIf="editingRole as role">
       <div class="editor-head">
         <div>
           <span class="eyebrow">Access profile</span>
@@ -94,6 +163,8 @@
       <div class="permission-table">
         <div class="permission-row header">
           <span>Module</span>
+          <span>Menu</span>
+          <span>Page</span>
           <span>View</span>
           <span>Add</span>
           <span>Edit</span>
@@ -104,8 +175,10 @@
         <div class="permission-row" *ngFor="let permission of role.permissions; let i = index">
           <div class="module-name">
             <strong>{{ permission.moduleName }}</strong>
-            <small>{{ permission.moduleKey }}</small>
+            <small>{{ permission.pageRoute }}</small>
           </div>
+          <label><input type="checkbox" [(ngModel)]="permission.canAccessMenu" [name]="'menu' + i" /></label>
+          <label><input type="checkbox" [(ngModel)]="permission.canAccessPage" [name]="'page' + i" /></label>
           <label><input type="checkbox" [(ngModel)]="permission.canView" [name]="'view' + i" /></label>
           <label><input type="checkbox" [(ngModel)]="permission.canAdd" [name]="'add' + i" /></label>
           <label><input type="checkbox" [(ngModel)]="permission.canEdit" [name]="'edit' + i" /></label>
@@ -120,6 +193,70 @@
           <mat-icon>save</mat-icon>
           Save Permissions
         </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="tab-panel" *ngIf="activeTab === 'roleAccounts'">
+    <section class="editor-panel users-panel">
+      <div class="editor-head">
+        <div>
+          <span class="eyebrow">Role accounts</span>
+          <h2>Accounts by role</h2>
+        </div>
+      </div>
+
+      <div class="accounts-grid">
+        <div class="account-list">
+          <button type="button" class="role-card" *ngFor="let user of users" [class.active]="editingUser?.userId === user.userId" (click)="selectUser(user)">
+            <div>
+              <strong>{{ user.fullName }}</strong>
+              <small>{{ user.email }}</small>
+            </div>
+            <span class="role-pill">{{ user.roleName }}</span>
+          </button>
+        </div>
+
+        <div class="account-editor" *ngIf="editingUser as user; else selectAccount">
+          <div class="form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Full name</mat-label>
+              <input matInput [(ngModel)]="user.fullName" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Role</mat-label>
+              <mat-select [(ngModel)]="user.roleId">
+                <mat-option *ngFor="let role of assignableRoles" [value]="role.roleId">{{ role.name }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Email</mat-label>
+              <input matInput [value]="user.email" disabled />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Phone</mat-label>
+              <input matInput [(ngModel)]="user.phone" />
+            </mat-form-field>
+          </div>
+
+          <div class="actions-row">
+            <label class="toggle-row">
+              <input type="checkbox" [(ngModel)]="user.isActive" />
+              <span>Account active</span>
+            </label>
+            <button mat-raised-button color="primary" (click)="saveUser()" [disabled]="isSavingUser">
+              <mat-icon>save</mat-icon>
+              Save Account
+            </button>
+          </div>
+        </div>
+
+        <ng-template #selectAccount>
+          <div class="empty-account">Select an account to edit role assignment or active status.</div>
+        </ng-template>
       </div>
     </section>
   </div>

@@ -22,18 +22,23 @@ public sealed class DatabaseInitializer
         ("User", "Self-service patient portal access")
     };
 
-    private static readonly (string Key, string Name)[] Modules =
+    private static readonly (string Key, string Name, string Menu, string Route)[] Modules =
     {
-        ("dashboard", "Dashboard"),
-        ("masters", "Master Setup"),
-        ("patients", "Patients"),
-        ("appointments", "Appointments"),
-        ("pharmacy", "Pharmacy"),
-        ("laboratory", "Laboratory"),
-        ("inventory", "Inventory"),
-        ("billing", "Billing"),
-        ("branches", "Branches"),
-        ("settings", "Settings")
+        ("dashboard", "Dashboard", "overview", "/admin/dashboard"),
+        ("patients", "Patients", "overview", "/admin/patients"),
+        ("services", "Services", "overview", "/admin/services"),
+        ("appointments", "Appointments", "overview", "/admin/bookings"),
+        ("admissions", "Admissions", "overview", "/admin/admissions"),
+        ("notifications", "Notifications", "overview", "/admin/notifications"),
+        ("masters", "Master Setup", "masters", "/admin/masters"),
+        ("pharmacy", "Pharmacy", "supply-chain", "/admin/inventory/medicines"),
+        ("laboratory", "Laboratory", "laboratory", "/admin/laboratory"),
+        ("inventory", "Inventory", "supply-chain", "/admin/inventory"),
+        ("billing", "Billing", "billing", "/admin/billing"),
+        ("monitoring", "Monitoring", "monitoring", "/admin/monitoring"),
+        ("branches", "Branches", "masters", "/admin/masters/departments"),
+        ("roles", "Roles & Access", "administration", "/admin/roles"),
+        ("settings", "Settings", "administration", "/admin/settings")
     };
 
     private readonly AppDbContext _db;
@@ -157,8 +162,29 @@ public sealed class DatabaseInitializer
             var defaults = GetDefaultPermissions(role.RoleId, role.Name).ToDictionary(x => x.ModuleKey, StringComparer.OrdinalIgnoreCase);
             foreach (var module in Modules)
             {
-                if (existingPermissions.Any(x => x.RoleId == role.RoleId && x.ModuleKey == module.Key))
+                var existing = existingPermissions.FirstOrDefault(x => x.RoleId == role.RoleId && x.ModuleKey == module.Key);
+                if (existing is not null)
                 {
+                    if (string.IsNullOrWhiteSpace(existing.MenuKey))
+                    {
+                        existing.MenuKey = module.Menu;
+                        hasChanges = true;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(existing.PageRoute))
+                    {
+                        existing.PageRoute = module.Route;
+                        hasChanges = true;
+                    }
+
+                    if ((existing.CanView == true || existing.CanAdd == true || existing.CanEdit == true || existing.CanDelete == true) &&
+                        (existing.CanAccessMenu != true || existing.CanAccessPage != true))
+                    {
+                        existing.CanAccessMenu = true;
+                        existing.CanAccessPage = true;
+                        hasChanges = true;
+                    }
+
                     continue;
                 }
 
@@ -169,6 +195,8 @@ public sealed class DatabaseInitializer
                         RoleId = role.RoleId,
                         ModuleKey = module.Key,
                         ModuleName = module.Name,
+                        MenuKey = module.Menu,
+                        PageRoute = module.Route,
                         UpdatedAt = DateTime.UtcNow
                     };
                 }
@@ -2835,6 +2863,8 @@ public sealed class DatabaseInitializer
             CanAdd = true,
             CanEdit = true,
             CanDelete = true,
+            CanAccessMenu = true,
+            CanAccessPage = true,
             UpdatedAt = DateTime.UtcNow
         });
 
@@ -2850,6 +2880,10 @@ public sealed class DatabaseInitializer
                 RoleId = roleId,
                 ModuleKey = module.Key,
                 ModuleName = module.Name,
+                MenuKey = module.Menu,
+                PageRoute = module.Route,
+                CanAccessMenu = permission.View,
+                CanAccessPage = permission.View,
                 CanView = permission.View,
                 CanAdd = permission.Add,
                 CanEdit = permission.Edit,

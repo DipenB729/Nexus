@@ -191,10 +191,14 @@ public class RolePermission
     public long RoleId { get; set; }
     [Required, MaxLength(80)] public string ModuleKey { get; set; } = string.Empty;
     [Required, MaxLength(120)] public string ModuleName { get; set; } = string.Empty;
-    public bool CanView { get; set; }
-    public bool CanAdd { get; set; }
-    public bool CanEdit { get; set; }
-    public bool CanDelete { get; set; }
+    [MaxLength(80)] public string? MenuKey { get; set; }
+    [MaxLength(250)] public string? PageRoute { get; set; }
+    public bool? CanAccessMenu { get; set; }
+    public bool? CanAccessPage { get; set; }
+    public bool? CanView { get; set; }
+    public bool? CanAdd { get; set; }
+    public bool? CanEdit { get; set; }
+    public bool? CanDelete { get; set; }
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public Role? Role { get; set; }
