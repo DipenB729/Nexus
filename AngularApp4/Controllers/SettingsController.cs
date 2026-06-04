@@ -129,6 +129,13 @@ public class SettingsController : ControllerBase
         return Ok(ApiResponse<NotificationSettingsDto>.Ok(response, "Notification settings updated"));
     }
 
+    [HttpGet("notifications")]
+    public async Task<ActionResult<ApiResponse<NotificationSettingsDto>>> GetNotificationSettings(CancellationToken cancellationToken)
+    {
+        var response = await BuildNotificationSettingsAsync(cancellationToken);
+        return Ok(ApiResponse<NotificationSettingsDto>.Ok(response));
+    }
+
     [HttpPut("system")]
     public async Task<ActionResult<ApiResponse<SystemSettingsDto>>> UpdateSystemSettings([FromBody] SystemSettingsDto dto, CancellationToken cancellationToken)
     {
@@ -161,6 +168,13 @@ public class SettingsController : ControllerBase
         return Ok(ApiResponse<SystemSettingsDto>.Ok(MapSystemSettings(settings), "System settings updated"));
     }
 
+    [HttpGet("system")]
+    public async Task<ActionResult<ApiResponse<SystemSettingsDto>>> GetSystemSettings(CancellationToken cancellationToken)
+    {
+        var settings = await GetOrCreateSystemSettingsAsync(cancellationToken);
+        return Ok(ApiResponse<SystemSettingsDto>.Ok(MapSystemSettings(settings)));
+    }
+
     [HttpPut("security")]
     public async Task<ActionResult<ApiResponse<SecurityCenterDto>>> UpdateSecuritySettings([FromBody] SecuritySettingsDto dto, CancellationToken cancellationToken)
     {
@@ -183,6 +197,13 @@ public class SettingsController : ControllerBase
 
         var response = await BuildSecurityCenterAsync(cancellationToken);
         return Ok(ApiResponse<SecurityCenterDto>.Ok(response, "Security settings updated"));
+    }
+
+    [HttpGet("security")]
+    public async Task<ActionResult<ApiResponse<SecurityCenterDto>>> GetSecuritySettings(CancellationToken cancellationToken)
+    {
+        var response = await BuildSecurityCenterAsync(cancellationToken);
+        return Ok(ApiResponse<SecurityCenterDto>.Ok(response));
     }
 
     [HttpPost("security/permission-review")]
@@ -322,32 +343,43 @@ public class SettingsController : ControllerBase
         var today = DateTime.Today;
         var now = DateTime.Now;
 
-        var stockBatchQuery =
-            from batch in _db.StockBatches.AsNoTracking()
-            join location in _db.StockLocations.AsNoTracking() on batch.StockLocationId equals location.StockLocationId
-            join branchRow in _db.Branches.AsNoTracking() on location.BranchId equals branchRow.BranchId into branchJoin
-            from branch in branchJoin.DefaultIfEmpty()
-            join medicineRow in _db.MedicineMasters.AsNoTracking() on batch.MedicineMasterId equals medicineRow.MedicineMasterId into medicineJoin
-            from medicine in medicineJoin.DefaultIfEmpty()
-            join itemRow in _db.StockItemMasters.AsNoTracking() on batch.StockItemMasterId equals itemRow.StockItemMasterId into itemJoin
-            from item in itemJoin.DefaultIfEmpty()
-            where batch.QuantityOnHand > 0
-            select new
-            {
-                batch.StockBatchId,
-                Name = medicine != null ? medicine.MedicineName : item != null ? item.ItemName : "Unknown item",
-                BranchName = branch != null ? branch.Name : location.Name,
-                QuantityOnHand = batch.QuantityOnHand,
-                ReorderLevel = medicine != null ? medicine.MinimumStock : item != null ? item.MinimumStock : 0m,
-                batch.ExpiryDate
-            };
+        var stockBatches = await _db.StockBatches.AsNoTracking().ToListAsync(cancellationToken);
+        var stockLocations = await _db.StockLocations.AsNoTracking().ToDictionaryAsync(x => x.StockLocationId, cancellationToken);
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId, cancellationToken);
+        var medicines = await _db.MedicineMasters.AsNoTracking().ToDictionaryAsync(x => x.MedicineMasterId, cancellationToken);
+        var stockItems = await _db.StockItemMasters.AsNoTracking().ToDictionaryAsync(x => x.StockItemMasterId, cancellationToken);
 
-        var lowStockQuery = stockBatchQuery
+        var stockRows = stockBatches
+            .Where(batch => batch.QuantityOnHand > 0)
+            .Select(batch =>
+            {
+                medicines.TryGetValue(batch.MedicineMasterId ?? 0, out var medicine);
+                stockItems.TryGetValue(batch.StockItemMasterId ?? 0, out var item);
+                stockLocations.TryGetValue(batch.StockLocationId, out var location);
+                Branch? branch = null;
+                if (location?.BranchId is long branchId)
+                {
+                    branches.TryGetValue(branchId, out branch);
+                }
+
+                return new
+                {
+                    batch.StockBatchId,
+                    Name = medicine?.MedicineName ?? item?.ItemName ?? "Unknown item",
+                    BranchName = branch?.Name ?? location?.Name ?? "Unassigned",
+                    batch.QuantityOnHand,
+                    ReorderLevel = medicine?.MinimumStock ?? item?.MinimumStock ?? 0m,
+                    batch.ExpiryDate
+                };
+            })
+            .ToList();
+
+        var lowStockRows = stockRows
             .Where(x => x.QuantityOnHand <= x.ReorderLevel && (!x.ExpiryDate.HasValue || x.ExpiryDate.Value.Date >= today));
-        var expiryQuery = stockBatchQuery
+        var expiryRows = stockRows
             .Where(x => x.ExpiryDate.HasValue && x.ExpiryDate.Value.Date <= today.AddDays(settings.ExpiryAlertDays));
 
-        var lowStockAlerts = await lowStockQuery
+        var lowStockAlerts = lowStockRows
             .OrderBy(x => x.QuantityOnHand)
             .Take(5)
             .Select(x => new StockAlertDto
@@ -359,9 +391,9 @@ public class SettingsController : ControllerBase
                 ReorderLevel = (int)Math.Round(x.ReorderLevel, MidpointRounding.AwayFromZero),
                 ExpiryDate = x.ExpiryDate ?? today
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
-        var expiryAlerts = await expiryQuery
+        var expiryAlerts = expiryRows
             .OrderBy(x => x.ExpiryDate)
             .Take(5)
             .Select(x => new StockAlertDto
@@ -373,7 +405,7 @@ public class SettingsController : ControllerBase
                 ReorderLevel = (int)Math.Round(x.ReorderLevel, MidpointRounding.AwayFromZero),
                 ExpiryDate = x.ExpiryDate ?? today
             })
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         var reminderLookAheadDays = Math.Max((int)Math.Ceiling(Math.Max(settings.AppointmentReminderHoursBefore, 1) / 24d), 1) + 1;
         var appointmentRows = await _db.Appointments
@@ -461,8 +493,8 @@ public class SettingsController : ControllerBase
 
         return new NotificationPreviewDto
         {
-            LowStockCount = await lowStockQuery.CountAsync(cancellationToken),
-            NearExpiryCount = await expiryQuery.CountAsync(cancellationToken),
+            LowStockCount = lowStockRows.Count(),
+            NearExpiryCount = expiryRows.Count(),
             AppointmentReminderCount = relevantAppointments.Count,
             PaymentDueCount = pendingInvoiceRows.Count,
             LowStockAlerts = lowStockAlerts,

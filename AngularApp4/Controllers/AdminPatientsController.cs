@@ -58,8 +58,6 @@ public class AdminPatientsController : ControllerBase
 
         CreatePasswordHash(dto.Password, out var hash, out var salt);
 
-        await using var transaction = await _db.Database.BeginTransactionAsync();
-
         var user = new User
         {
             FullName = dto.FullName.Trim(),
@@ -92,7 +90,6 @@ public class AdminPatientsController : ControllerBase
         _db.Patients.Add(patient);
         patient.MedicalRecordNumber = GenerateMedicalRecordNumber(patient.PatientId);
         await _db.SaveChangesAsync();
-        await transaction.CommitAsync();
 
         var payload = (await BuildPatientListAsync(includeMerged: true)).First(x => x.PatientId == patient.PatientId);
         return Ok(ApiResponse<PatientOverviewDto>.Ok(payload, "Patient created"));

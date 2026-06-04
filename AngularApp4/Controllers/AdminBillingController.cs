@@ -29,10 +29,9 @@ public class AdminBillingController : ControllerBase
             .AsNoTracking()
             .OrderBy(x => x.ChargeType)
             .ThenBy(x => x.Name)
-            .Select(x => MapChargeDefinition(x))
             .ToListAsync();
 
-        return Ok(ApiResponse<IEnumerable<BillingChargeDefinitionDto>>.Ok(items));
+        return Ok(ApiResponse<IEnumerable<BillingChargeDefinitionDto>>.Ok(items.Select(MapChargeDefinition).ToList()));
     }
 
     [HttpPost("charges")]
@@ -114,10 +113,9 @@ public class AdminBillingController : ControllerBase
             .AsNoTracking()
             .OrderBy(x => x.SortOrder)
             .ThenBy(x => x.Name)
-            .Select(x => MapPaymentMethod(x))
             .ToListAsync();
 
-        return Ok(ApiResponse<IEnumerable<BillingPaymentMethodDto>>.Ok(items));
+        return Ok(ApiResponse<IEnumerable<BillingPaymentMethodDto>>.Ok(items.Select(MapPaymentMethod).ToList()));
     }
 
     [HttpPost("payment-methods")]

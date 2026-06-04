@@ -43,7 +43,7 @@ export class NavbarComponent implements OnChanges, OnInit, OnDestroy {
       items: [
         { label: 'Dashboard', icon: 'dashboard', route: '/admin/dashboard', exact: true },
         { label: 'Patients', icon: 'groups', route: '/admin/patients' },
-        { label: 'Services', icon: 'medical_services', route: '/admin/services' },
+        //{ label: 'Services', icon: 'medical_services', route: '/admin/services' },
         { label: 'Appointments', icon: 'event_note', route: '/admin/bookings' },
         { label: 'Admissions', icon: 'local_hotel', route: '/admin/admissions' },
         { label: 'Notifications', icon: 'notifications', route: '/admin/notifications' }

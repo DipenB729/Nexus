@@ -134,23 +134,26 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         return (await GetCategoriesAsync()).First(x => x.InventoryCategoryId == entity.InventoryCategoryId);
     }
 
-    public async Task<IReadOnlyList<MedicineMasterDto>> GetMedicinesAsync() =>
-        await _db.MedicineMasters
+    public async Task<IReadOnlyList<MedicineMasterDto>> GetMedicinesAsync()
+    {
+        var medicines = await _db.MedicineMasters
             .AsNoTracking()
-            .Include(x => x.InventoryUnit)
-            .Include(x => x.InventoryCategory)
             .OrderBy(x => x.MedicineName)
             .ThenBy(x => x.Brand)
             .ThenBy(x => x.Strength)
-            .Select(x => new MedicineMasterDto
+            .ToListAsync();
+        var units = await _db.InventoryUnits.AsNoTracking().ToDictionaryAsync(x => x.InventoryUnitId);
+        var categories = await _db.InventoryCategories.AsNoTracking().ToDictionaryAsync(x => x.InventoryCategoryId);
+
+        return medicines.Select(x => new MedicineMasterDto
             {
                 MedicineMasterId = x.MedicineMasterId,
                 MedicineName = x.MedicineName,
                 GenericName = x.GenericName,
                 Brand = x.Brand,
-                UnitName = x.InventoryUnit != null ? x.InventoryUnit.Name : string.Empty,
+                UnitName = units.TryGetValue(x.InventoryUnitId, out var unit) ? unit.Name : string.Empty,
                 InventoryUnitId = x.InventoryUnitId,
-                CategoryName = x.InventoryCategory != null ? x.InventoryCategory.Name : null,
+                CategoryName = x.InventoryCategoryId.HasValue && categories.TryGetValue(x.InventoryCategoryId.Value, out var category) ? category.Name : null,
                 InventoryCategoryId = x.InventoryCategoryId,
                 Strength = x.Strength,
                 BatchRequired = x.BatchRequired,
@@ -158,7 +161,8 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
                 MaximumStock = x.MaximumStock,
                 IsActive = x.IsActive
             })
-            .ToListAsync();
+            .ToList();
+    }
 
     public async Task<MedicineMasterDto> SaveMedicineAsync(long? medicineMasterId, SaveMedicineMasterDto dto)
     {
@@ -195,28 +199,32 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         return (await GetMedicinesAsync()).First(x => x.MedicineMasterId == entity.MedicineMasterId);
     }
 
-    public async Task<IReadOnlyList<StockItemMasterDto>> GetItemsAsync() =>
-        await _db.StockItemMasters
+    public async Task<IReadOnlyList<StockItemMasterDto>> GetItemsAsync()
+    {
+        var items = await _db.StockItemMasters
             .AsNoTracking()
-            .Include(x => x.InventoryUnit)
-            .Include(x => x.InventoryCategory)
             .OrderBy(x => x.ItemType)
             .ThenBy(x => x.ItemName)
-            .Select(x => new StockItemMasterDto
+            .ToListAsync();
+        var units = await _db.InventoryUnits.AsNoTracking().ToDictionaryAsync(x => x.InventoryUnitId);
+        var categories = await _db.InventoryCategories.AsNoTracking().ToDictionaryAsync(x => x.InventoryCategoryId);
+
+        return items.Select(x => new StockItemMasterDto
             {
                 StockItemMasterId = x.StockItemMasterId,
                 ItemType = x.ItemType.ToString(),
                 ItemName = x.ItemName,
                 Specification = x.Specification,
-                UnitName = x.InventoryUnit != null ? x.InventoryUnit.Name : string.Empty,
+                UnitName = units.TryGetValue(x.InventoryUnitId, out var unit) ? unit.Name : string.Empty,
                 InventoryUnitId = x.InventoryUnitId,
-                CategoryName = x.InventoryCategory != null ? x.InventoryCategory.Name : null,
+                CategoryName = x.InventoryCategoryId.HasValue && categories.TryGetValue(x.InventoryCategoryId.Value, out var category) ? category.Name : null,
                 InventoryCategoryId = x.InventoryCategoryId,
                 MinimumStock = x.MinimumStock,
                 MaximumStock = x.MaximumStock,
                 IsActive = x.IsActive
             })
-            .ToListAsync();
+            .ToList();
+    }
 
     public async Task<StockItemMasterDto> SaveItemAsync(long? stockItemMasterId, SaveStockItemMasterDto dto)
     {
@@ -311,24 +319,28 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         return (await GetSuppliersAsync()).First(x => x.SupplierId == entity.SupplierId);
     }
 
-    public async Task<IReadOnlyList<StockLocationDto>> GetLocationsAsync() =>
-        await _db.StockLocations
+    public async Task<IReadOnlyList<StockLocationDto>> GetLocationsAsync()
+    {
+        var locations = await _db.StockLocations
             .AsNoTracking()
-            .Include(x => x.Branch)
             .OrderBy(x => x.LocationType)
             .ThenBy(x => x.Name)
-            .Select(x => new StockLocationDto
+            .ToListAsync();
+        var branches = await _db.Branches.AsNoTracking().ToDictionaryAsync(x => x.BranchId);
+
+        return locations.Select(x => new StockLocationDto
             {
                 StockLocationId = x.StockLocationId,
                 BranchId = x.BranchId,
-                BranchName = x.Branch != null ? x.Branch.Name : "Unassigned",
+                BranchName = x.BranchId.HasValue && branches.TryGetValue(x.BranchId.Value, out var branch) ? branch.Name : "Unassigned",
                 Name = x.Name,
                 Code = x.Code,
                 LocationType = x.LocationType.ToString(),
                 Description = x.Description,
                 IsActive = x.IsActive
             })
-            .ToListAsync();
+            .ToList();
+    }
 
     public async Task<StockLocationDto> SaveLocationAsync(long? stockLocationId, SaveStockLocationDto dto)
     {
@@ -367,11 +379,11 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
     {
         var headers = await _db.PurchaseOrders
             .AsNoTracking()
-            .Include(x => x.Supplier)
-            .Include(x => x.StockLocation)
             .OrderByDescending(x => x.OrderDate)
             .ThenByDescending(x => x.PurchaseOrderId)
             .ToListAsync();
+        var suppliers = await _db.Suppliers.AsNoTracking().ToDictionaryAsync(x => x.SupplierId);
+        var locations = await _db.StockLocations.AsNoTracking().ToDictionaryAsync(x => x.StockLocationId);
 
         var lines = await _db.PurchaseOrderLines
             .AsNoTracking()
@@ -387,9 +399,9 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
                 PurchaseOrderId = header.PurchaseOrderId,
                 OrderNumber = header.OrderNumber,
                 SupplierId = header.SupplierId,
-                SupplierName = header.Supplier?.SupplierName ?? string.Empty,
+                SupplierName = suppliers.TryGetValue(header.SupplierId, out var supplier) ? supplier.SupplierName : string.Empty,
                 StockLocationId = header.StockLocationId,
-                StockLocationName = header.StockLocation?.Name ?? string.Empty,
+                StockLocationName = locations.TryGetValue(header.StockLocationId, out var location) ? location.Name : string.Empty,
                 OrderDate = header.OrderDate,
                 ExpectedDeliveryDate = header.ExpectedDeliveryDate,
                 Status = header.Status.ToString(),
@@ -419,8 +431,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         {
             throw new InvalidOperationException("At least one purchase order line is required.");
         }
-
-        await using var tx = await _db.Database.BeginTransactionAsync();
 
         var entity = purchaseOrderId.HasValue
             ? await _db.PurchaseOrders.FirstOrDefaultAsync(x => x.PurchaseOrderId == purchaseOrderId.Value)
@@ -476,7 +486,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         }
 
         await _db.SaveChangesAsync();
-        await tx.CommitAsync();
 
         await WriteInventoryAuditAsync(isNew ? "Created" : "Updated", "Purchase Order", entity.PurchaseOrderId, entity.OrderNumber, $"Purchase order {entity.OrderNumber} was {(isNew ? "created" : "updated")}.");
         return (await GetPurchaseOrdersAsync()).First(x => x.PurchaseOrderId == entity.PurchaseOrderId);
@@ -530,8 +539,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         {
             throw new InvalidOperationException("At least one received line is required.");
         }
-
-        await using var tx = await _db.Database.BeginTransactionAsync();
 
         var invoice = new PurchaseInvoice
         {
@@ -616,7 +623,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         order.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        await tx.CommitAsync();
 
         await WriteInventoryAuditAsync("Received", "Purchase Invoice", invoice.PurchaseInvoiceId, invoice.InvoiceNumber, $"Stock receipt {invoice.InvoiceNumber} was recorded for purchase order {order.OrderNumber}.");
         return (await GetPurchaseInvoicesAsync()).First(x => x.PurchaseInvoiceId == invoice.PurchaseInvoiceId);
@@ -626,12 +632,13 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
     {
         var headers = await _db.PurchaseInvoices
             .AsNoTracking()
-            .Include(x => x.PurchaseOrder)
-            .Include(x => x.Supplier)
-            .Include(x => x.StockLocation)
             .OrderByDescending(x => x.InvoiceDate)
             .ThenByDescending(x => x.PurchaseInvoiceId)
             .ToListAsync();
+        var orders = await _db.PurchaseOrders.AsNoTracking().ToDictionaryAsync(x => x.PurchaseOrderId);
+        var suppliers = await _db.Suppliers.AsNoTracking().ToDictionaryAsync(x => x.SupplierId);
+        var locations = await _db.StockLocations.AsNoTracking().ToDictionaryAsync(x => x.StockLocationId);
+        var returns = await _db.PurchaseReturns.AsNoTracking().ToListAsync();
 
         var lines = await _db.PurchaseInvoiceLines
             .AsNoTracking()
@@ -642,16 +649,16 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         return headers.Select(header =>
         {
             var headerLines = lines.Where(x => x.PurchaseInvoiceId == header.PurchaseInvoiceId).ToList();
-            var returnAmount = _db.PurchaseReturns.Where(x => x.PurchaseInvoiceId == header.PurchaseInvoiceId).AsNoTracking().Sum(x => x.TotalAmount);
+            var returnAmount = returns.Where(x => x.PurchaseInvoiceId == header.PurchaseInvoiceId).Sum(x => x.TotalAmount);
             return new PurchaseInvoiceDto
             {
                 PurchaseInvoiceId = header.PurchaseInvoiceId,
                 PurchaseOrderId = header.PurchaseOrderId,
-                OrderNumber = header.PurchaseOrder?.OrderNumber ?? string.Empty,
+                OrderNumber = orders.TryGetValue(header.PurchaseOrderId, out var order) ? order.OrderNumber : string.Empty,
                 SupplierId = header.SupplierId,
-                SupplierName = header.Supplier?.SupplierName ?? string.Empty,
+                SupplierName = suppliers.TryGetValue(header.SupplierId, out var supplier) ? supplier.SupplierName : string.Empty,
                 StockLocationId = header.StockLocationId,
-                StockLocationName = header.StockLocation?.Name ?? string.Empty,
+                StockLocationName = locations.TryGetValue(header.StockLocationId, out var location) ? location.Name : string.Empty,
                 InvoiceNumber = header.InvoiceNumber,
                 InvoiceDate = header.InvoiceDate,
                 DueDate = header.DueDate,
@@ -669,11 +676,11 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
     {
         var headers = await _db.PurchaseReturns
             .AsNoTracking()
-            .Include(x => x.PurchaseInvoice)
-            .Include(x => x.Supplier)
             .OrderByDescending(x => x.ReturnDate)
             .ThenByDescending(x => x.PurchaseReturnId)
             .ToListAsync();
+        var invoices = await _db.PurchaseInvoices.AsNoTracking().ToDictionaryAsync(x => x.PurchaseInvoiceId);
+        var suppliers = await _db.Suppliers.AsNoTracking().ToDictionaryAsync(x => x.SupplierId);
 
         var lines = await _db.PurchaseReturnLines
             .AsNoTracking()
@@ -685,9 +692,9 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         {
             PurchaseReturnId = header.PurchaseReturnId,
             PurchaseInvoiceId = header.PurchaseInvoiceId,
-            InvoiceNumber = header.PurchaseInvoice?.InvoiceNumber ?? string.Empty,
+            InvoiceNumber = invoices.TryGetValue(header.PurchaseInvoiceId, out var invoice) ? invoice.InvoiceNumber : string.Empty,
             SupplierId = header.SupplierId,
-            SupplierName = header.Supplier?.SupplierName ?? string.Empty,
+            SupplierName = suppliers.TryGetValue(header.SupplierId, out var supplier) ? supplier.SupplierName : string.Empty,
             ReturnNumber = header.ReturnNumber,
             ReturnDate = header.ReturnDate,
             TotalAmount = header.TotalAmount,
@@ -736,8 +743,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
             throw new InvalidOperationException("At least one return line is required.");
         }
 
-        await using var tx = await _db.Database.BeginTransactionAsync();
-
         var entity = new PurchaseReturn
         {
             PurchaseInvoiceId = invoice.PurchaseInvoiceId,
@@ -777,7 +782,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         await _db.SaveChangesAsync();
         entity.TotalAmount = await _db.PurchaseReturnLines.Where(x => x.PurchaseReturnId == entity.PurchaseReturnId).SumAsync(x => x.LineTotal);
         await _db.SaveChangesAsync();
-        await tx.CommitAsync();
 
         await WriteInventoryAuditAsync("Created", "Purchase Return", entity.PurchaseReturnId, entity.ReturnNumber, $"Purchase return {entity.ReturnNumber} was recorded for invoice {invoice.InvoiceNumber}.");
         return (await GetPurchaseReturnsAsync()).First(x => x.PurchaseReturnId == entity.PurchaseReturnId);
@@ -816,11 +820,10 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
     {
         var headers = await _db.StockTransfers
             .AsNoTracking()
-            .Include(x => x.FromStockLocation)
-            .Include(x => x.ToStockLocation)
             .OrderByDescending(x => x.TransferDate)
             .ThenByDescending(x => x.StockTransferId)
             .ToListAsync();
+        var locations = await _db.StockLocations.AsNoTracking().ToDictionaryAsync(x => x.StockLocationId);
 
         var lines = await _db.StockTransferLines
             .AsNoTracking()
@@ -836,9 +839,9 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
                 StockTransferId = header.StockTransferId,
                 TransferNumber = header.TransferNumber,
                 FromStockLocationId = header.FromStockLocationId,
-                FromStockLocationName = header.FromStockLocation?.Name ?? string.Empty,
+                FromStockLocationName = locations.TryGetValue(header.FromStockLocationId, out var fromLocation) ? fromLocation.Name : string.Empty,
                 ToStockLocationId = header.ToStockLocationId,
-                ToStockLocationName = header.ToStockLocation?.Name ?? string.Empty,
+                ToStockLocationName = locations.TryGetValue(header.ToStockLocationId, out var toLocation) ? toLocation.Name : string.Empty,
                 TransferDate = header.TransferDate,
                 Status = header.Status.ToString(),
                 Notes = header.Notes,
@@ -862,8 +865,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         {
             throw new InvalidOperationException("At least one transfer line is required.");
         }
-
-        await using var tx = await _db.Database.BeginTransactionAsync();
 
         var entity = stockTransferId.HasValue
             ? await _db.StockTransfers.FirstOrDefaultAsync(x => x.StockTransferId == stockTransferId.Value)
@@ -913,7 +914,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         }
 
         await _db.SaveChangesAsync();
-        await tx.CommitAsync();
 
         await WriteInventoryAuditAsync(isNew ? "Created" : "Updated", "Stock Transfer", entity.StockTransferId, entity.TransferNumber, $"Stock transfer {entity.TransferNumber} was {(isNew ? "created" : "updated")}.");
         return (await GetTransfersAsync()).First(x => x.StockTransferId == entity.StockTransferId);
@@ -950,8 +950,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         {
             throw new InvalidOperationException("Stock transfer has no lines.");
         }
-
-        await using var tx = await _db.Database.BeginTransactionAsync();
 
         foreach (var line in lines)
         {
@@ -1008,7 +1006,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         transfer.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        await tx.CommitAsync();
 
         await WriteInventoryAuditAsync("Received", "Stock Transfer", transfer.StockTransferId, transfer.TransferNumber, $"Stock transfer {transfer.TransferNumber} was received.");
         return (await GetTransfersAsync()).First(x => x.StockTransferId == stockTransferId);
@@ -1018,10 +1015,10 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
     {
         var headers = await _db.StockAdjustments
             .AsNoTracking()
-            .Include(x => x.StockLocation)
             .OrderByDescending(x => x.AdjustmentDate)
             .ThenByDescending(x => x.StockAdjustmentId)
             .ToListAsync();
+        var locations = await _db.StockLocations.AsNoTracking().ToDictionaryAsync(x => x.StockLocationId);
 
         var lines = await _db.StockAdjustmentLines
             .AsNoTracking()
@@ -1037,7 +1034,7 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
                 StockAdjustmentId = header.StockAdjustmentId,
                 AdjustmentNumber = header.AdjustmentNumber,
                 StockLocationId = header.StockLocationId,
-                StockLocationName = header.StockLocation?.Name ?? string.Empty,
+                StockLocationName = locations.TryGetValue(header.StockLocationId, out var location) ? location.Name : string.Empty,
                 Reason = header.Reason.ToString(),
                 Status = header.Status.ToString(),
                 AdjustmentDate = header.AdjustmentDate,
@@ -1061,8 +1058,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         {
             throw new InvalidOperationException("At least one adjustment line is required.");
         }
-
-        await using var tx = await _db.Database.BeginTransactionAsync();
 
         var entity = stockAdjustmentId.HasValue
             ? await _db.StockAdjustments.FirstOrDefaultAsync(x => x.StockAdjustmentId == stockAdjustmentId.Value)
@@ -1113,7 +1108,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         }
 
         await _db.SaveChangesAsync();
-        await tx.CommitAsync();
 
         await WriteInventoryAuditAsync(isNew ? "Created" : "Updated", "Stock Adjustment", entity.StockAdjustmentId, entity.AdjustmentNumber, $"Stock adjustment {entity.AdjustmentNumber} was {(isNew ? "created" : "updated")}.");
         return (await GetAdjustmentsAsync()).First(x => x.StockAdjustmentId == entity.StockAdjustmentId);
@@ -1128,8 +1122,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         }
 
         var lines = await _db.StockAdjustmentLines.Where(x => x.StockAdjustmentId == stockAdjustmentId).ToListAsync();
-        await using var tx = await _db.Database.BeginTransactionAsync();
-
         foreach (var line in lines)
         {
             var batch = await _db.StockBatches.FirstOrDefaultAsync(x => x.StockBatchId == line.StockBatchId);
@@ -1154,7 +1146,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         adjustment.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        await tx.CommitAsync();
 
         await WriteInventoryAuditAsync("Approved", "Stock Adjustment", adjustment.StockAdjustmentId, adjustment.AdjustmentNumber, $"Stock adjustment {adjustment.AdjustmentNumber} was approved.");
         return (await GetAdjustmentsAsync()).First(x => x.StockAdjustmentId == stockAdjustmentId);
@@ -1267,8 +1258,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
 
             var batch = await _db.StockBatches
                 .AsNoTracking()
-                .Include(x => x.MedicineMaster)
-                .Include(x => x.StockItemMaster)
                 .FirstOrDefaultAsync(x => x.StockBatchId == line.StockBatchId.Value);
 
             if (batch is null || batch.StockLocationId != fromStockLocationId)
@@ -1276,9 +1265,11 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
                 throw new InvalidOperationException("One or more transfer lines reference an invalid source batch.");
             }
 
+            var itemName = await ResolveBatchItemNameAsync(batch);
+
             if (batch.QuantityOnHand < line.Quantity)
             {
-                throw new InvalidOperationException($"Transfer quantity for {batch.MedicineMaster?.MedicineName ?? batch.StockItemMaster?.ItemName ?? "item"} exceeds available stock.");
+                throw new InvalidOperationException($"Transfer quantity for {itemName} exceeds available stock.");
             }
 
             if (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value.Date < DateTime.UtcNow.Date)
@@ -1289,7 +1280,7 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
             result.Add(new SaveInventoryLineDto
             {
                 StockBatchId = batch.StockBatchId,
-                ItemName = batch.MedicineMaster?.MedicineName ?? batch.StockItemMaster?.ItemName,
+                ItemName = itemName,
                 BatchNumber = batch.BatchNumber,
                 ExpiryDate = batch.ExpiryDate?.Date,
                 Quantity = line.Quantity
@@ -1311,8 +1302,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
 
             var batch = await _db.StockBatches
                 .AsNoTracking()
-                .Include(x => x.MedicineMaster)
-                .Include(x => x.StockItemMaster)
                 .FirstOrDefaultAsync(x => x.StockBatchId == line.StockBatchId.Value);
 
             if (batch is null || batch.StockLocationId != stockLocationId)
@@ -1323,7 +1312,7 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
             result.Add(new SaveInventoryLineDto
             {
                 StockBatchId = batch.StockBatchId,
-                ItemName = batch.MedicineMaster?.MedicineName ?? batch.StockItemMaster?.ItemName,
+                ItemName = await ResolveBatchItemNameAsync(batch),
                 BatchNumber = batch.BatchNumber,
                 ExpiryDate = batch.ExpiryDate?.Date,
                 Quantity = line.Quantity,
@@ -1340,7 +1329,6 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
         {
             var medicine = await _db.MedicineMasters
                 .AsNoTracking()
-                .Include(x => x.InventoryUnit)
                 .FirstOrDefaultAsync(x => x.MedicineMasterId == medicineMasterId.Value);
 
             if (medicine is null)
@@ -1348,14 +1336,19 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
                 throw new InvalidOperationException("Medicine master not found.");
             }
 
-            return (medicine.MedicineName, medicine.InventoryUnit?.Name ?? string.Empty);
+            var unitName = await _db.InventoryUnits
+                .AsNoTracking()
+                .Where(x => x.InventoryUnitId == medicine.InventoryUnitId)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync();
+
+            return (medicine.MedicineName, unitName ?? string.Empty);
         }
 
         if (stockItemMasterId.HasValue)
         {
             var item = await _db.StockItemMasters
                 .AsNoTracking()
-                .Include(x => x.InventoryUnit)
                 .FirstOrDefaultAsync(x => x.StockItemMasterId == stockItemMasterId.Value);
 
             if (item is null)
@@ -1363,10 +1356,39 @@ public sealed class EfInventoryAdminService : IInventoryAdminService
                 throw new InvalidOperationException("Stock item master not found.");
             }
 
-            return (item.ItemName, item.InventoryUnit?.Name ?? string.Empty);
+            var unitName = await _db.InventoryUnits
+                .AsNoTracking()
+                .Where(x => x.InventoryUnitId == item.InventoryUnitId)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync();
+
+            return (item.ItemName, unitName ?? string.Empty);
         }
 
         throw new InvalidOperationException("A line item must reference either a medicine or stock item.");
+    }
+
+    private async Task<string> ResolveBatchItemNameAsync(StockBatch batch)
+    {
+        if (batch.MedicineMasterId.HasValue)
+        {
+            return await _db.MedicineMasters
+                .AsNoTracking()
+                .Where(x => x.MedicineMasterId == batch.MedicineMasterId.Value)
+                .Select(x => x.MedicineName)
+                .FirstOrDefaultAsync() ?? "item";
+        }
+
+        if (batch.StockItemMasterId.HasValue)
+        {
+            return await _db.StockItemMasters
+                .AsNoTracking()
+                .Where(x => x.StockItemMasterId == batch.StockItemMasterId.Value)
+                .Select(x => x.ItemName)
+                .FirstOrDefaultAsync() ?? "item";
+        }
+
+        return "item";
     }
 
     private async Task<StockBatch?> FindBatchAsync(long stockLocationId, long? medicineMasterId, long? stockItemMasterId, string? batchNumber, DateTime? expiryDate)
